@@ -394,7 +394,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
     <>
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap');
-      .home-root { font-family:'DM Sans',sans-serif; color:#f1f5f9; }
+      .home-root { font-family:'Poppins',sans-serif; color:#0f172a; }
       @keyframes slideUp   { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
       @keyframes fadeIn    { from{opacity:0} to{opacity:1} }
       @keyframes rippleOut { to{transform:translate(-50%,-50%) scale(28);opacity:0} }
@@ -413,16 +413,16 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 0 16px', animation:'fadeIn 0.4s ease-out both' }}>
         {/* Logo + name */}
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <img src="/logo.jpg" alt="ACR MAX" style={{ width:38, height:38, borderRadius:'50%', objectFit:'cover', border:`2px solid ${themeAccent}50`, boxShadow:`0 0 10px ${themeAccent}30` }} />
+          <img src="/logo.jpg" alt="ACR MAX" style={{ width:38, height:38, borderRadius:'50%', objectFit:'cover', border:`2px solid ${themeAccent}40`, boxShadow:`0 2px 10px ${themeAccent}20` }} />
           <div>
-            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#fff', margin:0, letterSpacing:'0.04em' }}>ACR MAX</p>
-            <p style={{ fontSize:10, color:`${themeAccent}`, margin:0, fontWeight:600, letterSpacing:'0.08em' }}>BETA 1.0</p>
+            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#0f172a', margin:0, letterSpacing:'0.04em' }}>ACR MAX</p>
+            <p style={{ fontSize:10, color:themeAccent, margin:0, fontWeight:600, letterSpacing:'0.08em' }}>BETA 1.0</p>
           </div>
         </div>
         {/* Greeting + time */}
         <div style={{ textAlign:'right' }}>
-          <p style={{ fontSize:12, fontWeight:700, color:'rgba(255,255,255,0.5)', margin:'0 0 1px' }}>{greeting.emoji} {greeting.text}</p>
-          <p style={{ fontSize:11, color:'rgba(255,255,255,0.3)', margin:0, fontFamily:'monospace' }}>
+          <p style={{ fontSize:12, fontWeight:600, color:'#475569', margin:'0 0 1px' }}>{greeting.emoji} {greeting.text}</p>
+          <p style={{ fontSize:11, color:'#94a3b8', margin:0, fontFamily:'monospace' }}>
             {time.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true })}
           </p>
         </div>
@@ -430,109 +430,181 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
 
       {/* ── BALANCE CARD — premium but compact ── */}
       <div style={{
-        borderRadius:20, padding:'20px 20px 18px',
-        background:`linear-gradient(135deg,rgba(15,10,40,0.95),rgba(25,15,55,0.9))`,
-        border:`1px solid ${themeAccent}22`,
-        boxShadow:`0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)`,
-        marginBottom:16,
+        borderRadius:20, padding:'18px 18px 16px',
+        background:'#ffffff',
+        border:`1px solid rgba(15,23,42,0.08)`,
+        boxShadow:`0 4px 20px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.05)`,
+        marginBottom:14,
         animation:'slideUp 0.4s ease-out 0.05s both',
         position:'relative', overflow:'hidden',
       }}>
-        <div style={{ position:'absolute', top:-40, right:-40, width:140, height:140, borderRadius:'50%', background:`radial-gradient(circle,${themeAccent}15,transparent 65%)`, pointerEvents:'none' }} />
+        <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:`radial-gradient(circle,${themeAccent}15,transparent 65%)`, pointerEvents:'none' }} />
 
-        <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.35)', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 4px' }}>Welcome back</p>
-        <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#fff', margin:'0 0 14px' }}>{userName} 👋</p>
+        <p style={{ fontSize:10, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 3px' }}>Welcome back</p>
+        <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:20, color:'#0f172a', margin:'0 0 14px' }}>{userName} 👋</p>
 
-        <div style={{ display:'flex', gap:0, background:'rgba(255,255,255,0.04)', borderRadius:14, overflow:'hidden' }}>
-          <div style={{ flex:1, padding:'10px 10px', textAlign:'center' }}>
-            <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Today</p>
-            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color: todayTotal > 0 ? '#f87171' : themeAccent, margin:0, lineHeight:1 }}>₹{todayTotal.toLocaleString('en-IN')}</p>
-            <p style={{ fontSize:9, color:'rgba(255,255,255,0.2)', margin:'2px 0 0' }}>{todayLogs.length} entries</p>
+        <div style={{ display:'flex', gap:0, background:'#f8fafc', borderRadius:12, overflow:'hidden', border:'1px solid rgba(15,23,42,0.06)' }}>
+          <div style={{ flex:1, padding:'10px 8px', textAlign:'center' }}>
+            <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Today</p>
+            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color: todayTotal > 0 ? '#ef4444' : themeAccent, margin:0, lineHeight:1 }}>₹{todayTotal.toLocaleString('en-IN')}</p>
+            <p style={{ fontSize:9, color:'#94a3b8', margin:'2px 0 0' }}>{todayLogs.length} entries</p>
           </div>
-          <div style={{ width:1, background:'rgba(255,255,255,0.06)', flexShrink:0 }} />
-          <div style={{ flex:1, padding:'10px 10px', textAlign:'center' }}>
-            <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Total</p>
+          <div style={{ width:1, background:'rgba(15,23,42,0.07)', flexShrink:0 }} />
+          <div style={{ flex:1, padding:'10px 8px', textAlign:'center' }}>
+            <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Total</p>
             <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:themeAccent, margin:0, lineHeight:1 }}>₹{overallTotal.toLocaleString('en-IN')}</p>
-            <p style={{ fontSize:9, color:'rgba(255,255,255,0.2)', margin:'2px 0 0' }}>{logs.length} entries</p>
+            <p style={{ fontSize:9, color:'#94a3b8', margin:'2px 0 0' }}>{logs.length} entries</p>
           </div>
-          <div style={{ width:1, background:'rgba(255,255,255,0.06)', flexShrink:0 }} />
-          <div style={{ flex:1, padding:'10px 10px', textAlign:'center' }}>
-            <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Avg</p>
-            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#60a5fa', margin:0, lineHeight:1 }}>₹{logs.length ? Math.round(overallTotal/logs.length).toLocaleString('en-IN') : 0}</p>
-            <p style={{ fontSize:9, color:'rgba(255,255,255,0.2)', margin:'2px 0 0' }}>per entry</p>
+          <div style={{ width:1, background:'rgba(15,23,42,0.07)', flexShrink:0 }} />
+          <div style={{ flex:1, padding:'10px 8px', textAlign:'center' }}>
+            <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Avg</p>
+            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#3b82f6', margin:0, lineHeight:1 }}>₹{logs.length ? Math.round(overallTotal/logs.length).toLocaleString('en-IN') : 0}</p>
+            <p style={{ fontSize:9, color:'#94a3b8', margin:'2px 0 0' }}>per entry</p>
           </div>
         </div>
       </div>
 
       {/* ── QUICK ACTIONS GRID — PhonePe style ── */}
       <div style={{
-        borderRadius:20, padding:'16px 12px 12px',
-        background:'linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))',
-        border:'1px solid rgba(255,255,255,0.07)',
-        marginBottom:16,
+        borderRadius:20, padding:'16px 14px 14px',
+        background:'#ffffff',
+        border:'1px solid rgba(15,23,42,0.08)',
+        boxShadow:'0 4px 20px rgba(15,23,42,0.07)',
+        marginBottom:14,
         animation:'slideUp 0.4s ease-out 0.1s both',
       }}>
-        <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 10px 4px' }}>Quick Access</p>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'4px 0' }}>
+        <p style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 12px 4px' }}>Quick Access</p>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'8px 4px' }}>
           {QUICK_ACTIONS.map((a, i) => (
             <button key={a.id} className="qa-btn" onClick={() => navigate(a.id)}
               style={{
                 display:'flex', flexDirection:'column', alignItems:'center', gap:6,
-                padding:'8px 2px', background:'none', border:'none', cursor:'pointer',
+                padding:'10px 6px', background:'none', border:'none', cursor:'pointer',
                 borderRadius:14, transition:'all 0.15s',
                 animation:`slideUp 0.35s ease-out ${i * 35}ms both`,
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(15,23,42,0.04)'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}>
               <div style={{
-                width:40, height:40, borderRadius:12,
-                background:`linear-gradient(135deg,rgba(255,255,255,0.1),rgba(255,255,255,0.04))`,
-                border:'1px solid rgba(255,255,255,0.09)',
+                width:54, height:54, borderRadius:16,
+                background:`linear-gradient(135deg,${themeAccent}15,${themeAccent}08)`,
+                border:`1.5px solid ${themeAccent}25`,
                 display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:18,
-                boxShadow:'0 2px 8px rgba(0,0,0,0.2)',
+                fontSize:24,
+                boxShadow:`0 3px 12px ${themeAccent}15`,
                 transition:'all 0.2s',
               }}>
                 {a.icon}
               </div>
-              <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.55)', textAlign:'center', lineHeight:1.2 }}>{a.label}</span>
+              <span style={{ fontSize:11, fontWeight:600, color:'#334155', textAlign:'center', lineHeight:1.3, marginTop:3 }}>{a.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── RECENT ACTIVITY — last 3 expenses ── */}
-      {logs.length > 0 && (
-        <div style={{
-          borderRadius:20, padding:'16px 16px 8px',
-          background:'linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))',
-          border:'1px solid rgba(255,255,255,0.07)',
-          marginBottom:16,
-          animation:'slideUp 0.4s ease-out 0.2s both',
-        }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', letterSpacing:'0.12em', margin:0 }}>Recent</p>
-            <button onClick={() => navigate('expense')} style={{ background:'none', border:'none', fontSize:11, fontWeight:700, color:themeAccent, cursor:'pointer', padding:0 }}>See all →</button>
-          </div>
-          {logs.slice(0,4).map((log, i) => (
-            <div key={log.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom: i < Math.min(logs.length-1, 3) ? '1px solid rgba(255,255,255,0.05)' : 'none', animation:`slideUp 0.3s ease-out ${i*50}ms both` }}>
-              <div style={{ width:36, height:36, borderRadius:12, background:`${log.color}20`, border:`1px solid ${log.color}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>
-                {log.category === 'Food' ? '🍽' : log.category === 'Petrol' ? '⛽' : log.category === 'Smoke' ? '🚬' : log.category === 'Liquor' ? '🍺' : log.category === 'Groceries' ? '🛒' : log.category === 'Mobile Recharge' ? '📱' : '💸'}
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ fontSize:13, fontWeight:700, color:'#fff', margin:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{log.category}</p>
-                <p style={{ fontSize:11, color:'rgba(255,255,255,0.3)', margin:0 }}>{log.time}{log.note ? ` · ${log.note}` : ''}</p>
-              </div>
-              <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:14, color:log.color, margin:0, flexShrink:0 }}>₹{log.amount.toLocaleString('en-IN')}</p>
+
+      {/* ══ SECURITY & TRUST SECTION ══ */}
+      <div style={{
+        borderRadius:20, padding:'18px 16px',
+        background:'#ffffff',
+        border:'1px solid rgba(15,23,42,0.08)',
+        boxShadow:'0 4px 20px rgba(15,23,42,0.06)',
+        marginBottom:14,
+        animation:'slideUp 0.4s ease-out 0.2s both',
+      }}>
+        {/* Section header */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+          <div style={{ width:3, height:18, borderRadius:2, background:`linear-gradient(to bottom,${themeAccent},${themeAccent}60)` }} />
+          <p style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.12em', margin:0 }}>Security & Compliance</p>
+        </div>
+
+        {/* 3 x 2 badge grid */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:14 }}>
+          {[
+            { icon:'🔒', label:'SSL / TLS',    sub:'256-bit Encrypted',       color:'#059669', bg:'#f0fdf4', border:'#bbf7d0' },
+            { icon:'🛡️', label:'AES-256',       sub:'Military Grade Cipher',   color:'#1d4ed8', bg:'#eff6ff', border:'#bfdbfe' },
+            { icon:'🔥', label:'Firebase',      sub:'Google Cloud Infra',      color:'#d97706', bg:'#fffbeb', border:'#fde68a' },
+            { icon:'☁️', label:'Cloud Sync',    sub:'Real-time & Secure',      color:'#0891b2', bg:'#f0f9ff', border:'#bae6fd' },
+            { icon:'🚫', label:'Zero Ads',      sub:'No Data Monetization',    color:'#dc2626', bg:'#fff1f2', border:'#fecdd3' },
+            { icon:'👁️', label:'Privacy First', sub:'No Tracking Ever',        color:'#7c3aed', bg:'#faf5ff', border:'#e9d5ff' },
+          ].map((b,i) => (
+            <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'12px 6px', background:b.bg, border:`1px solid ${b.border}`, borderRadius:12, textAlign:'center' }}>
+              <span style={{ fontSize:20 }}>{b.icon}</span>
+              <p style={{ fontSize:10, fontWeight:700, color:b.color, margin:0, lineHeight:1.2 }}>{b.label}</p>
+              <p style={{ fontSize:8, color:'#94a3b8', margin:0, lineHeight:1.3 }}>{b.sub}</p>
             </div>
           ))}
         </div>
-      )}
+
+        {/* Trust statement */}
+        <div style={{ background:'#f8fafc', borderRadius:12, padding:'10px 14px', border:'1px solid rgba(15,23,42,0.06)' }}>
+          <p style={{ fontSize:11, color:'#475569', textAlign:'center', lineHeight:1.7, margin:0, fontWeight:500 }}>
+            Your data is protected with <strong style={{ color:'#0f172a' }}>AES-256 encryption</strong> and stored on <strong style={{ color:'#0f172a' }}>Google Firebase</strong> infrastructure. We never sell, share, or misuse your personal information.
+          </p>
+        </div>
+      </div>
+
+      {/* ══ DESIGNED & DEVELOPED BY ══ */}
+      <div style={{
+        borderRadius:20, padding:'18px 16px',
+        background:'#ffffff',
+        border:'1px solid rgba(15,23,42,0.08)',
+        boxShadow:'0 4px 20px rgba(15,23,42,0.06)',
+        marginBottom:14,
+        animation:'slideUp 0.4s ease-out 0.25s both',
+      }}>
+        {/* Section header */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+          <div style={{ width:3, height:18, borderRadius:2, background:`linear-gradient(to bottom,${themeAccent},${themeAccent}60)` }} />
+          <p style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.12em', margin:0 }}>About ACR MAX</p>
+        </div>
+
+        {/* Brand row */}
+        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:16, padding:'14px', background:'#f8fafc', borderRadius:14, border:'1px solid rgba(15,23,42,0.06)' }}>
+          <img src="/logo.jpg" alt="ACR MAX" style={{ width:54, height:54, borderRadius:'50%', objectFit:'cover', border:`2px solid ${themeAccent}30`, flexShrink:0 }} />
+          <div>
+            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:18, color:'#0f172a', margin:'0 0 2px' }}>ACR MAX</p>
+            <p style={{ fontSize:10, fontWeight:600, color:themeAccent, margin:'0 0 4px', letterSpacing:'0.1em' }}>BETA 1.0 · MAXIMISING LIFES</p>
+            <p style={{ fontSize:10, color:'#64748b', margin:0, lineHeight:1.5 }}>Your all-in-one premium personal financial dashboard</p>
+          </div>
+        </div>
+
+        {/* Developer credit */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:`linear-gradient(135deg,${themeAccent}08,${themeAccent}04)`, borderRadius:12, border:`1px solid ${themeAccent}20`, marginBottom:14 }}>
+          <div style={{ width:42, height:42, borderRadius:'50%', background:`linear-gradient(135deg,${themeAccent},${themeAccent}80)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:800, color:'#fff', fontFamily:'Syne,sans-serif', flexShrink:0, boxShadow:`0 4px 12px ${themeAccent}30` }}>A</div>
+          <div>
+            <p style={{ fontSize:10, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 3px' }}>Concept · Design · Development</p>
+            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:16, color:'#0f172a', margin:'0 0 2px' }}>Aswin CR</p>
+            <p style={{ fontSize:10, color:'#64748b', margin:0 }}>Full Stack Developer · UI/UX Designer · Founder</p>
+          </div>
+        </div>
+
+        {/* Tech stack pills */}
+        <div style={{ marginBottom:12 }}>
+          <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 8px' }}>Built With</p>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {[
+              ['React + Vite','#0ea5e9'],['Firebase','#f59e0b'],['Firestore','#ef4444'],
+              ['Gemini AI','#8b5cf6'],['Newsdata.io','#10b981'],['Tailwind CSS','#0ea5e9'],
+            ].map(([t,c],i) => (
+              <span key={i} style={{ padding:'3px 10px', borderRadius:20, fontSize:10, fontWeight:600, background:'#f1f5f9', border:'1px solid #e2e8f0', color:c }}>
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div style={{ textAlign:'center', padding:'10px', background:'#f8fafc', borderRadius:10, border:'1px solid rgba(15,23,42,0.05)' }}>
+          <p style={{ fontSize:10, color:'#94a3b8', margin:'0 0 2px', fontWeight:500 }}>ACR MAX 1.0 · Beta Release · April 2026</p>
+          <p style={{ fontSize:9, color:'#cbd5e1', margin:0 }}>© 2026 ACR MAX. All intellectual property rights reserved.</p>
+        </div>
+      </div>
 
       {/* ── SYSTEM STATUS ── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', animation:'fadeIn 0.5s ease-out 0.4s both' }}>
-        <div style={{ width:6, height:6, borderRadius:'50%', background:'#34d399', boxShadow:'0 0 6px #34d399' }} />
-        <p style={{ fontSize:11, color:'rgba(255,255,255,0.2)', margin:0, fontWeight:600 }}>All systems online · Cloud synced</p>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'6px 0', animation:'fadeIn 0.5s ease-out 0.4s both' }}>
+        <div style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e', boxShadow:'0 0 6px #22c55e50' }} />
+        <p style={{ fontSize:11, color:'#94a3b8', margin:0, fontWeight:500 }}>All systems online · Cloud synced</p>
       </div>
 
     </div>

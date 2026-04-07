@@ -64,7 +64,7 @@ const iSt = (f, e) => ({
   background: f ? 'rgba(212,175,55,0.06)' : 'rgba(255,255,255,0.04)',
   border: f ? '1px solid rgba(212,175,55,0.65)' : e ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.1)',
   borderRadius:12, color:'#fff', fontSize:14,
-  fontFamily:'DM Sans,sans-serif', fontWeight:500, outline:'none',
+  fontFamily:'Poppins,sans-serif', fontWeight:500, outline:'none',
   transition:'all 0.3s', boxShadow: f ? '0 0 0 3px rgba(212,175,55,0.1)' : 'none',
 })
 const Lbl = ({ t }) => <label style={{ display:'block', fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.38)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:6 }}>{t}</label>
@@ -133,7 +133,7 @@ function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
           <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:14, color:'rgba(255,255,255,0.28)' }}>{showPass?'🙈':'👁'}</button>
         </div>
         <div style={{ textAlign:'right', marginTop:5 }}>
-          <button onClick={onGoForgot} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.55)', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}>Forgot password?</button>
+          <button onClick={onGoForgot} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.55)', fontFamily:'Poppins,sans-serif', fontWeight:600 }}>Forgot password?</button>
         </div>
       </div>
 
@@ -145,7 +145,7 @@ function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
       </button>
       <div style={{ textAlign:'center' }}>
         <span style={{ fontSize:12, color:'rgba(255,255,255,0.3)' }}>New here? </span>
-        <button onClick={onGoSignup} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d4af37', fontWeight:700, fontFamily:'DM Sans,sans-serif', textDecoration:'underline' }}>Create Account</button>
+        <button onClick={onGoSignup} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d4af37', fontWeight:700, fontFamily:'Poppins,sans-serif', textDecoration:'underline' }}>Create Account</button>
       </div>
     </div>
   )
@@ -244,7 +244,7 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
             {errors.confirm && <p style={{ fontSize:10, color:'#f87171', marginTop:3 }}>{errors.confirm}</p>}
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={()=>setStep(1)} style={{ flex:1, padding:'12px', borderRadius:12, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', fontWeight:700, cursor:'pointer', fontSize:13, fontFamily:'DM Sans,sans-serif' }}>← Back</button>
+            <button onClick={()=>setStep(1)} style={{ flex:1, padding:'12px', borderRadius:12, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', fontWeight:700, cursor:'pointer', fontSize:13, fontFamily:'Poppins,sans-serif' }}>← Back</button>
             <button onClick={next} disabled={loading} className="login-btn" style={{ flex:2, padding:'12px', border:'none', borderRadius:12, fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:13, color:'#0a0c14', cursor:'pointer' }}>{loading?'Checking…':'Continue →'}</button>
           </div>
         </div>
@@ -260,7 +260,7 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
           <div style={{ marginBottom:16 }}><Lbl t="Your Answer" /><input value={form.hint_a} onChange={e=>s('hint_a',e.target.value)} placeholder="Case-insensitive" style={iSt(false,errors.hint_a)} />{errors.hint_a && <p style={{ fontSize:10, color:'#f87171', marginTop:3 }}>{errors.hint_a}</p>}</div>
           {success && <div style={{ background:'rgba(52,211,153,0.09)', border:'1px solid rgba(52,211,153,0.28)', borderRadius:10, padding:'9px 13px', marginBottom:12, display:'flex', alignItems:'center', gap:8 }}><span>✅</span><p style={{ fontSize:12, color:'#6ee7b7', fontWeight:600, margin:0 }}>Account created!</p></div>}
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={()=>setStep(2)} style={{ flex:1, padding:'12px', borderRadius:12, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', fontWeight:700, cursor:'pointer', fontSize:13, fontFamily:'DM Sans,sans-serif' }}>← Back</button>
+            <button onClick={()=>setStep(2)} style={{ flex:1, padding:'12px', borderRadius:12, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', fontWeight:700, cursor:'pointer', fontSize:13, fontFamily:'Poppins,sans-serif' }}>← Back</button>
             <button onClick={submit} disabled={loading||success} className="login-btn" style={{ flex:2, padding:'12px', border:'none', borderRadius:12, fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:13, color:'#0a0c14', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
               {loading?<><div style={{ width:15, height:15, border:'2px solid rgba(0,0,0,0.2)', borderTop:'2px solid #0a0c14', borderRadius:'50%', animation:'spinLoad 0.7s linear infinite' }} />Creating…</>:success?'✓ Done!':'🚀 Create Account'}
             </button>
@@ -270,7 +270,7 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
 
       <div style={{ textAlign:'center', marginTop:12 }}>
         <span style={{ fontSize:11, color:'rgba(255,255,255,0.28)' }}>Have an account? </span>
-        <button onClick={onGoLogin} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#d4af37', fontWeight:700, fontFamily:'DM Sans,sans-serif', textDecoration:'underline' }}>Sign In</button>
+        <button onClick={onGoLogin} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#d4af37', fontWeight:700, fontFamily:'Poppins,sans-serif', textDecoration:'underline' }}>Sign In</button>
       </div>
     </div>
   )
@@ -354,7 +354,7 @@ function ForgotForm({ onGoLogin }) {
         </div>
       )}
       <div style={{ textAlign:'center', marginTop:10 }}>
-        <button onClick={onGoLogin} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.55)', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}>← Back to Sign In</button>
+        <button onClick={onGoLogin} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.55)', fontFamily:'Poppins,sans-serif', fontWeight:600 }}>← Back to Sign In</button>
       </div>
     </div>
   )
@@ -395,7 +395,7 @@ function DisclaimerModal({ onClose }) {
           </div>
         </div>
         <div style={{ padding:'10px 20px', borderTop:'1px solid rgba(255,255,255,0.05)', flexShrink:0, display:'flex', gap:8 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'10px', borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.45)', fontWeight:700, cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:12 }}>Close</button>
+          <button onClick={onClose} style={{ flex:1, padding:'10px', borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.45)', fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif', fontSize:12 }}>Close</button>
           <button onClick={onClose} disabled={!read} className={read?'login-btn':''} style={{ flex:2, padding:'10px', borderRadius:10, border:'none', background:read?undefined:'rgba(212,175,55,0.1)', color:read?'#0a0c14':'rgba(212,175,55,0.3)', fontWeight:800, cursor:read?'pointer':'not-allowed', fontFamily:'Syne,sans-serif', fontSize:12 }}>{read?'✓ Acknowledged':'📜 Scroll first'}</button>
         </div>
       </div>
@@ -420,7 +420,7 @@ export default function Login({ onLogin }) {
   return (
     <>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;700&family=Cinzel:wght@600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Syne:wght@600;700;800&family=Cinzel:wght@600;700&display=swap');
       *{box-sizing:border-box;margin:0;padding:0;}
       html,body{height:100%;overflow:hidden;}
       @keyframes fadeInUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
@@ -444,7 +444,7 @@ export default function Login({ onLogin }) {
       @media(min-width:800px){.desk{display:flex!important;}.mob-prev{display:none!important;}}
     `}</style>
 
-    <div style={{ position:'fixed', inset:0, zIndex:1000, background:'radial-gradient(ellipse at 25% 25%,#0b1738 0%,#04091a 45%,#020510 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'DM Sans,sans-serif', overflow:'hidden' }}>
+    <div style={{ position:'fixed', inset:0, zIndex:1000, background:'radial-gradient(ellipse at 25% 25%,#0b1738 0%,#04091a 45%,#020510 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Poppins,sans-serif', overflow:'hidden' }}>
       <ParticleField />
       <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none', backgroundImage:'linear-gradient(rgba(212,175,55,0.032) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,0.032) 1px,transparent 1px)', backgroundSize:'55px 55px', animation:'gridPulse 7s ease-in-out infinite' }} />
       <div style={{ position:'absolute', top:'-8%', left:'-4%', width:500, height:500, borderRadius:'50%', background:'radial-gradient(circle,rgba(212,175,55,0.07),transparent 65%)', zIndex:1, pointerEvents:'none' }} />
@@ -471,11 +471,49 @@ export default function Login({ onLogin }) {
               {view==='signup' && <SignupForm  onGoLogin={()=>setView('login')} onSignupSuccess={handleSignup} />}
               {view==='forgot' && <ForgotForm  onGoLogin={()=>setView('login')} />}
               <div style={{ textAlign:'center', marginTop:12 }}>
-                <button onClick={()=>setShowDisclaimer(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'rgba(212,175,55,0.42)', fontWeight:600, textDecoration:'underline', fontFamily:'DM Sans,sans-serif' }}>📋 Beta Disclaimer &amp; Legal Notice</button>
+                <button onClick={()=>setShowDisclaimer(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'rgba(212,175,55,0.42)', fontWeight:600, textDecoration:'underline', fontFamily:'Poppins,sans-serif' }}>📋 Beta Disclaimer &amp; Legal Notice</button>
               </div>
             </div>
-            <div style={{ padding:'10px 26px', borderTop:'1px solid rgba(255,255,255,0.04)', background:'rgba(0,0,0,0.18)', textAlign:'center' }}>
-              <p style={{ fontSize:10, color:'rgba(255,255,255,0.17)', margin:0 }}>© 2026 ACR MAX · <span style={{ color:'rgba(212,175,55,0.42)', fontWeight:600 }}>Aswin CR</span></p>
+            <div style={{ padding:'8px 20px 10px', borderTop:'1px solid rgba(255,255,255,0.04)', background:'rgba(0,0,0,0.15)', textAlign:'center' }}>
+              <p style={{ fontSize:9, color:'rgba(255,255,255,0.15)', margin:0 }}>© 2026 ACR MAX · <span style={{ color:'rgba(212,175,55,0.4)', fontWeight:600 }}>Aswin CR</span></p>
+            </div>
+
+            {/* ── TRUST & SECURITY BADGES ── */}
+            <div style={{ padding:'12px 16px 16px', borderTop:'1px solid rgba(255,255,255,0.04)', background:'rgba(0,0,0,0.08)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginBottom:12 }}>
+                <div style={{ height:1, flex:1, background:'rgba(255,255,255,0.06)' }} />
+                <p style={{ fontSize:8, fontWeight:700, color:'rgba(255,255,255,0.22)', textTransform:'uppercase', letterSpacing:'0.14em', margin:0, whiteSpace:'nowrap' }}>Security & Trust</p>
+                <div style={{ height:1, flex:1, background:'rgba(255,255,255,0.06)' }} />
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, marginBottom:6 }}>
+                {[
+                  { icon:'🔒', label:'SSL/TLS', sub:'Encrypted',      color:'#34d399', bg:'rgba(52,211,153,0.06)',   border:'rgba(52,211,153,0.18)' },
+                  { icon:'🛡️', label:'AES-256', sub:'Encryption',     color:'#60a5fa', bg:'rgba(96,165,250,0.06)',   border:'rgba(96,165,250,0.18)' },
+                  { icon:'🔥', label:'Firebase', sub:'by Google',     color:'#fbbf24', bg:'rgba(251,191,36,0.06)',  border:'rgba(251,191,36,0.18)' },
+                ].map((b,i) => (
+                  <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'7px 4px', background:b.bg, border:`1px solid ${b.border}`, borderRadius:9 }}>
+                    <span style={{ fontSize:16 }}>{b.icon}</span>
+                    <p style={{ fontSize:8, fontWeight:700, color:b.color, margin:0, textAlign:'center' }}>{b.label}</p>
+                    <p style={{ fontSize:7, color:`${b.color}80`, margin:0, textAlign:'center' }}>{b.sub}</p>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, marginBottom:10 }}>
+                {[
+                  { icon:'👁️', label:'Private',   sub:'No Tracking',  color:'#a78bfa', bg:'rgba(167,139,250,0.06)', border:'rgba(167,139,250,0.18)' },
+                  { icon:'🚫', label:'No Ads',    sub:'No Data Sell', color:'#34d399', bg:'rgba(52,211,153,0.06)',   border:'rgba(52,211,153,0.18)' },
+                  { icon:'☁️', label:'Cloud',     sub:'Sync Secure',  color:'#60a5fa', bg:'rgba(96,165,250,0.06)',   border:'rgba(96,165,250,0.18)' },
+                ].map((b,i) => (
+                  <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'7px 4px', background:b.bg, border:`1px solid ${b.border}`, borderRadius:9 }}>
+                    <span style={{ fontSize:16 }}>{b.icon}</span>
+                    <p style={{ fontSize:8, fontWeight:700, color:b.color, margin:0, textAlign:'center' }}>{b.label}</p>
+                    <p style={{ fontSize:7, color:`${b.color}80`, margin:0, textAlign:'center' }}>{b.sub}</p>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize:8, color:'rgba(255,255,255,0.2)', textAlign:'center', lineHeight:1.65, margin:0 }}>
+                Data encrypted with AES-256 · Stored on Google Firebase · Never sold or shared
+              </p>
             </div>
           </div>
 

@@ -697,23 +697,88 @@ export default function Profile({ logs, setLogs, overallTotal, summaryData, curr
       </div>
 
       {/* ── SUMMARY ── */}
-      <div className="card-hover" style={{
-        position: 'relative', zIndex: 10,
-        background: `linear-gradient(135deg,${currentTheme.accent}10,rgba(255,255,255,0.03))`,
-        border: `1px solid ${currentTheme.accent}20`,
-        borderRadius: 22, padding: 24,
-        animation: 'slideUp 0.45s ease-out 0.48s both',
-        transition: 'background 0.5s,border 0.5s',
-      }}>
-        <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, color: '#fff', fontSize: 13, marginBottom: 10 }}>📊 Your Summary</p>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.75, margin: 0 }}>
-          You've tracked <b style={{ color: currentTheme.accent }}>{logs.length} expenses</b> totaling{' '}
-          <b style={{ color: '#34d399' }}>{fmt(overallTotal)}</b> over{' '}
-          <b style={{ color: '#60a5fa' }}>{daysActive} day{daysActive !== 1 ? 's' : ''}</b>.{' '}
-          {topCat !== 'N/A' && <>Biggest category: <b style={{ color: '#f472b6' }}>{topCat}</b> at <b style={{ color: '#f472b6' }}>{fmt(topCatTotal)}</b>. </>}
-          {streak > 0 && trackSmoking && <><b style={{ color: '#fbbf24' }}>{streak} day{streak !== 1 ? 's' : ''} smoke-free</b> — saved <b style={{ color: '#34d399' }}>₹{moneySaved}</b>. </>}
-          Keep building those strong habits 🚀
+      {/* ── SECURITY & TRUST ── */}
+      <div className="card-hover" style={{ ...panel, position:'relative', zIndex:10, marginBottom:16, animation:'slideUp 0.45s ease-out 0.42s both', borderTop:`2px solid rgba(52,211,153,0.4)` }}>
+        <p style={{ fontFamily:'Syne,sans-serif', fontWeight:700, color:'#fff', fontSize:14, marginBottom:16 }}>🔐 Security & Privacy</p>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:14 }}>
+          {[
+            { icon:'🔒', label:'SSL/TLS',  sub:'End-to-end encrypted',   color:'#34d399', bg:'rgba(52,211,153,0.08)',  border:'rgba(52,211,153,0.2)' },
+            { icon:'🛡️', label:'AES-256',  sub:'Military grade cipher',   color:'#60a5fa', bg:'rgba(96,165,250,0.08)',  border:'rgba(96,165,250,0.2)' },
+            { icon:'🔥', label:'Firebase', sub:'Google Cloud secured',    color:'#fbbf24', bg:'rgba(251,191,36,0.08)', border:'rgba(251,191,36,0.2)' },
+            { icon:'👁️', label:'Private',  sub:'No tracking ever',        color:'#a78bfa', bg:'rgba(167,139,250,0.08)', border:'rgba(167,139,250,0.2)' },
+            { icon:'🚫', label:'No Ads',   sub:'Data never sold',         color:'#34d399', bg:'rgba(52,211,153,0.08)',  border:'rgba(52,211,153,0.2)' },
+            { icon:'☁️', label:'Sync',     sub:'Real-time cloud sync',    color:'#60a5fa', bg:'rgba(96,165,250,0.08)',  border:'rgba(96,165,250,0.2)' },
+          ].map((b,i) => (
+            <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'12px 8px', background:b.bg, border:`1px solid ${b.border}`, borderRadius:14 }}>
+              <span style={{ fontSize:22 }}>{b.icon}</span>
+              <p style={{ fontSize:11, fontWeight:700, color:b.color, margin:0, textAlign:'center' }}>{b.label}</p>
+              <p style={{ fontSize:9, color:`${b.color}80`, margin:0, textAlign:'center', lineHeight:1.4 }}>{b.sub}</p>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize:11, color:'rgba(255,255,255,0.35)', textAlign:'center', lineHeight:1.7, margin:0 }}>
+          Your data is encrypted with AES-256 and stored on Google Firebase infrastructure. We never sell, share, or misuse your personal information.
         </p>
+      </div>
+
+      {/* ── ABOUT & CREDITS ── */}
+      <div className="card-hover" style={{
+        position:'relative', zIndex:10,
+        background:`linear-gradient(135deg,${currentTheme.accent}12,rgba(255,255,255,0.03))`,
+        border:`1px solid ${currentTheme.accent}22`,
+        borderRadius:18, padding:20,
+        animation:'slideUp 0.45s ease-out 0.48s both',
+        transition:'background 0.5s,border 0.5s',
+        marginBottom:16,
+      }}>
+        {/* Logo + brand */}
+        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:18, paddingBottom:16, borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
+          <img src="/logo.jpg" alt="ACR MAX" style={{ width:56, height:56, borderRadius:'50%', objectFit:'cover', border:`2px solid ${currentTheme.accent}50`, boxShadow:`0 0 20px ${currentTheme.accent}30` }} />
+          <div>
+            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:20, color:'#fff', margin:'0 0 2px', letterSpacing:'0.06em' }}>ACR MAX</p>
+            <p style={{ fontSize:11, color:currentTheme.accent, fontWeight:600, margin:'0 0 3px', letterSpacing:'0.12em' }}>BETA 1.0 · MAXIMIZING LIFES</p>
+            <p style={{ fontSize:10, color:'rgba(255,255,255,0.35)', margin:0 }}>Your all-in-one premium personal dashboard</p>
+          </div>
+        </div>
+
+        {/* Dev credit */}
+        <div style={{ marginBottom:16, padding:'14px 16px', background:'rgba(255,255,255,0.04)', borderRadius:14, border:'1px solid rgba(255,255,255,0.07)' }}>
+          <p style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.35)', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 8px' }}>Concept, Design & Development</p>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{ width:40, height:40, borderRadius:'50%', background:`linear-gradient(135deg,${currentTheme.accent},${currentTheme.accent}80)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:800, color:'#fff', fontFamily:'Syne,sans-serif' }}>A</div>
+            <div>
+              <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:16, color:'#fff', margin:'0 0 2px' }}>Aswin CR</p>
+              <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)', margin:0 }}>Founder · Full Stack Developer · Designer</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tech stack */}
+        <div style={{ marginBottom:16 }}>
+          <p style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.35)', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 10px' }}>Built With</p>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+            {[
+              { label:'React + Vite', color:'#61dafb' },
+              { label:'Firebase', color:'#fbbf24' },
+              { label:'Firestore', color:'#f97316' },
+              { label:'Gemini AI', color:'#a78bfa' },
+              { label:'Newsdata.io', color:'#34d399' },
+              { label:'Tailwind CSS', color:'#38bdf8' },
+              { label:'Recharts', color:'#f472b6' },
+            ].map((t,i) => (
+              <span key={i} style={{ padding:'4px 10px', borderRadius:20, fontSize:10, fontWeight:700, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:t.color }}>
+                {t.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Version + copyright */}
+        <div style={{ padding:'12px 14px', background:'rgba(0,0,0,0.2)', borderRadius:12, textAlign:'center' }}>
+          <p style={{ fontSize:11, color:'rgba(255,255,255,0.5)', margin:'0 0 3px', fontWeight:600 }}>ACR MAX 1.0 · Beta Test 1</p>
+          <p style={{ fontSize:10, color:'rgba(255,255,255,0.25)', margin:0 }}>© 2026 ACR MAX. All intellectual property rights reserved.</p>
+          <p style={{ fontSize:10, color:'rgba(255,255,255,0.2)', margin:'2px 0 0' }}>Unauthorized use, reproduction or distribution is strictly prohibited.</p>
+        </div>
       </div>
 
       {/* ── RESET MODAL ── */}
