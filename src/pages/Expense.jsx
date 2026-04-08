@@ -108,39 +108,40 @@ function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, 
     : '✅ Spending looks on track'
 
   return (
-    <div style={{ borderRadius:22, padding:'20px', marginBottom:14, background:'linear-gradient(135deg,#1e293b,#0f172a)', boxShadow:'5px 5px 18px rgba(30,41,59,0.3),-3px -3px 10px rgba(255,255,255,0.6)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
-      <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100, borderRadius:'50%', background:'rgba(255,255,255,0.05)', pointerEvents:'none' }} />
-      <div style={{ position:'absolute', bottom:-30, right:40, width:70, height:70, borderRadius:'50%', background:'rgba(124,58,237,0.15)', pointerEvents:'none' }} />
+    <div style={{ borderRadius:22, padding:'20px', marginBottom:14, background:'linear-gradient(145deg,#ffffff,#e8e8e8)', border:'1.5px solid rgba(255,255,255,0.9)', boxShadow:'6px 6px 18px rgba(0,0,0,0.09),-4px -4px 12px rgba(255,255,255,0.95),inset 0 1px 0 rgba(255,255,255,0.9)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
+      {/* Decorative silver orb */}
+      <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.7),transparent 65%)', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', bottom:-20, left:-10, width:80, height:80, borderRadius:'50%', background:'radial-gradient(circle,rgba(220,220,220,0.5),transparent 65%)', pointerEvents:'none' }} />
 
       {/* Top row */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
         <div>
-          <p style={{ fontSize:10, fontWeight:600, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Total Spent</p>
-          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:28, color:'#fff', margin:0, lineHeight:1 }}><CountUp value={overallTotal} /></p>
-          <p style={{ fontSize:11, color:'rgba(255,255,255,0.45)', margin:'4px 0 0', fontFamily:'Poppins,sans-serif' }}>{logs.length} entries total</p>
+          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Total Spent</p>
+          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:30, color:'#1a1a1a', margin:0, lineHeight:1 }}><CountUp value={overallTotal} /></p>
+          <p style={{ fontSize:11, color:'#6b7280', margin:'5px 0 0', fontFamily:'Poppins,sans-serif' }}>{logs.length} entries total</p>
         </div>
         <div style={{ textAlign:'right' }}>
-          <p style={{ fontSize:10, fontWeight:600, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Today</p>
-          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:20, color: todayTotal>0?'#f87171':'#34d399', margin:0 }}>{fmt(todayTotal)}</p>
+          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Today</p>
+          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color: todayTotal>0?'#dc2626':'#16a34a', margin:0 }}>{fmt(todayTotal)}</p>
         </div>
       </div>
 
       {/* Budget progress */}
       <div style={{ marginBottom:12 }}>
         <div style={{ display:'flex', justifyContent:'space-between', marginBottom:7 }}>
-          <span style={{ fontSize:10, fontWeight:600, color:'rgba(255,255,255,0.5)', fontFamily:'Poppins,sans-serif' }}>Monthly Budget Used</span>
-          <span style={{ fontSize:10, fontWeight:700, color: budgetPct>80?'#f87171':'#34d399', fontFamily:'Poppins,sans-serif' }}>{budgetPct}%</span>
+          <span style={{ fontSize:10, fontWeight:700, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>Monthly Budget Used</span>
+          <span style={{ fontSize:11, fontWeight:800, color: budgetPct>80?'#dc2626':'#16a34a', fontFamily:'Poppins,sans-serif' }}>{budgetPct}%</span>
         </div>
-        <div style={{ height:7, borderRadius:7, background:'rgba(255,255,255,0.12)', overflow:'hidden' }}>
-          <div style={{ height:'100%', width:`${budgetPct}%`, borderRadius:7, background: budgetPct>80?'linear-gradient(90deg,#f87171,#ef4444)':'linear-gradient(90deg,#34d399,#10b981)', transition:'width 1.2s ease-out' }} />
+        <div style={{ height:8, borderRadius:8, background:'linear-gradient(145deg,#d8d8d8,#efefef)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.1),inset -1px -1px 3px rgba(255,255,255,0.9)', overflow:'hidden' }}>
+          <div style={{ height:'100%', width:`${budgetPct}%`, borderRadius:8, background: budgetPct>80?'linear-gradient(90deg,#dc2626,#ef4444)':'linear-gradient(90deg,#16a34a,#22c55e)', transition:'width 1.2s ease-out', boxShadow:'1px 0 6px rgba(0,0,0,0.1)' }} />
         </div>
       </div>
 
       {/* Context message + top cat */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        <span style={{ padding:'4px 12px', borderRadius:20, fontSize:11, fontWeight:600, background:'rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.8)', fontFamily:'Poppins,sans-serif', backdropFilter:'blur(4px)' }}>{contextMsg}</span>
+        <span style={{ padding:'5px 13px', borderRadius:20, fontSize:11, fontWeight:700, background:'linear-gradient(145deg,#f0f0f0,#e4e4e4)', border:'1px solid #d1d5db', color:'#374151', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>{contextMsg}</span>
         {topCategory!=='—' && (
-          <span style={{ padding:'4px 12px', borderRadius:20, fontSize:11, fontWeight:600, background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.65)', fontFamily:'Poppins,sans-serif' }}>
+          <span style={{ padding:'5px 13px', borderRadius:20, fontSize:11, fontWeight:700, background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', border:'1px solid #ddd6fe', color:'#7c3aed', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
             {CAT_ICONS[topCategory]||'💸'} Most: {topCategory}
           </span>
         )}
@@ -179,7 +180,7 @@ function HabitTracker({ logs }) {
       <div style={{ display:'flex', gap:6, justifyContent:'space-between' }}>
         {last7.map((d,i) => (
           <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, flex:1 }}>
-            <div style={{ width:'100%', height:36, borderRadius:10, background: d.hasLog?`linear-gradient(145deg,${d.isToday?'#d97706':'#7c3aed'},${d.isToday?'#d97706':'#7c3aed'}80)`:'linear-gradient(145deg,#e8e8e8,#f5f5f5)', border: d.hasLog?`1px solid ${d.isToday?'#fde68a':'#ddd6fe'}`:'1px solid #e5e7eb', boxShadow: d.hasLog?`2px 2px 6px rgba(0,0,0,0.1),-1px -1px 3px rgba(255,255,255,0.8)`:'inset 1px 1px 3px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontSize: d.hasLog?14:12 }}>
+            <div style={{ width:'100%', height:36, borderRadius:10, background: d.hasLog?`linear-gradient(145deg,${d.isToday?'#d97706':'#7c3aed'},${d.isToday?'#f59e0b':'#6d28d9'})`:'linear-gradient(145deg,#e8e8e8,#f5f5f5)', border: d.hasLog?`1.5px solid ${d.isToday?'#fde68a':'#ddd6fe'}`:'1.5px solid #e2e8f0', boxShadow: d.hasLog?`2px 2px 6px rgba(0,0,0,0.1),-1px -1px 3px rgba(255,255,255,0.8)`:'inset 1px 1px 3px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontSize: d.hasLog?14:12 }}>
               {d.hasLog ? (d.isToday?'🔥':'✓') : '·'}
             </div>
             <span style={{ fontSize:8, fontWeight:700, color: d.hasLog?'#374151':'#9ca3af', fontFamily:'Poppins,sans-serif' }}>{d.day.slice(0,2)}</span>
@@ -391,13 +392,13 @@ export default function Expense(props) {
             <button onClick={handleVoiceInput} disabled={isListening} style={{ padding:'11px 14px', borderRadius:12, fontSize:17, background: isListening?'linear-gradient(145deg,#ede9fe,#ddd6fe)':'linear-gradient(145deg,#faf5ff,#ede9fe)', border:`1.5px solid ${isListening?'#7c3aed':'#ddd6fe'}`, cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)', position:'relative' }}>
               🎤{isListening&&<span style={{ position:'absolute', top:-3, right:-3, width:8, height:8, borderRadius:'50%', background:'#7c3aed' }} />}
             </button>
-            <button onClick={()=>{handleAdd();if(customAmount>0)setShowMobileForm(false)}} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#1e293b,#0f172a)', color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, cursor:'pointer', boxShadow:'3px 3px 10px rgba(30,41,59,0.25)' }}>
+            <button onClick={()=>{handleAdd();if(customAmount>0)setShowMobileForm(false)}} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, cursor:'pointer', boxShadow:'3px 3px 10px rgba(124,58,237,0.25),-1px -1px 3px rgba(255,255,255,0.5)' }}>
               {justAdded?'✓ Added!':'+ Add'}
             </button>
           </div>
         </div>
       )}
-      <button onClick={()=>setShowMobileForm(s=>!s)} style={{ width:56, height:56, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.8)', background:'linear-gradient(135deg,#1e293b,#0f172a)', color:'#fff', fontSize:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'4px 4px 14px rgba(30,41,59,0.3),-2px -2px 6px rgba(255,255,255,0.6)', transition:'all 0.2s', transform:showMobileForm?'rotate(45deg)':'rotate(0)' }}>+</button>
+      <button onClick={()=>setShowMobileForm(s=>!s)} style={{ width:56, height:56, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.8)', background:'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontSize:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'4px 4px 14px rgba(124,58,237,0.3),-2px -2px 6px rgba(255,255,255,0.7)', transition:'all 0.2s', transform:showMobileForm?'rotate(45deg)':'rotate(0)' }}>+</button>
     </div>
 
     <div className="exp-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:100, color:'#1a1a1a', position:'relative', background:'transparent' }}>
@@ -427,11 +428,12 @@ export default function Expense(props) {
       <div className="exp-tabs" style={{ display:'flex', gap:7, marginBottom:16, overflowX:'auto', paddingBottom:4, scrollbarWidth:'none' }}>
         {TABS.map(t => (
           <button key={t.id} onClick={()=>setExpenseTab(t.id)} style={{
-            padding:'10px 18px', borderRadius:12, fontWeight:700, fontSize:12, whiteSpace:'nowrap', cursor:'pointer', transition:'all 0.2s',
-            background: expenseTab===t.id?'linear-gradient(135deg,#1e293b,#0f172a)':'linear-gradient(145deg,#ffffff,#f0f0f0)',
-            border: expenseTab===t.id?'1.5px solid #1e293b':'1.5px solid #e5e7eb',
-            color: expenseTab===t.id?'#ffffff':'#475569',
-            boxShadow: expenseTab===t.id?'3px 3px 10px rgba(30,41,59,0.25),-2px -2px 5px rgba(255,255,255,0.5)':'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)',
+            padding:'10px 18px', borderRadius:12, fontWeight:700, fontSize:12, whiteSpace:'nowrap', cursor:'pointer', transition:'all 0.2s', fontFamily:'Poppins,sans-serif',
+            background: expenseTab===t.id?'linear-gradient(145deg,#f0f0f0,#e4e4e4)':'linear-gradient(145deg,#ffffff,#f5f5f5)',
+            border: expenseTab===t.id?'1.5px solid #d1d5db':'1.5px solid #e8e8e8',
+            color: expenseTab===t.id?'#1a1a1a':'#6b7280',
+            borderBottom: expenseTab===t.id?'2.5px solid #7c3aed':undefined,
+            boxShadow: expenseTab===t.id?'inset 2px 2px 5px rgba(0,0,0,0.08),inset -1px -1px 3px rgba(255,255,255,0.8)':'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)',
           }}>{t.label}</button>
         ))}
       </div>
@@ -446,8 +448,8 @@ export default function Expense(props) {
           </NeuCard>
 
           {/* Quick add shortcuts */}
-          <NeuCard style={{ marginBottom:14 }} accent="#1e293b">
-            <SectionHdr title="Quick Add" accent="#1e293b" />
+          <NeuCard style={{ marginBottom:14 }} accent="#7c3aed">
+            <SectionHdr title="Quick Add" accent="#7c3aed" />
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
               {[
                 {icon:'🍽',label:'Food',      color:'#d97706',bg:'#fffbeb',border:'#fde68a',cat:'Food'},
@@ -498,8 +500,8 @@ export default function Expense(props) {
           </NeuCard>
 
           {/* Desktop add form */}
-          <div className="exp-add-form" style={{ ...neu, borderTop:'3px solid #1e293b', marginBottom:14, animation:'slideUp 0.45s ease-out 0.1s both' }}>
-            <SectionHdr title="Add Expense" accent="#1e293b" />
+          <div className="exp-add-form" style={{ ...neu, borderTop:'3px solid #7c3aed', marginBottom:14, animation:'slideUp 0.45s ease-out 0.1s both' }}>
+            <SectionHdr title="Add Expense" accent="#7c3aed" />
             <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:12 }}>
               <div style={{ flex:'1 1 130px' }}>
                 <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:7, textTransform:'uppercase', letterSpacing:'0.1em' }}>Category</label>
@@ -518,7 +520,7 @@ export default function Expense(props) {
               <button onClick={triggerCamera} style={{ padding:'11px 15px', borderRadius:13, fontSize:18, background:'linear-gradient(145deg,#ecfdf5,#d1fae5)', border:'1.5px solid #a7f3d0', cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>📷</button>
               <input type="file" accept="image/*" capture="environment" ref={fileInputRef} style={{ display:'none' }} onChange={handleImageCapture} />
               <button onClick={handleVoiceInput} disabled={isListening} style={{ padding:'11px 15px', borderRadius:13, fontSize:18, background: isListening?'linear-gradient(145deg,#ede9fe,#ddd6fe)':'linear-gradient(145deg,#faf5ff,#ede9fe)', border:`1.5px solid ${isListening?'#7c3aed':'#ddd6fe'}`, cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>🎤</button>
-              <button onClick={handleAdd} style={{ flex:1, padding:'12px', borderRadius:13, border:'none', cursor:'pointer', fontWeight:700, fontSize:14, color:'#fff', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#1e293b,#0f172a)', boxShadow:'3px 3px 10px rgba(30,41,59,0.25)', transition:'all 0.25s' }}>
+              <button onClick={handleAdd} style={{ flex:1, padding:'12px', borderRadius:13, border:'none', cursor:'pointer', fontWeight:700, fontSize:14, color:'#fff', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow:'3px 3px 10px rgba(124,58,237,0.25)', transition:'all 0.25s' }}>
                 {justAdded?'✓ Added!':'+ Add Expense'}
               </button>
             </div>
@@ -544,7 +546,7 @@ export default function Expense(props) {
           {/* Timeline activity feed */}
           {sortedLogs.length>0 && (
             <NeuCard>
-              <SectionHdr title="Activity Timeline" accent="#1e293b" />
+              <SectionHdr title="Activity Timeline" accent="#7c3aed" />
               <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                 {sortedLogs.length===0 ? (
                   <div style={{ textAlign:'center', padding:'40px 0', color:'#9ca3af' }}>
@@ -667,7 +669,7 @@ export default function Expense(props) {
                     <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:8 }}>
                       <span style={{ flex:1, fontWeight:700, color:'#1a1a1a', fontSize:13, fontFamily:'Poppins,sans-serif' }}>{CAT_ICONS[cat]||'💸'} {cat}</span>
                       <input type="number" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} autoFocus onKeyDown={e=>e.key==='Enter'&&saveBudget(cat)} style={{ width:120, padding:'8px 12px', background:'linear-gradient(145deg,#e8e8e8,#fff)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.09)', border:'1.5px solid #e2e8f0', borderRadius:10, color:'#1a1a1a', fontSize:13, fontWeight:700, outline:'none', fontFamily:'Poppins,sans-serif' }} placeholder="₹ budget" />
-                      <button onClick={()=>saveBudget(cat)} style={{ background:'linear-gradient(135deg,#1e293b,#0f172a)', border:'none', color:'#fff', padding:'8px 14px', borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'2px 2px 6px rgba(30,41,59,0.2)', fontFamily:'Poppins,sans-serif' }}>Save</button>
+                      <button onClick={()=>saveBudget(cat)} style={{ background:'linear-gradient(135deg,#7c3aed,#4f46e5)', border:'none', color:'#fff', padding:'8px 14px', borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'2px 2px 6px rgba(124,58,237,0.25)', fontFamily:'Poppins,sans-serif' }}>Save</button>
                       <button onClick={()=>setEditingBudget(null)} style={{ background:'none', border:'none', color:'#9ca3af', cursor:'pointer', fontSize:16 }}>✕</button>
                     </div>
                   ) : (
@@ -753,7 +755,7 @@ export default function Expense(props) {
       {expenseTab==='export' && (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <NeuCard>
-            <SectionHdr title="Export Data" accent="#1e293b" />
+            <SectionHdr title="Export Data" accent="#7c3aed" />
             <p style={{ color:'#9ca3af', fontSize:12, marginBottom:18, fontFamily:'Poppins,sans-serif' }}>Download all {logs.length} entries in your preferred format.</p>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12 }}>
               {[{label:'CSV',desc:'Excel & Sheets',icon:'📊',action:exportCSV,color:'#16a34a',bg:'#f0fdf4',border:'#bbf7d0'},{label:'JSON',desc:'Raw data',icon:'🔧',action:exportJSON,color:'#1d4ed8',bg:'#eff6ff',border:'#bfdbfe'},{label:'Text',desc:'Readable report',icon:'📄',action:exportText,color:'#d97706',bg:'#fffbeb',border:'#fde68a'}].map((item,i)=>(
@@ -770,7 +772,7 @@ export default function Expense(props) {
           </NeuCard>
           {logs.length>0 && (
             <NeuCard>
-              <SectionHdr title="Report Preview" accent="#1e293b" />
+              <SectionHdr title="Report Preview" accent="#7c3aed" />
               <div style={{ fontFamily:'monospace', fontSize:12, color:'#374151' }}>
                 <p style={{ marginBottom:4 }}>Date: {new Date().toLocaleDateString('en-IN')}</p>
                 <p style={{ marginBottom:4 }}>Total Entries: {logs.length}</p>

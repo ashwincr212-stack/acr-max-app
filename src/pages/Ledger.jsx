@@ -112,7 +112,7 @@ function EntryCard({ entry, onSettle, onDelete, onEdit }) {
         <Avatar name={entry.person} color={entry.color} size={40} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-            <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, color: '#1a1a1a', fontSize: 14 }}>{entry.person}</span>
+            <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, color: '#1a1a1a', fontSize: 14 }}>{entry.person}</span>
             <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, background: accentBg, color: accent, border: `1px solid ${isLent ? '#bbf7d0' : '#fca5a5'}` }}>
               {isLent ? '↑ LENT' : '↓ BORROWED'}
             </span>
@@ -289,8 +289,8 @@ function EntryModal({ editing, onSave, onClose }) {
         <button onClick={handleSave} style={{
           width: '100%', padding: '14px', borderRadius: 14, border: 'none', cursor: 'pointer',
           background: form.type === 'lent' ? 'linear-gradient(135deg,#16a34a,#22c55e)' : 'linear-gradient(135deg,#dc2626,#ef4444)',
-          color: '#fff', fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15,
-          boxShadow: form.type === 'lent' ? '4px 4px 12px rgba(22,163,74,0.3), -2px -2px 6px rgba(255,255,255,0.5)' : '4px 4px 12px rgba(220,38,38,0.3), -2px -2px 6px rgba(255,255,255,0.5)',
+          color: '#fff', fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 15,
+          boxShadow: form.type === 'lent' ? '4px 4px 14px rgba(22,163,74,0.3),-2px -2px 6px rgba(255,255,255,0.7)' : '4px 4px 14px rgba(220,38,38,0.3),-2px -2px 6px rgba(255,255,255,0.7)',
           transition: 'all 0.2s',
         }}>
           {editing ? '💾 Save Changes' : (form.type === 'lent' ? '↑ Record Lent Amount' : '↓ Record Borrowed Amount')}
@@ -392,27 +392,31 @@ export default function Ledger({ currentUser }) {
           </div>
         </div>
         <button onClick={() => { setEditing(null); setShowModal(true) }} className="ledger-desk-add" style={{
-          padding:'10px 20px', borderRadius:12, border:'1px solid #e2e8f0', cursor:'pointer',
-          background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)',
-          boxShadow:'4px 4px 10px rgba(0,0,0,0.09), -2px -2px 6px rgba(255,255,255,0.9)',
-          color:'#1a1a1a', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13,
+          padding:'10px 20px', borderRadius:12, cursor:'pointer',
+          background:'linear-gradient(135deg,#7c3aed,#4f46e5)',
+          border:'none',
+          boxShadow:'4px 4px 12px rgba(124,58,237,0.25),-2px -2px 6px rgba(255,255,255,0.7)',
+          color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13,
         }}>＋ New Entry</button>
       </div>
 
       {/* ── BALANCE STRIP — neumorphic cards ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:16, animation:'slideUp 0.4s ease-out 0.05s both' }}>
         {[
-          { label:'Will Receive', value:fmt(totalLent),   color:'#16a34a', bg:'linear-gradient(145deg,#f0fdf4,#dcfce7)', border:'#bbf7d0' },
-          { label:'Will Pay',     value:fmt(totalBorrowed),color:'#dc2626', bg:'linear-gradient(145deg,#fff1f2,#fee2e2)', border:'#fca5a5' },
-          { label:'Net Balance',  value:(netBalance>=0?'+':'')+fmt(Math.abs(netBalance)), color:netBalance>=0?'#16a34a':'#dc2626', bg:'linear-gradient(145deg,#f8f8f8,#ececec)', border:'#e2e8f0' },
+          { label:'Will Receive', value:fmt(totalLent),   color:'#16a34a', accent:'#bbf7d0' },
+          { label:'Will Pay',     value:fmt(totalBorrowed),color:'#dc2626', accent:'#fca5a5' },
+          { label:'Net Balance',  value:(netBalance>=0?'+':'')+fmt(Math.abs(netBalance)), color:netBalance>=0?'#16a34a':'#dc2626', accent: netBalance>=0?'#bbf7d0':'#fca5a5' },
         ].map((s,i) => (
           <div key={i} style={{
-            padding:'13px 10px', background:s.bg,
-            border:`1.5px solid ${s.border}`, borderRadius:16, textAlign:'center',
-            boxShadow:'4px 4px 10px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.9), inset 0 1px 0 rgba(255,255,255,0.8)',
+            padding:'14px 10px',
+            background:'linear-gradient(145deg,#ffffff,#e8e8e8)',
+            border:'1.5px solid rgba(255,255,255,0.9)',
+            borderTop:`3px solid ${s.accent}`,
+            borderRadius:16, textAlign:'center',
+            boxShadow:'5px 5px 12px rgba(0,0,0,0.08),-3px -3px 8px rgba(255,255,255,0.95),inset 0 1px 0 rgba(255,255,255,0.9)',
           }}>
-            <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 5px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
-            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:15, color:s.color, margin:0 }}>{s.value}</p>
+            <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 6px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
+            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:16, color:s.color, margin:0 }}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -449,7 +453,7 @@ export default function Ledger({ currentUser }) {
             padding:'9px 15px', borderRadius:20, fontWeight:700, fontSize:12,
             whiteSpace:'nowrap', cursor:'pointer', fontFamily:'Poppins,sans-serif',
             border: filter===f.id ? '1.5px solid #7c3aed' : '1.5px solid #e2e8f0',
-            background: filter===f.id ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'linear-gradient(145deg,#f5f5f5,#e8e8e8)',
+            background: filter===f.id ? 'linear-gradient(145deg,#ede9fe,#ddd6fe)' : 'linear-gradient(145deg,#ffffff,#ebebeb)',
             color: filter===f.id ? '#fff' : '#475569',
             boxShadow: filter===f.id ? '3px 3px 8px rgba(124,58,237,0.25), -2px -2px 5px rgba(255,255,255,0.8)' : '3px 3px 7px rgba(0,0,0,0.08), -2px -2px 5px rgba(255,255,255,0.9)',
             display:'flex', alignItems:'center', gap:6,

@@ -226,59 +226,64 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           2. WELCOME + DASHBOARD CARD
       ══════════════════════════════════ */}
       <div style={{
-        borderRadius:22, padding:'20px', marginBottom:14,
-        background:`linear-gradient(135deg,${themeAccent}f0,${themeAccent}c0)`,
-        boxShadow:`5px 5px 18px ${themeAccent}35, -3px -3px 10px rgba(255,255,255,0.6)`,
-        position:'relative', overflow:'hidden',
+        borderRadius:22, marginBottom:14, overflow:'hidden',
+        background:'linear-gradient(145deg,#ffffff,#e8e8e8)',
+        border:'1.5px solid rgba(255,255,255,0.95)',
+        boxShadow:'6px 6px 18px rgba(0,0,0,0.09),-4px -4px 12px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.9)',
         animation:'slideUp 0.4s ease-out 0.05s both',
+        position:'relative',
       }}>
-        {/* Decorative circles */}
-        <div style={{ position:'absolute', top:-25, right:-25, width:110, height:110, borderRadius:'50%', background:'rgba(255,255,255,0.12)', pointerEvents:'none' }} />
-        <div style={{ position:'absolute', bottom:-35, right:30, width:80, height:80, borderRadius:'50%', background:'rgba(255,255,255,0.08)', pointerEvents:'none' }} />
-        <div style={{ position:'absolute', top:30, right:60, width:50, height:50, borderRadius:'50%', background:'rgba(255,255,255,0.06)', pointerEvents:'none' }} />
+        {/* Accent top stripe in theme color */}
+        <div style={{ height:4, background:`linear-gradient(90deg,transparent,${themeAccent},${themeAccent}80,transparent)` }} />
+        <div style={{ padding:'18px 20px 20px', position:'relative' }}>
+          {/* Decorative silver orbs */}
+          <div style={{ position:'absolute', top:-10, right:-10, width:100, height:100, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.8),transparent 65%)', pointerEvents:'none' }} />
 
-        {/* Welcome + name */}
-        <p style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,0.75)', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 3px' }}>Welcome back</p>
-        <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:24, color:'#ffffff', margin:'0 0 12px', lineHeight:1.1 }}>{displayName} 👋</p>
+          {/* Welcome + name */}
+          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
+          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:24, color:'#1a1a1a', margin:'0 0 12px', lineHeight:1.1 }}>{displayName} 👋</p>
 
-        {/* Key insight badge */}
-        {topCat && (
-          <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'rgba(255,255,255,0.18)', borderRadius:20, backdropFilter:'blur(8px)', marginBottom:14 }}>
-            <span style={{ fontSize:12 }}>{catIcon(topCat[0])}</span>
-            <span style={{ fontSize:11, fontWeight:600, color:'#fff' }}>Top spend: {topCat[0]} — ₹{topCat[1].toLocaleString('en-IN')}</span>
-          </div>
-        )}
-        {weekChange !== null && (
-          <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'rgba(255,255,255,0.18)', borderRadius:20, backdropFilter:'blur(8px)', marginBottom:14, marginLeft: topCat ? 8 : 0 }}>
-            <span style={{ fontSize:12 }}>{weekChange > 0 ? '📈' : '📉'}</span>
-            <span style={{ fontSize:11, fontWeight:600, color:'#fff' }}>{weekChange > 0 ? `+${weekChange}%` : `${weekChange}%`} this week</span>
-          </div>
-        )}
-
-        {/* Stats bar */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1px 1fr 1px 1fr', background:'rgba(255,255,255,0.18)', borderRadius:14, overflow:'hidden', backdropFilter:'blur(8px)' }}>
-          {[
-            { label:'Today', value:todayTotal, entries:todayLogs.length, fmt:true },
-            { label:'Total', value:overallTotal, entries:logs.length, fmt:true },
-            { label:'Avg/Entry', value:avgPerEntry, entries:null, fmt:true },
-          ].map((s,i) => (
-            <>
-              {i>0 && <div key={`d${i}`} style={{ background:'rgba(255,255,255,0.25)' }} />}
-              <div key={i} style={{ padding:'10px 6px', textAlign:'center' }}>
-                <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.7)', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>{s.label}</p>
-                <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#fff', margin:0, lineHeight:1 }}>
-                  {s.fmt ? <CountUp value={s.value} /> : s.value}
-                </p>
-                {s.entries !== null && <p style={{ fontSize:9, color:'rgba(255,255,255,0.6)', margin:'2px 0 0' }}>{s.entries} entries</p>}
+          {/* Key insight badges */}
+          <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:14 }}>
+            {topCat && (
+              <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+                <span style={{ fontSize:12 }}>{catIcon(topCat[0])}</span>
+                <span style={{ fontSize:11, fontWeight:600, color:'#374151', fontFamily:'Poppins,sans-serif' }}>Top: {topCat[0]} — ₹{topCat[1].toLocaleString('en-IN')}</span>
               </div>
-            </>
-          ))}
-        </div>
+            )}
+            {weekChange !== null && (
+              <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px', background: weekChange>0?'linear-gradient(145deg,#fff1f2,#fee2e2)':'linear-gradient(145deg,#f0fdf4,#dcfce7)', border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+                <span style={{ fontSize:11 }}>{weekChange > 0 ? '📈' : '📉'}</span>
+                <span style={{ fontSize:11, fontWeight:700, color: weekChange>0?'#dc2626':'#16a34a', fontFamily:'Poppins,sans-serif' }}>{weekChange > 0 ? `+${weekChange}%` : `${weekChange}%`} this week</span>
+              </div>
+            )}
+          </div>
 
-        {/* Daily quote */}
-        <div style={{ marginTop:14, padding:'10px 13px', background:'rgba(255,255,255,0.13)', borderRadius:12, backdropFilter:'blur(8px)', animation:'quoteIn 0.5s ease-out 0.4s both' }}>
-          <p style={{ fontSize:11, fontWeight:500, color:'rgba(255,255,255,0.85)', margin:'0 0 3px', lineHeight:1.55, fontStyle:'italic' }}>"{todayQuote}"</p>
-          <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.55)', margin:0, letterSpacing:'0.08em' }}>— ACR MAX</p>
+          {/* Stats bar — neumorphic inset */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1px 1fr 1px 1fr', background:'linear-gradient(145deg,#e4e4e4,#f5f5f5)', borderRadius:14, overflow:'hidden', boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.09),inset -2px -2px 5px rgba(255,255,255,0.9)', border:'1px solid #e2e8f0' }}>
+            {[
+              { label:'Today', value:todayTotal, entries:todayLogs.length, fmt:true },
+              { label:'Total', value:overallTotal, entries:logs.length, fmt:true },
+              { label:'Avg/Entry', value:avgPerEntry, entries:null, fmt:true },
+            ].map((s,i) => (
+              <>
+                {i>0 && <div key={`d${i}`} style={{ background:'rgba(0,0,0,0.06)' }} />}
+                <div key={i} style={{ padding:'11px 6px', textAlign:'center' }}>
+                  <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
+                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#1a1a1a', margin:0, lineHeight:1 }}>
+                    {s.fmt ? <CountUp value={s.value} /> : s.value}
+                  </p>
+                  {s.entries !== null && <p style={{ fontSize:9, color:'#6b7280', margin:'3px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} entries</p>}
+                </div>
+              </>
+            ))}
+          </div>
+
+          {/* Daily quote */}
+          <div style={{ marginTop:14, padding:'10px 13px', background:'linear-gradient(145deg,#f5f5f5,#ebebeb)', borderRadius:12, border:'1px solid #e5e7eb', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.06),inset -1px -1px 3px rgba(255,255,255,0.9)', animation:'quoteIn 0.5s ease-out 0.4s both' }}>
+            <p style={{ fontSize:11, fontWeight:500, color:'#374151', margin:'0 0 3px', lineHeight:1.55, fontStyle:'italic', fontFamily:'Poppins,sans-serif' }}>"{todayQuote}"</p>
+            <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', margin:0, letterSpacing:'0.08em', fontFamily:'Poppins,sans-serif' }}>— ACR MAX</p>
+          </div>
         </div>
       </div>
 
@@ -302,8 +307,8 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             <span style={{ fontSize:20 }}>🔥</span>
             <p style={{ fontSize:10, fontWeight:700, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif' }}>Streak</p>
           </div>
-          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:26, color:'#d97706', margin:'0 0 2px' }}>{daysActive}</p>
-          <p style={{ fontSize:10, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600 }}>days active</p>
+          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:28, color:'#1a1a1a', margin:'0 0 2px' }}>{daysActive}</p>
+          <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600 }}>days active</p>
         </div>
       </div>
 
@@ -331,8 +336,8 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                 {a.icon}
               </div>
               <div style={{ textAlign:'center' }}>
-                <p style={{ fontSize:11, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', lineHeight:1.2, fontFamily:'Poppins,sans-serif' }}>{a.label}</p>
-                <p style={{ fontSize:9, color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif' }}>{a.sub}</p>
+                <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', lineHeight:1.25, fontFamily:'Poppins,sans-serif' }}>{a.label}</p>
+                <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:500 }}>{a.sub}</p>
               </div>
             </button>
           ))}
@@ -353,7 +358,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                   {catIcon(log.category)}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', margin:'0 0 1px', fontFamily:'Poppins,sans-serif' }}>
+                  <p style={{ fontSize:13, fontWeight:800, color:'#1a1a1a', margin:'0 0 1px', fontFamily:'Poppins,sans-serif' }}>
                     Added {log.category}
                     {log.note ? <span style={{ fontWeight:500, color:'#6b7280' }}> · {log.note}</span> : ''}
                   </p>
