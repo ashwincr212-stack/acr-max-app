@@ -94,7 +94,7 @@ function EntryCard({ entry, onSettle, onDelete, onEdit }) {
   return (
     <div style={{
       borderRadius: 18,
-      background: 'linear-gradient(145deg, #f5f5f5, #e0e0e0)',
+      background: 'linear-gradient(135deg, #f8f8f8 0%, #e2e2e2 40%, #f0f0f0 100%)',
       boxShadow: isUrgent
         ? '6px 6px 14px rgba(220,38,38,0.15), -3px -3px 8px rgba(255,255,255,0.9), inset 0 1px 0 rgba(255,255,255,0.7)'
         : '6px 6px 14px rgba(0,0,0,0.1), -3px -3px 8px rgba(255,255,255,0.9), inset 0 1px 0 rgba(255,255,255,0.7)',
@@ -124,7 +124,7 @@ function EntryCard({ entry, onSettle, onDelete, onEdit }) {
           </p>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <p style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 16, color: entry.settled ? '#16a34a' : accent, margin: 0 }}>{fmt(entry.amount)}</p>
+          <p style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 16, color: entry.settled ? '#16a34a' : '#b8860b', margin: 0 }}>{fmt(entry.amount)}</p>
           <p style={{ fontSize: 10, color: '#9ca3af', margin: '2px 0 0', fontFamily: 'Poppins,sans-serif' }}>{expanded ? '▲ less' : '▼ more'}</p>
         </div>
       </div>
@@ -409,14 +409,15 @@ export default function Ledger({ currentUser }) {
         ].map((s,i) => (
           <div key={i} style={{
             padding:'14px 10px',
-            background:'linear-gradient(145deg,#ffffff,#e8e8e8)',
-            border:'1.5px solid rgba(255,255,255,0.9)',
+            background:'linear-gradient(145deg,#f8f8f8,#d8d8d8)',
+            border:'1.5px solid rgba(255,255,255,0.95)',
             borderTop:`3px solid ${s.accent}`,
             borderRadius:16, textAlign:'center',
-            boxShadow:'5px 5px 12px rgba(0,0,0,0.08),-3px -3px 8px rgba(255,255,255,0.95),inset 0 1px 0 rgba(255,255,255,0.9)',
+            boxShadow:'5px 5px 14px rgba(0,0,0,0.1),-3px -3px 8px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.95)',
+            backgroundImage:'linear-gradient(135deg,rgba(255,255,255,0.5) 0%,transparent 50%,rgba(0,0,0,0.03) 100%)',
           }}>
             <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 6px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
-            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:16, color:s.color, margin:0 }}>{s.value}</p>
+            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:16, color:'#b8860b', margin:0 }}>{s.value}</p>
           </div>
         ))}
       </div>

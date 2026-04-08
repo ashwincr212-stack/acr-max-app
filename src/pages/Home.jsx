@@ -38,13 +38,13 @@ function NeuCard({ children, style = {}, accent, onClick }) {
       onTouchStart={() => setPressed(true)}
       onTouchEnd={() => setPressed(false)}
       style={{
-        background: 'linear-gradient(145deg,#ffffff,#f0f0f0)',
+        background: 'linear-gradient(135deg,#fafafa 0%,#e4e4e4 50%,#f0f0f0 100%)',
         borderRadius: 20,
         border: accent ? `1px solid ${accent}20` : '1px solid rgba(255,255,255,0.9)',
         boxShadow: pressed
           ? 'inset 2px 2px 6px rgba(0,0,0,0.1), inset -1px -1px 4px rgba(255,255,255,0.8)'
           : '5px 5px 14px rgba(0,0,0,0.08), -3px -3px 8px rgba(255,255,255,0.9), inset 0 1px 0 rgba(255,255,255,0.8)',
-        padding: 18, marginBottom: 14,
+        padding: 14, marginBottom: 10,
         transition: 'box-shadow 0.15s',
         cursor: onClick ? 'pointer' : 'default',
         ...style,
@@ -57,7 +57,7 @@ function NeuCard({ children, style = {}, accent, onClick }) {
 /* ── Section header ── */
 function SectionHeader({ title, right, accent = '#7c3aed' }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <div style={{ width:3, height:16, borderRadius:2, background:`linear-gradient(to bottom,${accent},${accent}50)` }} />
         <p style={{ fontSize:12, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.12em', margin:0, fontFamily:'Poppins,sans-serif' }}>{title}</p>
@@ -192,13 +192,13 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       .act-row:hover { background:linear-gradient(145deg,#f9f9f9,#f0f0f0) !important; }
     `}</style>
 
-    <div className="home-root" style={{ maxWidth:520, margin:'0 auto', paddingBottom:32, background:'transparent', minHeight:'100vh' }}>
+    <div className="home-root" style={{ maxWidth:520, margin:'0 auto', paddingBottom:16, background:'transparent', minHeight:'100vh' }}>
 
       {/* ══════════════════════════════════
           1. TOP HEADER
       ══════════════════════════════════ */}
-      <div style={{ padding:'16px 18px 0', animation:'fadeIn 0.4s ease-out both' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+      <div style={{ padding:'10px 14px 0', animation:'fadeIn 0.4s ease-out both' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
           {/* Logo + brand */}
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <div style={{ position:'relative' }}>
@@ -220,14 +220,14 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
       </div>
 
-      <div style={{ padding:'0 18px' }}>
+      <div style={{ padding:'0 14px' }}>
 
       {/* ══════════════════════════════════
           2. WELCOME + DASHBOARD CARD
       ══════════════════════════════════ */}
       <div style={{
-        borderRadius:22, marginBottom:14, overflow:'hidden',
-        background:'linear-gradient(145deg,#ffffff,#e8e8e8)',
+        borderRadius:20, marginBottom:10, overflow:'hidden',
+        background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 45%,#f2f2f2 100%)',
         border:'1.5px solid rgba(255,255,255,0.95)',
         boxShadow:'6px 6px 18px rgba(0,0,0,0.09),-4px -4px 12px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.9)',
         animation:'slideUp 0.4s ease-out 0.05s both',
@@ -235,13 +235,13 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       }}>
         {/* Accent top stripe in theme color */}
         <div style={{ height:4, background:`linear-gradient(90deg,transparent,${themeAccent},${themeAccent}80,transparent)` }} />
-        <div style={{ padding:'18px 20px 20px', position:'relative' }}>
+        <div style={{ padding:'14px 16px 16px', position:'relative' }}>
           {/* Decorative silver orbs */}
           <div style={{ position:'absolute', top:-10, right:-10, width:100, height:100, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.8),transparent 65%)', pointerEvents:'none' }} />
 
           {/* Welcome + name */}
           <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
-          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:24, color:'#1a1a1a', margin:'0 0 12px', lineHeight:1.1 }}>{displayName} 👋</p>
+          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#1a1a1a', margin:'0 0 10px', lineHeight:1.1 }}>{displayName} 👋</p>
 
           {/* Key insight badges */}
           <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:14 }}>
@@ -270,7 +270,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                 {i>0 && <div key={`d${i}`} style={{ background:'rgba(0,0,0,0.06)' }} />}
                 <div key={i} style={{ padding:'11px 6px', textAlign:'center' }}>
                   <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
-                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#1a1a1a', margin:0, lineHeight:1 }}>
+                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#b8860b', margin:0, lineHeight:1 }}>
                     {s.fmt ? <CountUp value={s.value} /> : s.value}
                   </p>
                   {s.entries !== null && <p style={{ fontSize:9, color:'#6b7280', margin:'3px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} entries</p>}
@@ -290,9 +290,9 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           3. SMART WIDGETS ROW
       ══════════════════════════════════ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14, animation:'slideUp 0.4s ease-out 0.1s both' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10, animation:'slideUp 0.4s ease-out 0.1s both' }}>
         {/* Weekly Progress */}
-        <div style={{ padding:'14px', background:'linear-gradient(145deg,#ffffff,#f0f0f0)', borderRadius:18, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'4px 4px 12px rgba(0,0,0,0.08),-3px -3px 8px rgba(255,255,255,0.9)' }}>
+        <div style={{ padding:'14px', background:'linear-gradient(135deg,#fafafa,#e0e0e0,#f0f0f0)', borderRadius:18, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'4px 4px 12px rgba(0,0,0,0.08),-3px -3px 8px rgba(255,255,255,0.9)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10 }}>
             <span style={{ fontSize:16 }}>📊</span>
             <p style={{ fontSize:10, fontWeight:700, color:'#374151', margin:0, fontFamily:'Poppins,sans-serif' }}>Weekly Goal</p>
@@ -307,7 +307,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             <span style={{ fontSize:20 }}>🔥</span>
             <p style={{ fontSize:10, fontWeight:700, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif' }}>Streak</p>
           </div>
-          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:28, color:'#1a1a1a', margin:'0 0 2px' }}>{daysActive}</p>
+          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:28, color:'#b8860b', margin:'0 0 2px' }}>{daysActive}</p>
           <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600 }}>days active</p>
         </div>
       </div>
@@ -366,7 +366,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                     {log.time} · {new Date(log.id).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}
                   </p>
                 </div>
-                <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:catColor(log.category), margin:0, flexShrink:0 }}>₹{log.amount.toLocaleString('en-IN')}</p>
+                <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:'#b8860b', margin:0, flexShrink:0 }}>₹{log.amount.toLocaleString('en-IN')}</p>
               </div>
             ))}
           </div>

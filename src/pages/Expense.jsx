@@ -54,7 +54,7 @@ function CountUp({ value, prefix='₹', duration=900 }) {
 function NeuCard({ children, style={}, accent, pressed }) {
   return (
     <div style={{
-      background:'linear-gradient(145deg,#ffffff,#f0f0f0)',
+      background:'linear-gradient(135deg,#fafafa 0%,#e4e4e4 50%,#f0f0f0 100%)',
       borderRadius:20, border: accent?`1px solid ${accent}20`:'1px solid rgba(255,255,255,0.9)',
       boxShadow: pressed
         ? 'inset 2px 2px 6px rgba(0,0,0,0.1),inset -1px -1px 4px rgba(255,255,255,0.8)'
@@ -108,7 +108,7 @@ function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, 
     : '✅ Spending looks on track'
 
   return (
-    <div style={{ borderRadius:22, padding:'20px', marginBottom:14, background:'linear-gradient(145deg,#ffffff,#e8e8e8)', border:'1.5px solid rgba(255,255,255,0.9)', boxShadow:'6px 6px 18px rgba(0,0,0,0.09),-4px -4px 12px rgba(255,255,255,0.95),inset 0 1px 0 rgba(255,255,255,0.9)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
+    <div style={{ borderRadius:22, padding:'20px', marginBottom:14, background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 40%,#f2f2f2 100%)', border:'1.5px solid rgba(255,255,255,0.95)', boxShadow:'7px 7px 18px rgba(0,0,0,0.1),-4px -4px 12px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.95)', backgroundImage:'linear-gradient(135deg,rgba(255,255,255,0.6) 0%,transparent 45%,rgba(0,0,0,0.02) 100%)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
       {/* Decorative silver orb */}
       <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.7),transparent 65%)', pointerEvents:'none' }} />
       <div style={{ position:'absolute', bottom:-20, left:-10, width:80, height:80, borderRadius:'50%', background:'radial-gradient(circle,rgba(220,220,220,0.5),transparent 65%)', pointerEvents:'none' }} />
@@ -117,12 +117,12 @@ function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
         <div>
           <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Total Spent</p>
-          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:30, color:'#1a1a1a', margin:0, lineHeight:1 }}><CountUp value={overallTotal} /></p>
+          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:30, color:'#b8860b', margin:0, lineHeight:1 }}><CountUp value={overallTotal} /></p>
           <p style={{ fontSize:11, color:'#6b7280', margin:'5px 0 0', fontFamily:'Poppins,sans-serif' }}>{logs.length} entries total</p>
         </div>
         <div style={{ textAlign:'right' }}>
           <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Today</p>
-          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color: todayTotal>0?'#dc2626':'#16a34a', margin:0 }}>{fmt(todayTotal)}</p>
+          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color: todayTotal>0?'#d97706':'#16a34a', margin:0 }}>{fmt(todayTotal)}</p>
         </div>
       </div>
 
@@ -570,7 +570,7 @@ export default function Expense(props) {
                         {log.time} · {new Date(log.id).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}
                       </p>
                     </div>
-                    <p style={{ fontWeight:800, fontSize:14, color:CAT_COLORS[log.category]||'#7c3aed', margin:0, flexShrink:0 }}>{fmt(log.amount)}</p>
+                    <p style={{ fontWeight:800, fontSize:14, color:'#b8860b', margin:0, flexShrink:0 }}>{fmt(log.amount)}</p>
                     <button onClick={()=>handleDelete(log.id)} style={{ background:'transparent', border:'none', color:'#d1d5db', fontSize:14, cursor:'pointer', borderRadius:6, padding:'4px 5px', transition:'all 0.2s' }} onMouseEnter={e=>{e.target.style.color='#dc2626';e.target.style.background='#fee2e2'}} onMouseLeave={e=>{e.target.style.color='#d1d5db';e.target.style.background='transparent'}}>🗑</button>
                   </div>
                 ))}
@@ -629,7 +629,7 @@ export default function Expense(props) {
                       <td style={{ padding:'10px 8px', fontWeight:700, color:'#1a1a1a', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)', borderRadius:'8px 0 0 8px', borderLeft:`3px solid ${row.color}` }}>
                         <span style={{ display:'flex', alignItems:'center', gap:8 }}><span style={{ fontSize:16 }}>{CAT_ICONS[row.name]||'💸'}</span>{row.name}</span>
                       </td>
-                      <td style={{ padding:'10px 8px', textAlign:'right', fontWeight:800, color:over?'#dc2626':'#1a1a1a', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)' }}>{fmt(row.total)}</td>
+                      <td style={{ padding:'10px 8px', textAlign:'right', fontWeight:800, color:over?'#dc2626':'#b8860b', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)' }}>{fmt(row.total)}</td>
                       <td style={{ padding:'10px 8px', textAlign:'right', color:'#6b7280', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)' }}>{budgets[row.name]?fmt(budgets[row.name]):'—'}</td>
                       <td style={{ padding:'10px 8px', textAlign:'right', color:'#6b7280', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)' }}>{count}</td>
                       <td style={{ padding:'10px 8px', textAlign:'right', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)', borderRadius:'0 8px 8px 0' }}>
@@ -641,7 +641,7 @@ export default function Expense(props) {
               </tbody>
               <tfoot><tr>
                 <td style={{ paddingTop:14, fontWeight:800, color:'#1a1a1a', fontFamily:'Syne,sans-serif' }}>Total</td>
-                <td style={{ paddingTop:14, textAlign:'right', fontWeight:800, fontSize:15, color:'#7c3aed', fontFamily:'Syne,sans-serif' }}>{fmt(overallTotal)}</td>
+                <td style={{ paddingTop:14, textAlign:'right', fontWeight:800, fontSize:15, color:'#b8860b', fontFamily:'Syne,sans-serif' }}>{fmt(overallTotal)}</td>
                 <td colSpan={3} />
               </tr></tfoot>
             </table>
