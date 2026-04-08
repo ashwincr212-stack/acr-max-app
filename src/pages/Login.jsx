@@ -64,7 +64,7 @@ const iSt = (f, e) => ({
   background: f ? 'rgba(212,175,55,0.06)' : 'rgba(255,255,255,0.04)',
   border: f ? '1px solid rgba(212,175,55,0.65)' : e ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.1)',
   borderRadius:12, color:'#fff', fontSize:14,
-  fontFamily:'DM Sans,sans-serif', fontWeight:500, outline:'none',
+  fontFamily:'Poppins,sans-serif', fontWeight:500, outline:'none',
   transition:'all 0.3s', boxShadow: f ? '0 0 0 3px rgba(212,175,55,0.1)' : 'none',
 })
 const Lbl = ({ t }) => <label style={{ display:'block', fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.38)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:6 }}>{t}</label>
@@ -95,27 +95,29 @@ function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
 
   return (
     <div style={{ animation:'fadeInUp 0.5s ease-out both' }}>
-      <div style={{ textAlign:'center', marginBottom:26 }}>
-        <div style={{ position:'relative', display:'inline-block', marginBottom:12 }}>
-          <div style={{ position:'absolute', inset:-10, borderRadius:'50%', border:'1px solid rgba(212,175,55,0.35)', animation:'orbitGold 9s linear infinite', pointerEvents:'none' }}>
-            <div style={{ position:'absolute', top:-4, left:'50%', transform:'translateX(-50%)', width:7, height:7, borderRadius:'50%', background:'#d4af37', boxShadow:'0 0 10px #d4af37' }} />
-          </div>
-          <img src="/logo.jpg" alt="ACR MAX" style={{ width:80, height:80, borderRadius:'50%', objectFit:'cover', border:'2px solid rgba(212,175,55,0.45)', boxShadow:'0 0 24px rgba(212,175,55,0.28)', display:'block', animation:'logoFloat 5s ease-in-out infinite' }} />
+      {/* ── BIG APP LOGO + NAME — clear, prominent ── */}
+      <div style={{ textAlign:'center', marginBottom:24 }}>
+        {/* Logo image — large, clear */}
+        <div style={{ display:'inline-block', marginBottom:14 }}>
+          <img src="/logo.jpg" alt="ACR MAX" style={{ width:100, height:100, borderRadius:'50%', objectFit:'cover', border:'3px solid rgba(212,175,55,0.6)', boxShadow:'0 0 0 6px rgba(212,175,55,0.12), 0 12px 40px rgba(0,0,0,0.4)', display:'block' }} />
         </div>
-        <h1 style={{ fontFamily:'Cinzel,sans-serif', fontWeight:700, fontSize:22, letterSpacing:'0.14em', margin:'0 0 4px', background:'linear-gradient(135deg,#c0c0c0 20%,#d4af37 50%,#f4d03f 70%,#b8860b)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>ACR MAX</h1>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7, marginBottom:8 }}>
-          <div style={{ height:1, width:24, background:'linear-gradient(90deg,transparent,#d4af37)' }} />
-          <p style={{ fontSize:9, fontWeight:700, color:'rgba(212,175,55,0.7)', letterSpacing:'0.22em', textTransform:'uppercase', margin:0 }}>Maximizing Lifes</p>
-          <div style={{ height:1, width:24, background:'linear-gradient(90deg,#d4af37,transparent)' }} />
+        {/* App name */}
+        <h1 style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:28, letterSpacing:'0.06em', margin:'0 0 4px', background:'linear-gradient(135deg,#e8e8e8 20%,#d4af37 50%,#f4d03f 70%,#c9922a)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>ACR MAX</h1>
+        {/* Tagline */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:10 }}>
+          <div style={{ height:1, width:28, background:'linear-gradient(90deg,transparent,rgba(212,175,55,0.5))' }} />
+          <p style={{ fontSize:10, fontWeight:700, color:'rgba(212,175,55,0.8)', letterSpacing:'0.2em', textTransform:'uppercase', margin:0 }}>Maximizing Lifes</p>
+          <div style={{ height:1, width:28, background:'linear-gradient(90deg,rgba(212,175,55,0.5),transparent)' }} />
         </div>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:5, background:'rgba(212,175,55,0.1)', border:'1px solid rgba(212,175,55,0.3)', borderRadius:20, padding:'3px 12px' }}>
-          <div style={{ width:5, height:5, borderRadius:'50%', background:'#d4af37', boxShadow:'0 0 6px #d4af37' }} />
-          <span style={{ fontSize:9, fontWeight:800, color:'#d4af37', letterSpacing:'0.15em' }}>BETA 1.0</span>
+        {/* Beta badge */}
+        <div style={{ display:'inline-flex', alignItems:'center', gap:5, background:'rgba(212,175,55,0.1)', border:'1px solid rgba(212,175,55,0.35)', borderRadius:20, padding:'4px 14px' }}>
+          <div style={{ width:5, height:5, borderRadius:'50%', background:'#d4af37' }} />
+          <span style={{ fontSize:9, fontWeight:800, color:'#d4af37', letterSpacing:'0.15em' }}>BETA 1.0 · TEST 1</span>
         </div>
       </div>
 
-      <p style={{ fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:16, color:'#fff', marginBottom:3 }}>Welcome back</p>
-      <p style={{ fontSize:12, color:'rgba(255,255,255,0.32)', marginBottom:20 }}>Sign in with your authorized credentials</p>
+      <p style={{ fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:15, color:'#fff', marginBottom:3 }}>Welcome back</p>
+      <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', marginBottom:20 }}>Sign in with your authorized credentials</p>
 
       <div style={{ marginBottom:12 }}>
         <Lbl t="Username" />
@@ -133,7 +135,7 @@ function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
           <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:14, color:'rgba(255,255,255,0.28)' }}>{showPass?'🙈':'👁'}</button>
         </div>
         <div style={{ textAlign:'right', marginTop:5 }}>
-          <button onClick={onGoForgot} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.55)', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}>Forgot password?</button>
+          <button onClick={onGoForgot} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.55)', fontFamily:'Poppins,sans-serif', fontWeight:600 }}>Forgot password?</button>
         </div>
       </div>
 
@@ -145,7 +147,7 @@ function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
       </button>
       <div style={{ textAlign:'center' }}>
         <span style={{ fontSize:12, color:'rgba(255,255,255,0.3)' }}>New here? </span>
-        <button onClick={onGoSignup} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d4af37', fontWeight:700, fontFamily:'DM Sans,sans-serif', textDecoration:'underline' }}>Create Account</button>
+        <button onClick={onGoSignup} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d4af37', fontWeight:700, fontFamily:'Poppins,sans-serif', textDecoration:'underline' }}>Create Account</button>
       </div>
     </div>
   )
@@ -161,6 +163,7 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [step, setStep] = useState(1)
+  const [agreedBeta, setAgreedBeta] = useState(false)
   const s = (k, v) => setForm(x => ({...x, [k]:v}))
 
   const v1 = () => {
@@ -203,9 +206,14 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
   return (
     <div style={{ animation:'fadeInUp 0.5s ease-out both' }}>
       <div style={{ textAlign:'center', marginBottom:18 }}>
-        <img src="/logo.jpg" alt="" style={{ width:48, height:48, borderRadius:'50%', objectFit:'cover', border:'2px solid rgba(212,175,55,0.4)', boxShadow:'0 0 16px rgba(212,175,55,0.25)', display:'block', margin:'0 auto 8px' }} />
-        <h1 style={{ fontFamily:'Cinzel,sans-serif', fontWeight:700, fontSize:17, letterSpacing:'0.12em', margin:'0 0 2px', background:'linear-gradient(135deg,#c0c0c0,#d4af37,#f4d03f)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Create Account</h1>
-        <p style={{ fontSize:10, color:'rgba(255,255,255,0.28)', margin:0 }}>Syncs across all devices via cloud</p>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, marginBottom:4 }}>
+          <img src="/logo.jpg" alt="ACR MAX" style={{ width:56, height:56, borderRadius:'50%', objectFit:'cover', border:'2.5px solid rgba(212,175,55,0.55)', boxShadow:'0 0 0 4px rgba(212,175,55,0.1), 0 8px 24px rgba(0,0,0,0.35)', display:'block', flexShrink:0 }} />
+          <div style={{ textAlign:'left' }}>
+            <h1 style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:20, letterSpacing:'0.06em', margin:'0 0 2px', background:'linear-gradient(135deg,#e0e0e0,#d4af37,#f4d03f)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>ACR MAX</h1>
+            <p style={{ fontSize:11, fontWeight:700, color:'#d4af37', margin:'0 0 2px', letterSpacing:'0.08em' }}>Create Account</p>
+            <p style={{ fontSize:9, color:'rgba(255,255,255,0.4)', margin:0 }}>Syncs across all your devices</p>
+          </div>
+        </div>
       </div>
 
       <div style={{ display:'flex', alignItems:'center', marginBottom:20 }}>
@@ -244,7 +252,7 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
             {errors.confirm && <p style={{ fontSize:10, color:'#f87171', marginTop:3 }}>{errors.confirm}</p>}
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={()=>setStep(1)} style={{ flex:1, padding:'12px', borderRadius:12, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', fontWeight:700, cursor:'pointer', fontSize:13, fontFamily:'DM Sans,sans-serif' }}>← Back</button>
+            <button onClick={()=>setStep(1)} style={{ flex:1, padding:'12px', borderRadius:12, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', fontWeight:700, cursor:'pointer', fontSize:13, fontFamily:'Poppins,sans-serif' }}>← Back</button>
             <button onClick={next} disabled={loading} className="login-btn" style={{ flex:2, padding:'12px', border:'none', borderRadius:12, fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:13, color:'#0a0c14', cursor:'pointer' }}>{loading?'Checking…':'Continue →'}</button>
           </div>
         </div>
@@ -259,10 +267,30 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
           <div style={{ marginBottom:10 }}><Lbl t="Security Question" /><select value={form.hint_q} onChange={e=>s('hint_q',e.target.value)} style={{ ...iSt(false,false), cursor:'pointer' }}>{HINT_QUESTIONS.map(q=><option key={q} value={q} style={{ background:'#0d0b2e' }}>{q}</option>)}</select></div>
           <div style={{ marginBottom:16 }}><Lbl t="Your Answer" /><input value={form.hint_a} onChange={e=>s('hint_a',e.target.value)} placeholder="Case-insensitive" style={iSt(false,errors.hint_a)} />{errors.hint_a && <p style={{ fontSize:10, color:'#f87171', marginTop:3 }}>{errors.hint_a}</p>}</div>
           {success && <div style={{ background:'rgba(52,211,153,0.09)', border:'1px solid rgba(52,211,153,0.28)', borderRadius:10, padding:'9px 13px', marginBottom:12, display:'flex', alignItems:'center', gap:8 }}><span>✅</span><p style={{ fontSize:12, color:'#6ee7b7', fontWeight:600, margin:0 }}>Account created!</p></div>}
+          {/* ── BETA AGREEMENT — must acknowledge ── */}
+          {!success && (
+            <div style={{ background:'rgba(212,175,55,0.06)', border:'1px solid rgba(212,175,55,0.2)', borderRadius:12, padding:'12px 14px', marginBottom:14 }}>
+              <p style={{ fontSize:10, fontWeight:700, color:'rgba(212,175,55,0.9)', margin:'0 0 8px', letterSpacing:'0.08em', textTransform:'uppercase' }}>📋 Beta Agreement</p>
+              <p style={{ fontSize:11, color:'rgba(255,255,255,0.55)', lineHeight:1.65, margin:'0 0 10px' }}>
+                ACR MAX is currently in <strong style={{ color:'#d4af37' }}>Beta Test 1</strong>. By creating an account you acknowledge that:<br />
+                • This is a test version and may have bugs or limited features<br />
+                • Your data is stored securely on Google Firebase<br />
+                • All intellectual property belongs to <strong style={{ color:'#d4af37' }}>Aswin C R</strong><br />
+                • You agree to report issues and not misuse the platform
+              </p>
+              <label style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer' }}>
+                <input type="checkbox" checked={agreedBeta} onChange={e=>setAgreedBeta(e.target.checked)} style={{ width:16, height:16, marginTop:1, accentColor:'#d4af37', flexShrink:0, cursor:'pointer' }} />
+                <span style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,0.75)', lineHeight:1.5 }}>
+                  I have read and agree to the Beta Test Agreement and <strong style={{ color:'#d4af37' }}>Terms of Service</strong>
+                </span>
+              </label>
+            </div>
+          )}
+
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={()=>setStep(2)} style={{ flex:1, padding:'12px', borderRadius:12, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', fontWeight:700, cursor:'pointer', fontSize:13, fontFamily:'DM Sans,sans-serif' }}>← Back</button>
-            <button onClick={submit} disabled={loading||success} className="login-btn" style={{ flex:2, padding:'12px', border:'none', borderRadius:12, fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:13, color:'#0a0c14', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
-              {loading?<><div style={{ width:15, height:15, border:'2px solid rgba(0,0,0,0.2)', borderTop:'2px solid #0a0c14', borderRadius:'50%', animation:'spinLoad 0.7s linear infinite' }} />Creating…</>:success?'✓ Done!':'🚀 Create Account'}
+            <button onClick={()=>setStep(2)} style={{ flex:1, padding:'12px', borderRadius:12, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', fontWeight:700, cursor:'pointer', fontSize:13, fontFamily:'Poppins,sans-serif' }}>← Back</button>
+            <button onClick={submit} disabled={loading||success||!agreedBeta} className="login-btn" style={{ flex:2, padding:'12px', border:'none', borderRadius:12, fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:13, color:'#0a0c14', cursor: (!agreedBeta||loading||success)?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7, opacity:(!agreedBeta&&!loading&&!success)?0.5:1 }}>
+              {loading?<><div style={{ width:15, height:15, border:'2px solid rgba(0,0,0,0.2)', borderTop:'2px solid #0a0c14', borderRadius:'50%', animation:'spinLoad 0.7s linear infinite' }} />Creating Account…</>:success?'✓ Account Created!':'Create Account'}
             </button>
           </div>
         </div>
@@ -270,7 +298,7 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
 
       <div style={{ textAlign:'center', marginTop:12 }}>
         <span style={{ fontSize:11, color:'rgba(255,255,255,0.28)' }}>Have an account? </span>
-        <button onClick={onGoLogin} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#d4af37', fontWeight:700, fontFamily:'DM Sans,sans-serif', textDecoration:'underline' }}>Sign In</button>
+        <button onClick={onGoLogin} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#d4af37', fontWeight:700, fontFamily:'Poppins,sans-serif', textDecoration:'underline' }}>Sign In</button>
       </div>
     </div>
   )
@@ -354,7 +382,7 @@ function ForgotForm({ onGoLogin }) {
         </div>
       )}
       <div style={{ textAlign:'center', marginTop:10 }}>
-        <button onClick={onGoLogin} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.55)', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}>← Back to Sign In</button>
+        <button onClick={onGoLogin} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.55)', fontFamily:'Poppins,sans-serif', fontWeight:600 }}>← Back to Sign In</button>
       </div>
     </div>
   )
@@ -395,7 +423,7 @@ function DisclaimerModal({ onClose }) {
           </div>
         </div>
         <div style={{ padding:'10px 20px', borderTop:'1px solid rgba(255,255,255,0.05)', flexShrink:0, display:'flex', gap:8 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'10px', borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.45)', fontWeight:700, cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:12 }}>Close</button>
+          <button onClick={onClose} style={{ flex:1, padding:'10px', borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.45)', fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif', fontSize:12 }}>Close</button>
           <button onClick={onClose} disabled={!read} className={read?'login-btn':''} style={{ flex:2, padding:'10px', borderRadius:10, border:'none', background:read?undefined:'rgba(212,175,55,0.1)', color:read?'#0a0c14':'rgba(212,175,55,0.3)', fontWeight:800, cursor:read?'pointer':'not-allowed', fontFamily:'Syne,sans-serif', fontSize:12 }}>{read?'✓ Acknowledged':'📜 Scroll first'}</button>
         </div>
       </div>
@@ -420,7 +448,7 @@ export default function Login({ onLogin }) {
   return (
     <>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;700&family=Cinzel:wght@600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Syne:wght@600;700;800&family=Cinzel:wght@600;700&display=swap');
       *{box-sizing:border-box;margin:0;padding:0;}
       html,body{height:100%;overflow:hidden;}
       @keyframes fadeInUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
@@ -433,18 +461,19 @@ export default function Login({ onLogin }) {
       @keyframes errorShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
       @keyframes gridPulse{0%,100%{opacity:0.025}50%{opacity:0.055}}
       @keyframes scanMove{0%{top:0%}100%{top:100%}}
-      @keyframes shimmerBtn{0%{background-position:-200% center}100%{background-position:200% center}}
+      
       input::placeholder{color:rgba(255,255,255,0.2)!important;}
       select option{background:#0d0b2e!important;}
-      .login-btn{background:linear-gradient(135deg,#d4af37,#f4d03f,#b8860b,#d4af37);background-size:300% 300%;animation:shimmerBtn 3s linear infinite;transition:all 0.3s;}
-      .login-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 26px rgba(212,175,55,0.45);}
-      .login-btn:active:not(:disabled){transform:scale(0.98);}
+      .login-btn{background:linear-gradient(135deg,#c9a227,#e8c230);transition:all 0.2s;border:none;}
+      .login-btn:hover:not(:disabled){background:linear-gradient(135deg,#b8911f,#d4af37);box-shadow:0 6px 20px rgba(212,175,55,0.35);}
+      .login-btn:active:not(:disabled){transform:scale(0.98);opacity:0.9;}
+      .login-btn:disabled{opacity:0.55;cursor:not-allowed;}
       ::-webkit-scrollbar{width:3px;}
       ::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.3);border-radius:3px;}
       @media(min-width:800px){.desk{display:flex!important;}.mob-prev{display:none!important;}}
     `}</style>
 
-    <div style={{ position:'fixed', inset:0, zIndex:1000, background:'radial-gradient(ellipse at 25% 25%,#0b1738 0%,#04091a 45%,#020510 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'DM Sans,sans-serif', overflow:'hidden' }}>
+    <div style={{ position:'fixed', inset:0, zIndex:1000, background:'radial-gradient(ellipse at 25% 25%,#0b1738 0%,#04091a 45%,#020510 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Poppins,sans-serif', overflow:'hidden' }}>
       <ParticleField />
       <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none', backgroundImage:'linear-gradient(rgba(212,175,55,0.032) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,0.032) 1px,transparent 1px)', backgroundSize:'55px 55px', animation:'gridPulse 7s ease-in-out infinite' }} />
       <div style={{ position:'absolute', top:'-8%', left:'-4%', width:500, height:500, borderRadius:'50%', background:'radial-gradient(circle,rgba(212,175,55,0.07),transparent 65%)', zIndex:1, pointerEvents:'none' }} />
@@ -471,11 +500,67 @@ export default function Login({ onLogin }) {
               {view==='signup' && <SignupForm  onGoLogin={()=>setView('login')} onSignupSuccess={handleSignup} />}
               {view==='forgot' && <ForgotForm  onGoLogin={()=>setView('login')} />}
               <div style={{ textAlign:'center', marginTop:12 }}>
-                <button onClick={()=>setShowDisclaimer(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'rgba(212,175,55,0.42)', fontWeight:600, textDecoration:'underline', fontFamily:'DM Sans,sans-serif' }}>📋 Beta Disclaimer &amp; Legal Notice</button>
+                <button onClick={()=>setShowDisclaimer(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'rgba(212,175,55,0.42)', fontWeight:600, textDecoration:'underline', fontFamily:'Poppins,sans-serif' }}>📋 Beta Disclaimer &amp; Legal Notice</button>
               </div>
             </div>
-            <div style={{ padding:'10px 26px', borderTop:'1px solid rgba(255,255,255,0.04)', background:'rgba(0,0,0,0.18)', textAlign:'center' }}>
-              <p style={{ fontSize:10, color:'rgba(255,255,255,0.17)', margin:0 }}>© 2026 ACR MAX · <span style={{ color:'rgba(212,175,55,0.42)', fontWeight:600 }}>Aswin CR</span></p>
+            {/* ── SECURITY CERTIFICATIONS & CREDITS ── */}
+            <div style={{ padding:'16px 16px 18px', borderTop:'1px solid rgba(255,255,255,0.06)', background:'rgba(0,0,0,0.12)' }}>
+
+              {/* Security header */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:14 }}>
+                <div style={{ height:1, flex:1, background:'rgba(212,175,55,0.15)' }} />
+                <p style={{ fontSize:9, fontWeight:800, color:'rgba(212,175,55,0.6)', textTransform:'uppercase', letterSpacing:'0.16em', margin:0, whiteSpace:'nowrap' }}>🔐 Security Certifications</p>
+                <div style={{ height:1, flex:1, background:'rgba(212,175,55,0.15)' }} />
+              </div>
+
+              {/* 3x2 badge grid */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7, marginBottom:10 }}>
+                {[
+                  { icon:'🔒', label:'SSL / TLS',  sub:'256-bit HTTPS',    color:'#34d399', bg:'rgba(52,211,153,0.07)',  border:'rgba(52,211,153,0.2)' },
+                  { icon:'🛡️', label:'AES-256',    sub:'Military Cipher',  color:'#60a5fa', bg:'rgba(96,165,250,0.07)',  border:'rgba(96,165,250,0.2)' },
+                  { icon:'🔥', label:'Firebase',   sub:'Google Cloud',     color:'#fbbf24', bg:'rgba(251,191,36,0.07)', border:'rgba(251,191,36,0.2)' },
+                  { icon:'☁️', label:'Cloud Sync', sub:'Real-time',        color:'#38bdf8', bg:'rgba(56,189,248,0.07)', border:'rgba(56,189,248,0.2)' },
+                  { icon:'🚫', label:'Zero Ads',   sub:'No Data Sold',     color:'#f87171', bg:'rgba(248,113,113,0.07)',border:'rgba(248,113,113,0.2)' },
+                  { icon:'👁️', label:'Privacy',    sub:'No Tracking',      color:'#a78bfa', bg:'rgba(167,139,250,0.07)',border:'rgba(167,139,250,0.2)' },
+                ].map((b,i) => (
+                  <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'9px 4px', background:b.bg, border:`1px solid ${b.border}`, borderRadius:10 }}>
+                    <span style={{ fontSize:18 }}>{b.icon}</span>
+                    <p style={{ fontSize:9, fontWeight:700, color:b.color, margin:0, textAlign:'center', lineHeight:1.2 }}>{b.label}</p>
+                    <p style={{ fontSize:7, color:`${b.color}70`, margin:0, textAlign:'center' }}>{b.sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Trust statement */}
+              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:10, padding:'9px 12px', marginBottom:14, border:'1px solid rgba(255,255,255,0.06)' }}>
+                <p style={{ fontSize:9, color:'rgba(255,255,255,0.4)', textAlign:'center', lineHeight:1.75, margin:0 }}>
+                  Your data is encrypted with <strong style={{ color:'rgba(255,255,255,0.7)' }}>AES-256</strong> and stored securely on <strong style={{ color:'rgba(255,255,255,0.7)' }}>Google Firebase</strong>. We never sell, share, or misuse your personal information.
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+                <div style={{ height:1, flex:1, background:'rgba(212,175,55,0.12)' }} />
+                <p style={{ fontSize:9, fontWeight:800, color:'rgba(212,175,55,0.5)', textTransform:'uppercase', letterSpacing:'0.14em', margin:0, whiteSpace:'nowrap' }}>Built By</p>
+                <div style={{ height:1, flex:1, background:'rgba(212,175,55,0.12)' }} />
+              </div>
+
+              {/* Developer credit */}
+              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', background:'rgba(212,175,55,0.06)', border:'1px solid rgba(212,175,55,0.15)', borderRadius:12, marginBottom:10 }}>
+                <div style={{ width:38, height:38, borderRadius:'50%', background:'linear-gradient(135deg,#d4af37,#b8860b)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:800, color:'#0a0c14', flexShrink:0, fontFamily:'Syne,sans-serif' }}>A</div>
+                <div>
+                  <p style={{ fontSize:8, fontWeight:700, color:'rgba(212,175,55,0.55)', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 2px' }}>Concept · Design · Development</p>
+                  <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:14, color:'#d4af37', margin:'0 0 1px' }}>Aswin C R</p>
+                  <p style={{ fontSize:9, color:'rgba(255,255,255,0.4)', margin:0 }}>Founder · Full Stack Developer · UI/UX Designer</p>
+                </div>
+              </div>
+
+              {/* Copyright */}
+              <p style={{ fontSize:8, color:'rgba(255,255,255,0.18)', textAlign:'center', lineHeight:1.7, margin:0 }}>
+                © 2026 ACR MAX. All rights reserved.<br/>
+                Unauthorized reproduction or distribution strictly prohibited.<br/>
+                All IP rights belong to <span style={{ color:'rgba(212,175,55,0.4)', fontWeight:700 }}>Aswin C R</span>.
+              </p>
             </div>
           </div>
 

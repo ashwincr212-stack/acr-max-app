@@ -1,540 +1,513 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-/* ── Starfield canvas ─────────────────────────────────────────────────────── */
-function Starfield() {
-  const canvasRef = useRef(null)
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    let raf
-    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight }
-    resize()
-    window.addEventListener('resize', resize)
-    const stars = Array.from({ length: 140 }, () => ({
-      x: Math.random(), y: Math.random(),
-      r: Math.random() * 1.6 + 0.2,
-      speed: Math.random() * 0.00015 + 0.00004,
-      opacity: Math.random() * 0.7 + 0.1,
-      tw: Math.random() * 0.022 + 0.005,
-      off: Math.random() * Math.PI * 2,
-    }))
-    let t = 0
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      t++
-      stars.forEach(s => {
-        const tw = 0.4 + 0.6 * Math.sin(t * s.tw + s.off)
-        ctx.beginPath()
-        ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(255,255,255,${s.opacity * tw})`
-        ctx.fill()
-        s.y -= s.speed
-        if (s.y < 0) { s.y = 1; s.x = Math.random() }
-      })
-      raf = requestAnimationFrame(draw)
-    }
-    draw()
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize) }
-  }, [])
-  return <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }} />
-}
-
-/* ── Click ripple effect ──────────────────────────────────────────────────── */
-function useRipple() {
-  const [ripples, setRipples] = useState([])
-  const addRipple = useCallback((e, color = '#a78bfa') => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    const id = Date.now() + Math.random()
-    setRipples(r => [...r, { id, x, y, color }])
-    setTimeout(() => setRipples(r => r.filter(rip => rip.id !== id)), 700)
-  }, [])
-  const RippleContainer = ({ color }) => (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 0 }}>
-      {ripples.map(r => (
-        <div key={r.id} style={{
-          position: 'absolute',
-          left: r.x, top: r.y,
-          width: 8, height: 8,
-          borderRadius: '50%',
-          background: r.color,
-          transform: 'translate(-50%,-50%) scale(0)',
-          opacity: 0.6,
-          animation: 'rippleOut 0.65s ease-out forwards',
-          pointerEvents: 'none',
-        }} />
-      ))}
-    </div>
-  )
-  return { addRipple, RippleContainer }
-}
-
-/* ── Floating particle ────────────────────────────────────────────────────── */
-function FloatingParticles() {
-  const particles = Array.from({ length: 12 }, (_, i) => ({
-    id: i,
-    size: 3 + Math.random() * 5,
-    left: `${5 + Math.random() * 90}%`,
-    delay: Math.random() * 8,
-    duration: 8 + Math.random() * 12,
-    color: ['#a78bfa','#34d399','#f472b6','#60a5fa','#fbbf24'][i % 5],
-  }))
-  return (
-    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1, overflow: 'hidden' }}>
-      {particles.map(p => (
-        <div key={p.id} style={{
-          position: 'absolute',
-          bottom: '-10px',
-          left: p.left,
-          width: p.size,
-          height: p.size,
-          borderRadius: '50%',
-          background: p.color,
-          opacity: 0.35,
-          boxShadow: `0 0 8px ${p.color}`,
-          animation: `particleRise ${p.duration}s ease-in-out ${p.delay}s infinite`,
-        }} />
-      ))}
-    </div>
-  )
-}
-
-/* ── Animated greeting ────────────────────────────────────────────────────── */
+/* ── Greeting ── */
 function useGreeting() {
   const h = new Date().getHours()
-  if (h < 5)  return { text: 'Good Night', emoji: '🌙' }
-  if (h < 12) return { text: 'Good Morning', emoji: '🌅' }
-  if (h < 17) return { text: 'Good Afternoon', emoji: '☀️' }
-  if (h < 21) return { text: 'Good Evening', emoji: '🌆' }
-  return { text: 'Good Night', emoji: '🌙' }
+  if (h < 5)  return { text:'Good Night',    emoji:'🌙' }
+  if (h < 12) return { text:'Good Morning',  emoji:'🌅' }
+  if (h < 17) return { text:'Good Afternoon',emoji:'☀️' }
+  if (h < 21) return { text:'Good Evening',  emoji:'🌆' }
+  return       { text:'Good Night',          emoji:'🌙' }
 }
 
-/* ── Live clock ───────────────────────────────────────────────────────────── */
-function LiveClock() {
-  const [time, setTime] = useState(new Date())
+/* ── Animated counter ── */
+function CountUp({ value, prefix = '₹', duration = 1000 }) {
+  const [disp, setDisp] = useState(0)
+  const raf = useRef(null)
   useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <p style={{ fontFamily: 'Share Tech Mono,monospace', fontSize: 38, fontWeight: 700, color: '#fff', margin: 0, letterSpacing: '0.05em', textShadow: '0 0 30px rgba(167,139,250,0.5)' }}>
-        {time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
-      </p>
-      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', margin: '4px 0 0', fontWeight: 500 }}>
-        {time.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-      </p>
-    </div>
-  )
+    const end = Number(value); const t0 = performance.now()
+    const step = (now) => {
+      const p = Math.min((now - t0) / duration, 1)
+      const e = 1 - Math.pow(1 - p, 3)
+      setDisp(Math.round(end * e))
+      if (p < 1) raf.current = requestAnimationFrame(step)
+    }
+    raf.current = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf.current)
+  }, [value])
+  return <span>{prefix}{disp.toLocaleString('en-IN')}</span>
 }
 
-/* ── Nav card config ──────────────────────────────────────────────────────── */
-const NAV_CARDS = [
-  {
-    id: 'expense', icon: '💰', label: 'Expense Tracker',
-    sub: 'Track & analyze spending',
-    grad: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
-    glow: 'rgba(124,58,237,0.5)',
-    accent: '#a78bfa',
-    pattern: '₹ $ ₹ $ ₹',
-    size: 'large',
-  },
-  {
-    id: 'ledger', icon: '🤝', label: 'Smart Ledger',
-    sub: 'Track money & reminders',
-    grad: 'linear-gradient(135deg,#0c4a6e,#075985,#0369a1)',
-    glow: 'rgba(14,165,233,0.5)',
-    accent: '#38bdf8',
-    pattern: '₹ 🤝 ₹ 🤝',
-    size: 'normal',
-  },
-  {
-    id: 'astro', icon: '✨', label: 'Astro Insights',
-    sub: 'Daily cosmic readings',
-    grad: 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)',
-    glow: 'rgba(167,139,250,0.45)',
-    accent: '#c4b5fd',
-    pattern: '♈ ♊ ♋ ♌ ♍',
-    size: 'normal',
-  },
-  {
-    id: 'cricket', icon: '🏏', label: 'Cricket World',
-    sub: 'Live IPL scores',
-    grad: 'linear-gradient(135deg,#064e3b,#065f46)',
-    glow: 'rgba(52,211,153,0.45)',
-    accent: '#34d399',
-    pattern: '🏏 ⚡ 🏏 ⚡',
-    size: 'normal',
-  },
-  {
-    id: 'space', icon: '🚀', label: 'Space World',
-    sub: 'Live ISS · NASA APOD',
-    grad: 'linear-gradient(135deg,#030712,#0c1445,#0e1a6e)',
-    glow: 'rgba(96,165,250,0.45)',
-    accent: '#60a5fa',
-    pattern: '🌍 🛸 🌍 🛸',
-    size: 'normal',
-  },
-  {
-    id: 'market', icon: '📈', label: 'Market Pulse',
-    sub: 'Stocks & finance',
-    grad: 'linear-gradient(135deg,#14532d,#166534)',
-    glow: 'rgba(34,197,94,0.45)',
-    accent: '#86efac',
-    pattern: '↑ ↓ ↑ ↑ ↓',
-    size: 'normal',
-  },
-  {
-    id: 'profile', icon: '👤', label: 'My Profile',
-    sub: 'Settings & themes',
-    grad: 'linear-gradient(135deg,#1e1b4b,#312e81)',
-    glow: 'rgba(167,139,250,0.4)',
-    accent: '#a78bfa',
-    pattern: '⚙ ✦ ⚙ ✦',
-    size: 'normal',
-  },
-  {
-    id: 'chat', icon: '🤖', label: 'AI Quick Chat',
-    sub: 'Personal assistant',
-    grad: 'linear-gradient(135deg,#1c1917,#292524)',
-    glow: 'rgba(251,191,36,0.4)',
-    accent: '#fbbf24',
-    pattern: '💬 ✦ 💬 ✦',
-    size: 'normal',
-  },
-]
-
-/* ── Individual nav card ──────────────────────────────────────────────────── */
-function NavCard({ card, onClick, index }) {
-  const [hovered, setHovered] = useState(false)
+/* ── Neumorphic card wrapper ── */
+function NeuCard({ children, style = {}, accent, onClick }) {
   const [pressed, setPressed] = useState(false)
-  const [ripples, setRipples] = useState([])
-  const isLarge = card.size === 'large'
-
-  const handleClick = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    const id = Date.now()
-    setPressed(true)
-    setRipples(r => [...r, { id, x, y }])
-    setTimeout(() => setPressed(false), 200)
-    setTimeout(() => setRipples(r => r.filter(rip => rip.id !== id)), 700)
-    setTimeout(() => onClick(card.id), 120)
-  }
-
   return (
-    <button
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={handleClick}
+    <div onClick={onClick}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onTouchStart={() => setPressed(true)}
+      onTouchEnd={() => setPressed(false)}
       style={{
-        position: 'relative', overflow: 'hidden',
-        borderRadius: 22, padding: isLarge ? '28px 24px' : '22px 20px',
-        background: card.grad,
-        border: `1px solid ${card.accent}25`,
-        boxShadow: hovered
-          ? `0 20px 50px ${card.glow}, 0 0 0 1px ${card.accent}30`
-          : `0 8px 28px rgba(0,0,0,0.35)`,
-        transform: pressed ? 'scale(0.96)' : hovered ? 'translateY(-5px) scale(1.01)' : 'translateY(0) scale(1)',
-        transition: 'transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s ease',
-        cursor: 'pointer', textAlign: 'left',
-        animation: `slideUp 0.5s ease-out ${index * 60}ms both`,
-        gridColumn: isLarge ? 'span 2' : 'span 1',
-      }}
-    >
-      {/* ripples */}
-      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 22, pointerEvents: 'none' }}>
-        {ripples.map(r => (
-          <div key={r.id} style={{
-            position: 'absolute', left: r.x, top: r.y,
-            width: 10, height: 10, borderRadius: '50%',
-            background: card.accent, opacity: 0.5,
-            transform: 'translate(-50%,-50%) scale(0)',
-            animation: 'rippleOut 0.65s ease-out forwards',
-          }} />
-        ))}
-      </div>
-
-      {/* top glow orb */}
-      <div style={{
-        position: 'absolute', top: -30, right: -30,
-        width: 120, height: 120, borderRadius: '50%',
-        background: card.accent, opacity: hovered ? 0.18 : 0.08,
-        filter: 'blur(30px)', transition: 'opacity 0.35s',
-        pointerEvents: 'none',
-      }} />
-
-      {/* subtle pattern text bg */}
-      <div style={{
-        position: 'absolute', top: 8, right: 12,
-        fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
-        color: `${card.accent}18`, fontFamily: 'monospace',
-        userSelect: 'none', pointerEvents: 'none',
-        lineHeight: 1.8,
-      }}>{card.pattern}</div>
-
-      {/* shimmer sweep on hover */}
-      {hovered && (
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `linear-gradient(105deg,transparent 35%,${card.accent}08 50%,transparent 65%)`,
-          animation: 'cardShimmer 0.9s ease-out',
-        }} />
-      )}
-
-      {/* content */}
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        <div style={{
-          fontSize: isLarge ? 42 : 32,
-          marginBottom: isLarge ? 14 : 10,
-          filter: `drop-shadow(0 0 12px ${card.accent}70)`,
-          animation: hovered ? 'iconBounce 0.5s cubic-bezier(.34,1.56,.64,1)' : 'none',
-          display: 'inline-block',
-          transition: 'transform 0.3s',
-          transform: hovered ? 'scale(1.12) rotate(-4deg)' : 'scale(1) rotate(0deg)',
-        }}>{card.icon}</div>
-
-        <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: isLarge ? 20 : 16, color: '#fff', margin: '0 0 4px', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{card.label}</p>
-        <p style={{ fontSize: 12, color: `${card.accent}bb`, margin: 0, fontWeight: 600 }}>{card.sub}</p>
-
-        {/* arrow indicator */}
-        <div style={{
-          position: 'absolute', right: 0, bottom: 0,
-          width: 28, height: 28, borderRadius: '50%',
-          background: `${card.accent}18`, border: `1px solid ${card.accent}30`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, color: card.accent,
-          transform: hovered ? 'translate(2px,-2px)' : 'translate(0,0)',
-          transition: 'transform 0.25s',
-        }}>→</div>
-      </div>
-    </button>
-  )
-}
-
-/* ── Quick stats bar ──────────────────────────────────────────────────────── */
-function QuickStats({ overallTotal = 0, logsCount = 0 }) {
-  const stats = [
-    { label: "Today's Spend", value: `₹${Number(overallTotal).toLocaleString('en-IN')}`, icon: '💸', color: '#a78bfa' },
-    { label: 'Entries', value: logsCount, icon: '📋', color: '#34d399' },
-    { label: 'ISS Altitude', value: '~408 km', icon: '🛸', color: '#60a5fa' },
-    { label: 'System', value: 'Online', icon: '⚡', color: '#fbbf24' },
-  ]
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10 }}>
-      {stats.map((s, i) => (
-        <div key={i} style={{
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderTop: `2px solid ${s.color}`,
-          borderRadius: 16, padding: '12px 14px', textAlign: 'center',
-          animation: `slideUp 0.4s ease-out ${0.4 + i * 0.06}s both`,
-          transition: 'transform 0.2s, box-shadow 0.2s',
-        }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.3), 0 0 12px ${s.color}20` }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}
-        >
-          <div style={{ fontSize: 18, marginBottom: 4, filter: `drop-shadow(0 0 6px ${s.color}60)` }}>{s.icon}</div>
-          <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: 16, color: s.color, margin: '0 0 2px' }}>{s.value}</p>
-          <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.3)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</p>
-        </div>
-      ))}
+        background: 'linear-gradient(145deg,#ffffff,#f0f0f0)',
+        borderRadius: 20,
+        border: accent ? `1px solid ${accent}20` : '1px solid rgba(255,255,255,0.9)',
+        boxShadow: pressed
+          ? 'inset 2px 2px 6px rgba(0,0,0,0.1), inset -1px -1px 4px rgba(255,255,255,0.8)'
+          : '5px 5px 14px rgba(0,0,0,0.08), -3px -3px 8px rgba(255,255,255,0.9), inset 0 1px 0 rgba(255,255,255,0.8)',
+        padding: 18, marginBottom: 14,
+        transition: 'box-shadow 0.15s',
+        cursor: onClick ? 'pointer' : 'default',
+        ...style,
+      }}>
+      {children}
     </div>
   )
 }
 
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* ── Section header ── */
+function SectionHeader({ title, right, accent = '#7c3aed' }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ width:3, height:16, borderRadius:2, background:`linear-gradient(to bottom,${accent},${accent}50)` }} />
+        <p style={{ fontSize:12, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.12em', margin:0, fontFamily:'Poppins,sans-serif' }}>{title}</p>
+      </div>
+      {right}
+    </div>
+  )
+}
+
+/* ── Progress bar ── */
+function ProgressBar({ pct, color, height = 7 }) {
+  const [w, setW] = useState(0)
+  useEffect(() => { const t = setTimeout(() => setW(pct), 300); return () => clearTimeout(t) }, [pct])
+  return (
+    <div style={{ height, borderRadius: height, background:'linear-gradient(145deg,#e0e0e0,#f5f5f5)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.1), inset -1px -1px 2px rgba(255,255,255,0.8)', overflow:'hidden' }}>
+      <div style={{ height:'100%', width:`${w}%`, borderRadius:height, background:`linear-gradient(90deg,${color},${color}cc)`, transition:'width 1.1s cubic-bezier(.34,1.1,.64,1)', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)', animation:'shimBar 2s infinite' }} />
+      </div>
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════
+   MAIN HOME COMPONENT
+════════════════════════════════════════════ */
 export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], overallTotal = 0, currentUser, onLogout }) {
   const greeting = useGreeting()
-  const [mounted, setMounted] = useState(false)
-  const [clickFlash, setClickFlash] = useState(null)
-  const [time, setTime] = useState(new Date())
+  const [time, setTime]           = useState(new Date())
+  const [clickedBtn, setClickedBtn] = useState(null)
 
   useEffect(() => {
-    setMounted(true)
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
 
   const navigate = (id) => {
-    setClickFlash(id)
-    setTimeout(() => { setClickFlash(null); setPrevTab(activeTab); setActiveTab(id) }, 150)
+    setClickedBtn(id)
+    setTimeout(() => { setClickedBtn(null); setPrevTab(activeTab); setActiveTab(id) }, 160)
   }
 
   const userName = currentUser?.name || localStorage.getItem('acr_username') || 'User'
+  const displayName = userName.charAt(0).toUpperCase() + userName.slice(1)
+
   const themeAccent = (() => {
     const t = localStorage.getItem('acr_theme') || 'violet'
-    const map = { violet:'#a78bfa', emerald:'#34d399', rose:'#fb7185', amber:'#fbbf24', cyan:'#22d3ee', orange:'#fb923c' }
-    return map[t] || '#a78bfa'
+    const map = { violet:'#7c3aed', emerald:'#059669', rose:'#e11d48', amber:'#d97706', cyan:'#0891b2', orange:'#ea580c' }
+    return map[t] || '#7c3aed'
   })()
 
-  // Quick action items - compact icon grid like PhonePe
+  // Daily quotes
+  const DAILY_QUOTES = [
+    'Track every rupee. Own every decision.',
+    'Financial freedom begins with awareness.',
+    'Small savings today, big dreams tomorrow.',
+    'Discipline in spending is discipline in life.',
+    'Know where your money goes, control where it grows.',
+    'Wealth is built one conscious choice at a time.',
+    'Your budget is your blueprint for success.',
+  ]
+  const todayQuote = DAILY_QUOTES[new Date().getDay()]
+
+  // Computed stats
+  const todayLogs = logs.filter(l => {
+    const d = new Date(l.id); const now = new Date()
+    return d.getDate()===now.getDate() && d.getMonth()===now.getMonth()
+  })
+  const todayTotal  = todayLogs.reduce((s,l) => s+l.amount, 0)
+  const avgPerEntry = logs.length ? Math.round(overallTotal/logs.length) : 0
+
+  // Top category
+  const catTotals = logs.reduce((acc,l) => { acc[l.category]=(acc[l.category]||0)+l.amount; return acc }, {})
+  const topCat    = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0]
+
+  // Days active & streak
+  const daysActive = logs.length ? Math.max(1, Math.floor((new Date()-new Date(logs[logs.length-1].id))/86400000)+1) : 0
+
+  // This week vs last week
+  const msDay = 86400000
+  const now   = new Date()
+  const thisWeekTotal = logs.filter(l=>(now-new Date(l.id))<7*msDay).reduce((s,l)=>s+l.amount,0)
+  const lastWeekTotal = logs.filter(l=>{const d=now-new Date(l.id);return d>=7*msDay&&d<14*msDay}).reduce((s,l)=>s+l.amount,0)
+  const weekChange    = lastWeekTotal>0 ? Math.round(((thisWeekTotal-lastWeekTotal)/lastWeekTotal)*100) : null
+
+  // AI-style tip
+  const aiTips = [
+    topCat ? `You spend most on ${topCat[0]} — consider a monthly limit 💡` : 'Start tracking to unlock personalized tips 💡',
+    avgPerEntry > 500 ? `Your avg spend is ₹${avgPerEntry.toLocaleString()} — try splitting into smaller entries 📊` : 'Your spending entries look well-distributed 👍',
+    daysActive >= 3 ? `${daysActive} days of consistent tracking — great habit! 🔥` : 'Track daily for smarter insights 📈',
+    weekChange!==null && weekChange>10 ? `Spending up ${weekChange}% vs last week — time to review! ⚠️` : 'Your spending is on track this week ✅',
+  ]
+  const todayTip = aiTips[new Date().getDay() % aiTips.length]
+
+  // Recent activity (last 4)
+  const recentLogs = [...logs].slice(0,4)
+
+  // Quick actions
   const QUICK_ACTIONS = [
-    { id: 'expense', icon: '💰', label: 'Expenses' },
-    { id: 'ledger',  icon: '🤝', label: 'Ledger' },
-    { id: 'market',  icon: '📰', label: 'News' },
-    { id: 'cricket', icon: '🏏', label: 'Cricket' },
-    { id: 'astro',   icon: '✨', label: 'Astro' },
-    { id: 'space',   icon: '🚀', label: 'Space' },
-    { id: 'chat',    icon: '🤖', label: 'AI Chat' },
-    { id: 'profile', icon: '👤', label: 'Profile' },
+    { id:'expense', icon:'💰', label:'+ Add Expense', sub:'Log spending',    bg:'#fef3c7', border:'#fde68a', accent:'#d97706' },
+    { id:'ledger',  icon:'🤝', label:'View Ledger',   sub:'Track debts',     bg:'#ecfdf5', border:'#a7f3d0', accent:'#059669' },
+    { id:'market',  icon:'📰', label:'Check News',    sub:'Stay updated',    bg:'#eff6ff', border:'#bfdbfe', accent:'#1d4ed8' },
+    { id:'cricket', icon:'🏏', label:'Cricket Live',  sub:'Scores & more',   bg:'#fdf4ff', border:'#e9d5ff', accent:'#7c3aed' },
+    { id:'astro',   icon:'✨', label:'Astro Insights', sub:'Your forecast',  bg:'#faf5ff', border:'#ddd6fe', accent:'#6d28d9' },
+    { id:'space',   icon:'🚀', label:'Space World',   sub:'ISS tracker',     bg:'#f0f9ff', border:'#bae6fd', accent:'#0ea5e9' },
+    { id:'chat',    icon:'🤖', label:'AI Chat',       sub:'Ask anything',    bg:'#f0fdf4', border:'#bbf7d0', accent:'#16a34a' },
+    { id:'profile', icon:'👤', label:'My Profile',    sub:'Settings & more', bg:'#fff1f2', border:'#fecdd3', accent:'#e11d48' },
   ]
 
-  const todayLogs = logs.filter(l => {
-    const d = new Date(l.id)
-    const now = new Date()
-    return d.getDate() === now.getDate() && d.getMonth() === now.getMonth()
-  })
-  const todayTotal = todayLogs.reduce((s, l) => s + l.amount, 0)
+  // Category icons
+  const catIcon = (cat) => {
+    const map = { Food:'🍽',Petrol:'⛽',Smoke:'🚬',Liquor:'🍺',Groceries:'🛒','Mobile Recharge':'📱','Electricity Bill':'⚡','Water Bill':'💧','Hotel Food':'🏨',CSD:'🏪',Other:'💸' }
+    return map[cat] || '💸'
+  }
+  const catColor = (cat) => {
+    const map = { Food:'#f59e0b',Petrol:'#3b82f6',Smoke:'#6b7280',Liquor:'#a78bfa',Groceries:'#10b981','Mobile Recharge':'#0891b2','Electricity Bill':'#d97706','Water Bill':'#06b6d4','Hotel Food':'#f43f5e',CSD:'#7c3aed',Other:'#64748b' }
+    return map[cat] || '#7c3aed'
+  }
 
   return (
     <>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap');
-      .home-root { font-family:'DM Sans',sans-serif; color:#f1f5f9; }
-      @keyframes slideUp   { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-      @keyframes fadeIn    { from{opacity:0} to{opacity:1} }
-      @keyframes rippleOut { to{transform:translate(-50%,-50%) scale(28);opacity:0} }
-      @keyframes flashIn   { 0%{opacity:0} 30%{opacity:0.08} 100%{opacity:0} }
-      @keyframes floatY    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
-      @keyframes glowRing  { 0%,100%{box-shadow:0 0 0 2px rgba(167,139,250,0.15)} 50%{box-shadow:0 0 0 3px rgba(167,139,250,0.35)} }
-      @keyframes qaHover   { to{transform:translateY(-3px)} }
-      .qa-btn:active { transform:scale(0.92)!important; }
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap');
+      .home-root * { font-family:'Poppins',sans-serif !important; }
+      .home-root .syne { font-family:'Syne',sans-serif !important; }
+      @keyframes slideUp  { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+      @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+      @keyframes shimBar  { 0%{transform:translateX(-100%)} 100%{transform:translateX(250%)} }
+      @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+      @keyframes quoteIn  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+      @keyframes ripple   { to{transform:scale(4);opacity:0} }
+      .qa-card:hover { transform:translateY(-3px) !important; }
+      .qa-card:active { transform:scale(0.95) !important; }
+      .act-row:hover { background:linear-gradient(145deg,#f9f9f9,#f0f0f0) !important; }
     `}</style>
 
-    <div className="home-root" style={{ maxWidth: 520, margin: '0 auto', paddingBottom: 24, position: 'relative', zIndex: 2 }}>
+    <div className="home-root" style={{ maxWidth:520, margin:'0 auto', paddingBottom:32, background:'linear-gradient(160deg,#ffffff 0%,#f0f0f0 55%,#e4e4e4 100%)', minHeight:'100vh' }}>
 
-      {clickFlash && <div style={{ position:'fixed', inset:0, background:'rgba(167,139,250,0.05)', pointerEvents:'none', zIndex:50, animation:'flashIn 0.3s ease-out forwards' }} />}
-
-      {/* ── TOP HEADER — compact like a real app ── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 0 16px', animation:'fadeIn 0.4s ease-out both' }}>
-        {/* Logo + name */}
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <img src="/logo.jpg" alt="ACR MAX" style={{ width:38, height:38, borderRadius:'50%', objectFit:'cover', border:`2px solid ${themeAccent}50`, boxShadow:`0 0 10px ${themeAccent}30` }} />
-          <div>
-            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#fff', margin:0, letterSpacing:'0.04em' }}>ACR MAX</p>
-            <p style={{ fontSize:10, color:`${themeAccent}`, margin:0, fontWeight:600, letterSpacing:'0.08em' }}>BETA 1.0</p>
+      {/* ══════════════════════════════════
+          1. TOP HEADER
+      ══════════════════════════════════ */}
+      <div style={{ padding:'16px 18px 0', animation:'fadeIn 0.4s ease-out both' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+          {/* Logo + brand */}
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ position:'relative' }}>
+              <img src="/logo.jpg" alt="ACR MAX" style={{ width:42, height:42, borderRadius:'50%', objectFit:'cover', border:`2.5px solid ${themeAccent}`, boxShadow:`3px 3px 10px ${themeAccent}30, -2px -2px 6px rgba(255,255,255,0.9)` }} />
+              <div style={{ position:'absolute', bottom:1, right:1, width:10, height:10, borderRadius:'50%', background:'#22c55e', border:'2px solid #fff', boxShadow:'0 0 4px rgba(34,197,94,0.5)' }} />
+            </div>
+            <div>
+              <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:17, color:'#1a1a1a', margin:0, letterSpacing:'0.04em' }}>ACR MAX</p>
+              <p style={{ fontSize:9, color:themeAccent, margin:0, fontWeight:700, letterSpacing:'0.12em' }}>BETA 1.0</p>
+            </div>
           </div>
-        </div>
-        {/* Greeting + time */}
-        <div style={{ textAlign:'right' }}>
-          <p style={{ fontSize:12, fontWeight:700, color:'rgba(255,255,255,0.5)', margin:'0 0 1px' }}>{greeting.emoji} {greeting.text}</p>
-          <p style={{ fontSize:11, color:'rgba(255,255,255,0.3)', margin:0, fontFamily:'monospace' }}>
-            {time.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true })}
-          </p>
+          {/* Greeting + clock */}
+          <div style={{ textAlign:'right' }}>
+            <p style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', margin:'0 0 1px' }}>{greeting.emoji} {greeting.text}</p>
+            <p style={{ fontSize:12, color:'#6b7280', margin:0, fontWeight:600, fontFamily:'monospace !important' }}>
+              {time.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* ── BALANCE CARD — premium but compact ── */}
+      <div style={{ padding:'0 18px' }}>
+
+      {/* ══════════════════════════════════
+          2. WELCOME + DASHBOARD CARD
+      ══════════════════════════════════ */}
       <div style={{
-        borderRadius:20, padding:'20px 20px 18px',
-        background:`linear-gradient(135deg,rgba(15,10,40,0.95),rgba(25,15,55,0.9))`,
-        border:`1px solid ${themeAccent}22`,
-        boxShadow:`0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)`,
-        marginBottom:16,
-        animation:'slideUp 0.4s ease-out 0.05s both',
+        borderRadius:22, padding:'20px', marginBottom:14,
+        background:`linear-gradient(135deg,${themeAccent}f0,${themeAccent}c0)`,
+        boxShadow:`5px 5px 18px ${themeAccent}35, -3px -3px 10px rgba(255,255,255,0.6)`,
         position:'relative', overflow:'hidden',
+        animation:'slideUp 0.4s ease-out 0.05s both',
       }}>
-        <div style={{ position:'absolute', top:-40, right:-40, width:140, height:140, borderRadius:'50%', background:`radial-gradient(circle,${themeAccent}15,transparent 65%)`, pointerEvents:'none' }} />
+        {/* Decorative circles */}
+        <div style={{ position:'absolute', top:-25, right:-25, width:110, height:110, borderRadius:'50%', background:'rgba(255,255,255,0.12)', pointerEvents:'none' }} />
+        <div style={{ position:'absolute', bottom:-35, right:30, width:80, height:80, borderRadius:'50%', background:'rgba(255,255,255,0.08)', pointerEvents:'none' }} />
+        <div style={{ position:'absolute', top:30, right:60, width:50, height:50, borderRadius:'50%', background:'rgba(255,255,255,0.06)', pointerEvents:'none' }} />
 
-        <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.35)', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 4px' }}>Welcome back</p>
-        <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#fff', margin:'0 0 14px' }}>{userName} 👋</p>
+        {/* Welcome + name */}
+        <p style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,0.75)', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 3px' }}>Welcome back</p>
+        <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:24, color:'#ffffff', margin:'0 0 12px', lineHeight:1.1 }}>{displayName} 👋</p>
 
-        <div style={{ display:'flex', gap:0, background:'rgba(255,255,255,0.04)', borderRadius:14, overflow:'hidden' }}>
-          <div style={{ flex:1, padding:'10px 10px', textAlign:'center' }}>
-            <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Today</p>
-            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color: todayTotal > 0 ? '#f87171' : themeAccent, margin:0, lineHeight:1 }}>₹{todayTotal.toLocaleString('en-IN')}</p>
-            <p style={{ fontSize:9, color:'rgba(255,255,255,0.2)', margin:'2px 0 0' }}>{todayLogs.length} entries</p>
+        {/* Key insight badge */}
+        {topCat && (
+          <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'rgba(255,255,255,0.18)', borderRadius:20, backdropFilter:'blur(8px)', marginBottom:14 }}>
+            <span style={{ fontSize:12 }}>{catIcon(topCat[0])}</span>
+            <span style={{ fontSize:11, fontWeight:600, color:'#fff' }}>Top spend: {topCat[0]} — ₹{topCat[1].toLocaleString('en-IN')}</span>
           </div>
-          <div style={{ width:1, background:'rgba(255,255,255,0.06)', flexShrink:0 }} />
-          <div style={{ flex:1, padding:'10px 10px', textAlign:'center' }}>
-            <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Total</p>
-            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:themeAccent, margin:0, lineHeight:1 }}>₹{overallTotal.toLocaleString('en-IN')}</p>
-            <p style={{ fontSize:9, color:'rgba(255,255,255,0.2)', margin:'2px 0 0' }}>{logs.length} entries</p>
+        )}
+        {weekChange !== null && (
+          <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'rgba(255,255,255,0.18)', borderRadius:20, backdropFilter:'blur(8px)', marginBottom:14, marginLeft: topCat ? 8 : 0 }}>
+            <span style={{ fontSize:12 }}>{weekChange > 0 ? '📈' : '📉'}</span>
+            <span style={{ fontSize:11, fontWeight:600, color:'#fff' }}>{weekChange > 0 ? `+${weekChange}%` : `${weekChange}%`} this week</span>
           </div>
-          <div style={{ width:1, background:'rgba(255,255,255,0.06)', flexShrink:0 }} />
-          <div style={{ flex:1, padding:'10px 10px', textAlign:'center' }}>
-            <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>Avg</p>
-            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#60a5fa', margin:0, lineHeight:1 }}>₹{logs.length ? Math.round(overallTotal/logs.length).toLocaleString('en-IN') : 0}</p>
-            <p style={{ fontSize:9, color:'rgba(255,255,255,0.2)', margin:'2px 0 0' }}>per entry</p>
-          </div>
+        )}
+
+        {/* Stats bar */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1px 1fr 1px 1fr', background:'rgba(255,255,255,0.18)', borderRadius:14, overflow:'hidden', backdropFilter:'blur(8px)' }}>
+          {[
+            { label:'Today', value:todayTotal, entries:todayLogs.length, fmt:true },
+            { label:'Total', value:overallTotal, entries:logs.length, fmt:true },
+            { label:'Avg/Entry', value:avgPerEntry, entries:null, fmt:true },
+          ].map((s,i) => (
+            <>
+              {i>0 && <div key={`d${i}`} style={{ background:'rgba(255,255,255,0.25)' }} />}
+              <div key={i} style={{ padding:'10px 6px', textAlign:'center' }}>
+                <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.7)', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px' }}>{s.label}</p>
+                <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#fff', margin:0, lineHeight:1 }}>
+                  {s.fmt ? <CountUp value={s.value} /> : s.value}
+                </p>
+                {s.entries !== null && <p style={{ fontSize:9, color:'rgba(255,255,255,0.6)', margin:'2px 0 0' }}>{s.entries} entries</p>}
+              </div>
+            </>
+          ))}
+        </div>
+
+        {/* Daily quote */}
+        <div style={{ marginTop:14, padding:'10px 13px', background:'rgba(255,255,255,0.13)', borderRadius:12, backdropFilter:'blur(8px)', animation:'quoteIn 0.5s ease-out 0.4s both' }}>
+          <p style={{ fontSize:11, fontWeight:500, color:'rgba(255,255,255,0.85)', margin:'0 0 3px', lineHeight:1.55, fontStyle:'italic' }}>"{todayQuote}"</p>
+          <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.55)', margin:0, letterSpacing:'0.08em' }}>— ACR MAX</p>
         </div>
       </div>
 
-      {/* ── QUICK ACTIONS GRID — PhonePe style ── */}
-      <div style={{
-        borderRadius:20, padding:'16px 12px 12px',
-        background:'linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))',
-        border:'1px solid rgba(255,255,255,0.07)',
-        marginBottom:16,
-        animation:'slideUp 0.4s ease-out 0.1s both',
-      }}>
-        <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 10px 4px' }}>Quick Access</p>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'4px 0' }}>
-          {QUICK_ACTIONS.map((a, i) => (
-            <button key={a.id} className="qa-btn" onClick={() => navigate(a.id)}
-              style={{
-                display:'flex', flexDirection:'column', alignItems:'center', gap:6,
-                padding:'8px 2px', background:'none', border:'none', cursor:'pointer',
-                borderRadius:14, transition:'all 0.15s',
-                animation:`slideUp 0.35s ease-out ${i * 35}ms both`,
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-              <div style={{
-                width:40, height:40, borderRadius:12,
-                background:`linear-gradient(135deg,rgba(255,255,255,0.1),rgba(255,255,255,0.04))`,
-                border:'1px solid rgba(255,255,255,0.09)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:18,
-                boxShadow:'0 2px 8px rgba(0,0,0,0.2)',
-                transition:'all 0.2s',
-              }}>
+      {/* ══════════════════════════════════
+          3. SMART WIDGETS ROW
+      ══════════════════════════════════ */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14, animation:'slideUp 0.4s ease-out 0.1s both' }}>
+        {/* Weekly Progress */}
+        <div style={{ padding:'14px', background:'linear-gradient(145deg,#ffffff,#f0f0f0)', borderRadius:18, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'4px 4px 12px rgba(0,0,0,0.08),-3px -3px 8px rgba(255,255,255,0.9)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10 }}>
+            <span style={{ fontSize:16 }}>📊</span>
+            <p style={{ fontSize:10, fontWeight:700, color:'#374151', margin:0, fontFamily:'Poppins,sans-serif' }}>Weekly Goal</p>
+          </div>
+          <ProgressBar pct={Math.min((Math.min(daysActive,7)/7)*100,100)} color={themeAccent} />
+          <p style={{ fontSize:10, color:'#6b7280', margin:'7px 0 0', fontFamily:'Poppins,sans-serif' }}>{Math.min(daysActive,7)}/7 days tracked</p>
+        </div>
+
+        {/* Streak tracker */}
+        <div style={{ padding:'14px', background:'linear-gradient(145deg,#fffbeb,#fef3c7)', borderRadius:18, border:'1.5px solid #fde68a', boxShadow:'4px 4px 12px rgba(217,119,6,0.1),-3px -3px 8px rgba(255,255,255,0.9)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+            <span style={{ fontSize:20 }}>🔥</span>
+            <p style={{ fontSize:10, fontWeight:700, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif' }}>Streak</p>
+          </div>
+          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:26, color:'#d97706', margin:'0 0 2px' }}>{daysActive}</p>
+          <p style={{ fontSize:10, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600 }}>days active</p>
+        </div>
+      </div>
+
+      {/* ── AI Tip ── */}
+      <div style={{ padding:'12px 16px', background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', borderRadius:16, border:'1.5px solid #ddd6fe', boxShadow:'3px 3px 10px rgba(124,58,237,0.08),-2px -2px 6px rgba(255,255,255,0.9)', marginBottom:14, display:'flex', alignItems:'center', gap:12, animation:'slideUp 0.4s ease-out 0.12s both' }}>
+        <div style={{ width:36, height:36, borderRadius:12, background:'linear-gradient(135deg,#7c3aed20,#7c3aed10)', border:'1px solid #ddd6fe', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>💡</div>
+        <div>
+          <p style={{ fontSize:9, fontWeight:800, color:'#7c3aed', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>AI Daily Tip</p>
+          <p style={{ fontSize:12, fontWeight:600, color:'#374151', margin:0, fontFamily:'Poppins,sans-serif', lineHeight:1.45 }}>{todayTip}</p>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════
+          4. QUICK ACTIONS — interactive cards
+      ══════════════════════════════════ */}
+      <NeuCard style={{ padding:'18px 14px 14px', marginBottom:14 }} accent={themeAccent}>
+        <SectionHeader title="Quick Actions" accent={themeAccent} />
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px 8px' }}>
+          {QUICK_ACTIONS.map((a,i) => (
+            <button key={a.id} className="qa-card" onClick={() => navigate(a.id)}
+              style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'14px 6px 12px', background:`linear-gradient(145deg,${a.bg},#fff)`, border:`1.5px solid ${a.border}`, borderRadius:16, cursor:'pointer', transition:'all 0.2s', animation:`slideUp 0.35s ease-out ${i*40}ms both`, boxShadow:`3px 3px 10px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)`, position:'relative', overflow:'hidden', transform: clickedBtn===a.id?'scale(0.93)':'scale(1)' }}>
+              {/* Ripple overlay on click */}
+              {clickedBtn===a.id && <div style={{ position:'absolute', inset:0, background:`${a.accent}15`, borderRadius:16 }} />}
+              <div style={{ width:46, height:46, borderRadius:14, background:`linear-gradient(145deg,${a.bg},${a.border})`, border:`1.5px solid ${a.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:`inset 1px 1px 3px rgba(0,0,0,0.05),inset -1px -1px 2px rgba(255,255,255,0.8)`, transition:'all 0.2s' }}>
                 {a.icon}
               </div>
-              <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.55)', textAlign:'center', lineHeight:1.2 }}>{a.label}</span>
+              <div style={{ textAlign:'center' }}>
+                <p style={{ fontSize:11, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', lineHeight:1.2, fontFamily:'Poppins,sans-serif' }}>{a.label}</p>
+                <p style={{ fontSize:9, color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif' }}>{a.sub}</p>
+              </div>
             </button>
           ))}
         </div>
-      </div>
+      </NeuCard>
 
-      {/* ── RECENT ACTIVITY — last 3 expenses ── */}
-      {logs.length > 0 && (
-        <div style={{
-          borderRadius:20, padding:'16px 16px 8px',
-          background:'linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))',
-          border:'1px solid rgba(255,255,255,0.07)',
-          marginBottom:16,
-          animation:'slideUp 0.4s ease-out 0.2s both',
-        }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', letterSpacing:'0.12em', margin:0 }}>Recent</p>
-            <button onClick={() => navigate('expense')} style={{ background:'none', border:'none', fontSize:11, fontWeight:700, color:themeAccent, cursor:'pointer', padding:0 }}>See all →</button>
+      {/* ══════════════════════════════════
+          5. RECENT ACTIVITY FEED
+      ══════════════════════════════════ */}
+      {recentLogs.length > 0 && (
+        <NeuCard style={{ marginBottom:14 }} accent="#059669">
+          <SectionHeader title="Recent Activity" accent="#059669"
+            right={<button onClick={()=>navigate('expense')} style={{ background:'none', border:'none', fontSize:11, fontWeight:700, color:themeAccent, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>See all →</button>} />
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            {recentLogs.map((log,i) => (
+              <div key={log.id} className="act-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:13, background:'linear-gradient(145deg,#f8f8f8,#efefef)', border:'1px solid #f1f1f1', boxShadow:'2px 2px 5px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)', transition:'all 0.15s', animation:`slideUp 0.3s ease-out ${i*50}ms both` }}>
+                <div style={{ width:36, height:36, borderRadius:11, background:`${catColor(log.category)}15`, border:`1px solid ${catColor(log.category)}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0, boxShadow:'inset 1px 1px 3px rgba(0,0,0,0.06)' }}>
+                  {catIcon(log.category)}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', margin:'0 0 1px', fontFamily:'Poppins,sans-serif' }}>
+                    Added {log.category}
+                    {log.note ? <span style={{ fontWeight:500, color:'#6b7280' }}> · {log.note}</span> : ''}
+                  </p>
+                  <p style={{ fontSize:10, color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif' }}>
+                    {log.time} · {new Date(log.id).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}
+                  </p>
+                </div>
+                <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:catColor(log.category), margin:0, flexShrink:0 }}>₹{log.amount.toLocaleString('en-IN')}</p>
+              </div>
+            ))}
           </div>
-          {logs.slice(0,4).map((log, i) => (
-            <div key={log.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom: i < Math.min(logs.length-1, 3) ? '1px solid rgba(255,255,255,0.05)' : 'none', animation:`slideUp 0.3s ease-out ${i*50}ms both` }}>
-              <div style={{ width:36, height:36, borderRadius:12, background:`${log.color}20`, border:`1px solid ${log.color}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>
-                {log.category === 'Food' ? '🍽' : log.category === 'Petrol' ? '⛽' : log.category === 'Smoke' ? '🚬' : log.category === 'Liquor' ? '🍺' : log.category === 'Groceries' ? '🛒' : log.category === 'Mobile Recharge' ? '📱' : '💸'}
+        </NeuCard>
+      )}
+
+      {/* ══════════════════════════════════
+          6. FOR YOU — personalization
+      ══════════════════════════════════ */}
+      {logs.length >= 3 && (
+        <NeuCard style={{ marginBottom:14 }} accent={themeAccent}>
+          <SectionHeader title="For You" accent={themeAccent} />
+          <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
+            {/* Spending pattern insight */}
+            {topCat && (
+              <div style={{ display:'flex', gap:10, padding:'12px 14px', background:`linear-gradient(145deg,${catColor(topCat[0])}08,#fff)`, borderRadius:14, border:`1px solid ${catColor(topCat[0])}20`, boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+                <div style={{ width:34, height:34, borderRadius:10, background:`${catColor(topCat[0])}15`, border:`1px solid ${catColor(topCat[0])}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>{catIcon(topCat[0])}</div>
+                <div>
+                  <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>You spend most on {topCat[0]}</p>
+                  <p style={{ fontSize:11, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif' }}>₹{topCat[1].toLocaleString('en-IN')} logged — {overallTotal>0?Math.round((topCat[1]/overallTotal)*100):0}% of total</p>
+                </div>
               </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ fontSize:13, fontWeight:700, color:'#fff', margin:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{log.category}</p>
-                <p style={{ fontSize:11, color:'rgba(255,255,255,0.3)', margin:0 }}>{log.time}{log.note ? ` · ${log.note}` : ''}</p>
+            )}
+            {/* Week comparison */}
+            {weekChange !== null && (
+              <div style={{ display:'flex', gap:10, padding:'12px 14px', background: weekChange>0?'linear-gradient(145deg,#fff1f2,#fff)':'linear-gradient(145deg,#f0fdf4,#fff)', borderRadius:14, border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+                <div style={{ width:34, height:34, borderRadius:10, background: weekChange>0?'#fee2e2':'#dcfce7', border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>{weekChange>0?'📈':'📉'}</div>
+                <div>
+                  <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>{weekChange>0?`Spending up ${weekChange}% this week`:`Spending down ${Math.abs(weekChange)}% this week`}</p>
+                  <p style={{ fontSize:11, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif' }}>{weekChange>0?'Review your budget to stay on track':'Great discipline! Keep it up 💪'}</p>
+                </div>
               </div>
-              <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:14, color:log.color, margin:0, flexShrink:0 }}>₹{log.amount.toLocaleString('en-IN')}</p>
+            )}
+            {/* Tracking streak */}
+            <div style={{ display:'flex', gap:10, padding:'12px 14px', background:'linear-gradient(145deg,#fffbeb,#fff)', borderRadius:14, border:'1px solid #fde68a', boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:'#fef3c7', border:'1px solid #fde68a', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>🔥</div>
+              <div>
+                <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>{daysActive} day{daysActive!==1?'s':''} of consistent tracking</p>
+                <p style={{ fontSize:11, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif' }}>{daysActive>=7?'You\'re building a strong financial habit 🏆':daysActive>=3?'Keep going — great momentum! 🚀':'Every day counts — stay consistent 💪'}</p>
+              </div>
+            </div>
+          </div>
+        </NeuCard>
+      )}
+
+      {/* ══════════════════════════════════
+          7. SECURITY CERTIFICATIONS
+      ══════════════════════════════════ */}
+      <NeuCard style={{ marginBottom:14 }}>
+        <SectionHeader title="Security & Compliance" accent="#059669" />
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:9, marginBottom:13 }}>
+          {[
+            { icon:'🔒', label:'SSL / TLS',    sub:'256-bit HTTPS',       color:'#065f46', bg:'#ecfdf5', border:'#a7f3d0' },
+            { icon:'🛡️', label:'AES-256',       sub:'Military Cipher',     color:'#1e40af', bg:'#eff6ff', border:'#bfdbfe' },
+            { icon:'🔥', label:'Firebase',      sub:'Google Cloud',        color:'#92400e', bg:'#fffbeb', border:'#fde68a' },
+            { icon:'☁️', label:'Cloud Sync',    sub:'Real-time Secure',    color:'#075985', bg:'#f0f9ff', border:'#bae6fd' },
+            { icon:'🚫', label:'Zero Ads',      sub:'No Data Sold',        color:'#991b1b', bg:'#fff1f2', border:'#fecdd3' },
+            { icon:'👁️', label:'Privacy',       sub:'No Tracking',         color:'#5b21b6', bg:'#faf5ff', border:'#ddd6fe' },
+          ].map((b,i) => (
+            <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'13px 5px', background:`linear-gradient(145deg,${b.bg},#fff)`, border:`1.5px solid ${b.border}`, borderRadius:14, textAlign:'center', boxShadow:'3px 3px 8px rgba(0,0,0,0.06),-2px -2px 5px rgba(255,255,255,0.9)' }}>
+              <span style={{ fontSize:22 }}>{b.icon}</span>
+              <p style={{ fontSize:10, fontWeight:700, color:b.color, margin:0, lineHeight:1.2, fontFamily:'Poppins,sans-serif' }}>{b.label}</p>
+              <p style={{ fontSize:8, color:'#9ca3af', margin:0, lineHeight:1.35, fontFamily:'Poppins,sans-serif' }}>{b.sub}</p>
             </div>
           ))}
         </div>
-      )}
+        <div style={{ padding:'11px 14px', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)', borderRadius:12, border:'1px solid #e5e7eb', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.06),inset -1px -1px 3px rgba(255,255,255,0.8)' }}>
+          <p style={{ fontSize:11, color:'#374151', textAlign:'center', lineHeight:1.75, margin:0, fontWeight:500, fontFamily:'Poppins,sans-serif' }}>
+            Protected with <strong style={{ color:'#1a1a1a' }}>AES-256 encryption</strong> · Hosted on <strong style={{ color:'#1a1a1a' }}>Google Firebase</strong> · We never sell or share your data.
+          </p>
+        </div>
+      </NeuCard>
 
-      {/* ── SYSTEM STATUS ── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', animation:'fadeIn 0.5s ease-out 0.4s both' }}>
-        <div style={{ width:6, height:6, borderRadius:'50%', background:'#34d399', boxShadow:'0 0 6px #34d399' }} />
-        <p style={{ fontSize:11, color:'rgba(255,255,255,0.2)', margin:0, fontWeight:600 }}>All systems online · Cloud synced</p>
+      {/* ══════════════════════════════════
+          8. ABOUT & CREDITS
+      ══════════════════════════════════ */}
+      <NeuCard style={{ marginBottom:14 }} accent={themeAccent}>
+        <SectionHeader title="About ACR MAX" accent={themeAccent} />
+
+        {/* Brand */}
+        <div style={{ display:'flex', alignItems:'center', gap:14, padding:'14px', background:'linear-gradient(145deg,#f5f5f5,#ebebeb)', borderRadius:16, border:'1px solid #e2e8f0', boxShadow:'inset 2px 2px 5px rgba(0,0,0,0.07),inset -1px -1px 3px rgba(255,255,255,0.9)', marginBottom:13 }}>
+          <img src="/logo.jpg" alt="ACR MAX" style={{ width:54, height:54, borderRadius:'50%', objectFit:'cover', border:`2.5px solid ${themeAccent}50`, boxShadow:`3px 3px 10px ${themeAccent}25,-2px -2px 5px rgba(255,255,255,0.8)`, flexShrink:0 }} />
+          <div>
+            <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:18, color:'#1a1a1a', margin:'0 0 2px' }}>ACR MAX</p>
+            <p style={{ fontSize:10, fontWeight:700, color:themeAccent, margin:'0 0 4px', letterSpacing:'0.1em', fontFamily:'Poppins,sans-serif' }}>BETA 1.0 · MAXIMISING LIFES</p>
+            <p style={{ fontSize:11, color:'#6b7280', margin:0, lineHeight:1.5, fontFamily:'Poppins,sans-serif' }}>Your all-in-one premium personal financial dashboard</p>
+          </div>
+        </div>
+
+        {/* Developer */}
+        <div style={{ padding:'16px', background:`linear-gradient(145deg,${themeAccent}06,#fff)`, borderRadius:16, border:`1.5px solid ${themeAccent}20`, boxShadow:`3px 3px 10px rgba(0,0,0,0.06),-2px -2px 6px rgba(255,255,255,0.9)`, marginBottom:13 }}>
+          <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 12px', textAlign:'center', fontFamily:'Poppins,sans-serif' }}>Concept · Design · Development</p>
+          <div style={{ display:'flex', alignItems:'center', gap:13 }}>
+            <div style={{ width:50, height:50, borderRadius:'50%', background:`linear-gradient(135deg,${themeAccent},${themeAccent}80)`, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#fff', flexShrink:0, boxShadow:`4px 4px 12px ${themeAccent}35,-2px -2px 6px rgba(255,255,255,0.8)` }}>A</div>
+            <div>
+              <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:17, color:'#1a1a1a', margin:'0 0 2px' }}>Aswin C R</p>
+              <p style={{ fontSize:11, fontWeight:700, color:themeAccent, margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Founder & Chief Executive Officer</p>
+              <p style={{ fontSize:10, color:'#6b7280', margin:0, lineHeight:1.6, fontFamily:'Poppins,sans-serif' }}>Full Stack Developer · UI/UX Designer · Product Architect · Innovation Strategist</p>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:12 }}>
+            {['💡 Product Vision','🎨 UI/UX Design','⚙️ Engineering','☁️ Cloud Infra','🔐 Security'].map((tag,i) => (
+              <span key={i} style={{ padding:'3px 10px', borderRadius:20, fontSize:9, fontWeight:700, background:`${themeAccent}12`, border:`1px solid ${themeAccent}28`, color:themeAccent, fontFamily:'Poppins,sans-serif' }}>{tag}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Tech stack */}
+        <div style={{ marginBottom:13 }}>
+          <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 10px', fontFamily:'Poppins,sans-serif' }}>Powered By</p>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7 }}>
+            {[
+              {name:'React + Vite',color:'#0ea5e9',bg:'#f0f9ff',border:'#bae6fd'},
+              {name:'Firebase',color:'#d97706',bg:'#fffbeb',border:'#fde68a'},
+              {name:'Firestore',color:'#dc2626',bg:'#fff1f2',border:'#fecdd3'},
+              {name:'Gemini AI',color:'#7c3aed',bg:'#faf5ff',border:'#ddd6fe'},
+              {name:'Newsdata.io',color:'#059669',bg:'#ecfdf5',border:'#a7f3d0'},
+              {name:'Tailwind CSS',color:'#0891b2',bg:'#f0f9ff',border:'#bae6fd'},
+            ].map((t,i) => (
+              <div key={i} style={{ padding:'8px 6px', borderRadius:11, background:`linear-gradient(145deg,${t.bg},#fff)`, border:`1.5px solid ${t.border}`, textAlign:'center', boxShadow:'2px 2px 5px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+                <p style={{ fontSize:10, fontWeight:700, color:t.color, margin:0, fontFamily:'Poppins,sans-serif' }}>{t.name}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div style={{ textAlign:'center', padding:'13px', background:'linear-gradient(145deg,#f5f5f5,#ebebeb)', borderRadius:13, border:'1px solid #e2e8f0', boxShadow:'inset 2px 2px 5px rgba(0,0,0,0.06),inset -1px -1px 3px rgba(255,255,255,0.9)' }}>
+          <p style={{ fontSize:11, fontWeight:700, color:'#374151', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>ACR MAX · Version 1.0 · Beta Release</p>
+          <p style={{ fontSize:10, color:'#6b7280', margin:'0 0 6px', fontFamily:'Poppins,sans-serif' }}>April 2026 · acr-max.web.app</p>
+          <div style={{ width:36, height:1, background:'#e5e7eb', margin:'0 auto 6px' }} />
+          <p style={{ fontSize:9, color:'#9ca3af', margin:0, lineHeight:1.7, fontFamily:'Poppins,sans-serif' }}>
+            © 2026 ACR MAX. All rights reserved.<br/>
+            Unauthorized reproduction or distribution is strictly prohibited.<br/>
+            All intellectual property rights belong to <strong style={{ color:'#475569' }}>Aswin C R</strong>.
+          </p>
+        </div>
+      </NeuCard>
+
+      {/* Status bar */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'6px 0 4px', animation:'fadeIn 0.5s ease-out 0.4s both' }}>
+        <div style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e', animation:'pulseDot 2s ease-in-out infinite', boxShadow:'0 0 4px rgba(34,197,94,0.5)' }} />
+        <p style={{ fontSize:11, color:'#9ca3af', margin:0, fontWeight:500, fontFamily:'Poppins,sans-serif' }}>All systems operational · Cloud synced</p>
       </div>
 
+      </div>{/* end padding wrapper */}
     </div>
     </>
   )
