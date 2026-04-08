@@ -400,7 +400,7 @@ export default function Expense(props) {
       <button onClick={()=>setShowMobileForm(s=>!s)} style={{ width:56, height:56, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.8)', background:'linear-gradient(135deg,#1e293b,#0f172a)', color:'#fff', fontSize:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'4px 4px 14px rgba(30,41,59,0.3),-2px -2px 6px rgba(255,255,255,0.6)', transition:'all 0.2s', transform:showMobileForm?'rotate(45deg)':'rotate(0)' }}>+</button>
     </div>
 
-    <div className="exp-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:100, color:'#1a1a1a', position:'relative' }}>
+    <div className="exp-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:100, color:'#1a1a1a', position:'relative', background:'transparent' }}>
 
       {/* ── HEADER ── */}
       <div style={{ marginBottom:16, animation:'slideUp 0.4s ease-out both' }}>

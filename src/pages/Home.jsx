@@ -192,7 +192,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       .act-row:hover { background:linear-gradient(145deg,#f9f9f9,#f0f0f0) !important; }
     `}</style>
 
-    <div className="home-root" style={{ maxWidth:520, margin:'0 auto', paddingBottom:32, background:'linear-gradient(160deg,#ffffff 0%,#f0f0f0 55%,#e4e4e4 100%)', minHeight:'100vh' }}>
+    <div className="home-root" style={{ maxWidth:520, margin:'0 auto', paddingBottom:32, background:'transparent', minHeight:'100vh' }}>
 
       {/* ══════════════════════════════════
           1. TOP HEADER

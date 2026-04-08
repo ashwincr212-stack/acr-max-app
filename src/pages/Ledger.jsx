@@ -365,7 +365,7 @@ export default function Ledger({ currentUser }) {
       @media(max-width:640px){ .ledger-desk-add{display:none!important;} }
     `}</style>
 
-    <div className="ledger-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:100 }}>
+    <div className="ledger-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:100, background:'transparent' }}>
 
       {/* ── FLOATING ADD BUTTON ── */}
       <div style={{ position:'fixed', bottom:90, right:18, zIndex:300 }}>

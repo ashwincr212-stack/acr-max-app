@@ -212,7 +212,24 @@ export default function Profile({ logs, setLogs, overallTotal, summaryData, curr
       .neu-hover:hover { transform:translateY(-2px); }
     `}</style>
 
-    <div className="prof" style={{ maxWidth: 860, margin: '0 auto', paddingBottom: 48 }}>
+    <div className="prof" style={{ maxWidth: 860, margin: '0 auto', paddingBottom: 48, background: 'transparent' }}>
+
+      {/* ── APP LOGO & BRAND HEADER ── */}
+      <div style={{ marginBottom:16, animation:'slideUp 0.4s ease-out both' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <img src="/logo.jpg" alt="ACR MAX" style={{ width:42, height:42, borderRadius:'50%', objectFit:'cover', border:'2px solid #e2e8f0', boxShadow:'3px 3px 8px rgba(0,0,0,0.1),-2px -2px 5px rgba(255,255,255,0.9)', flexShrink:0 }} />
+            <div>
+              <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:18, color:'#1a1a1a', margin:0, letterSpacing:'0.03em' }}>ACR MAX</p>
+              <p style={{ fontSize:9, color:acc, margin:0, fontWeight:700, letterSpacing:'0.14em', fontFamily:'Poppins,sans-serif' }}>BETA 1.0 · MAXIMISING LIFES</p>
+            </div>
+          </div>
+          <div style={{ textAlign:'right' }}>
+            <p style={{ fontSize:11, fontWeight:600, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif' }}>My Profile</p>
+            <p style={{ fontSize:10, color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif' }}>{new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}</p>
+          </div>
+        </div>
+      </div>
 
       {/* ═══════════════════════════════════
           1. PROFILE HEADER
