@@ -273,6 +273,29 @@ button { font-family: 'Poppins', sans-serif !important; }
   border-color: var(--border-soft) !important;
   box-shadow: 0 2px 10px rgba(15,23,42,0.06) !important;
 }
+.gold-text {
+  background: linear-gradient(
+    120deg,
+    #b8962e 0%,
+    #ffd700 25%,
+    #fff4b0 45%,
+    #ffd700 55%,
+    #b8962e 100%
+  );
+  background-size: 200% auto;
+
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  animation: goldShine 8s ease-in-out infinite;
+  font-weight: 800;
+}
+
+/* Shine animation */
+@keyframes goldShine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
 
 /* ══════════════════════════════════════════════════════════════
    MOBILE RESPONSIVE

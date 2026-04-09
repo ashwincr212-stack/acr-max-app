@@ -192,15 +192,15 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       .act-row:hover { background:linear-gradient(145deg,#f9f9f9,#f0f0f0) !important; }
     `}</style>
 
-    <div className="home-root" style={{ maxWidth:520, margin:'0 auto', paddingBottom:16, background:'transparent', minHeight:'100vh' }}>
+    <div className="home-root" style={{ maxWidth:'100%', margin:'0 auto', paddingBottom:16, background:'transparent', minHeight:'100vh' }}>
 
       {/* ══════════════════════════════════
           1. TOP HEADER
       ══════════════════════════════════ */}
-      <div style={{ padding:'10px 14px 0', animation:'fadeIn 0.4s ease-out both' }}>
+      <div style={{ padding:'8px 10px 0', animation:'fadeIn 0.4s ease-out both' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
           {/* Logo + brand */}
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ position:'relative' }}>
               <img src="/logo.jpg" alt="ACR MAX" style={{ width:42, height:42, borderRadius:'50%', objectFit:'cover', border:`2.5px solid ${themeAccent}`, boxShadow:`3px 3px 10px ${themeAccent}30, -2px -2px 6px rgba(255,255,255,0.9)` }} />
               <div style={{ position:'absolute', bottom:1, right:1, width:10, height:10, borderRadius:'50%', background:'#22c55e', border:'2px solid #fff', boxShadow:'0 0 4px rgba(34,197,94,0.5)' }} />
@@ -220,14 +220,14 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
       </div>
 
-      <div style={{ padding:'0 14px' }}>
+      <div style={{ padding:'0 10px' }}>
 
       {/* ══════════════════════════════════
           2. WELCOME + DASHBOARD CARD
       ══════════════════════════════════ */}
       <div style={{
-        borderRadius:20, marginBottom:10, overflow:'hidden',
-        background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 45%,#f2f2f2 100%)',
+        borderRadius:14, marginBottom:10, overflow:'hidden',
+        background:'linear-gradient(145deg,#ffffff,#e5e5e5)',
         border:'1.5px solid rgba(255,255,255,0.95)',
         boxShadow:'6px 6px 18px rgba(0,0,0,0.09),-4px -4px 12px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.9)',
         animation:'slideUp 0.4s ease-out 0.05s both',
@@ -237,22 +237,33 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         <div style={{ height:4, background:`linear-gradient(90deg,transparent,${themeAccent},${themeAccent}80,transparent)` }} />
         <div style={{ padding:'14px 16px 16px', position:'relative' }}>
           {/* Decorative silver orbs */}
+          {topCat && (
+  <div style={{
+    position:'absolute',
+    top:12,
+    right:12,
+    background:'linear-gradient(145deg,#ffffff,#e6e6e6)',
+    padding:'5px 12px',
+    borderRadius:999,
+    fontSize:11,
+    fontWeight:700,
+    boxShadow:'2px 2px 6px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.9)',
+    border:'1px solid #e5e7eb'
+  }}>
+    📊 {topCat[0]} — <span className="gold-text">₹{topCat[1].toLocaleString('en-IN')}</span>
+  </div>
+)}
           <div style={{ position:'absolute', top:-10, right:-10, width:100, height:100, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.8),transparent 65%)', pointerEvents:'none' }} />
-
+           
           {/* Welcome + name */}
           <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
           <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#1a1a1a', margin:'0 0 10px', lineHeight:1.1 }}>{displayName} 👋</p>
 
           {/* Key insight badges */}
-          <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:14 }}>
-            {topCat && (
-              <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>
-                <span style={{ fontSize:12 }}>{catIcon(topCat[0])}</span>
-                <span style={{ fontSize:11, fontWeight:600, color:'#374151', fontFamily:'Poppins,sans-serif' }}>Top: {topCat[0]} — ₹{topCat[1].toLocaleString('en-IN')}</span>
-              </div>
-            )}
+          <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:10 }}>
+            
             {weekChange !== null && (
-              <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px', background: weekChange>0?'linear-gradient(145deg,#fff1f2,#fee2e2)':'linear-gradient(145deg,#f0fdf4,#dcfce7)', border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+              <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px', background: weekChange>0?'linear-gradient(145deg,#fff1f2,#fee2e2)':'linear-gradient(145deg,#f0fdf4,#dcfce7)', border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, borderRadius:14, boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
                 <span style={{ fontSize:11 }}>{weekChange > 0 ? '📈' : '📉'}</span>
                 <span style={{ fontSize:11, fontWeight:700, color: weekChange>0?'#dc2626':'#16a34a', fontFamily:'Poppins,sans-serif' }}>{weekChange > 0 ? `+${weekChange}%` : `${weekChange}%`} this week</span>
               </div>
@@ -270,7 +281,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                 {i>0 && <div key={`d${i}`} style={{ background:'rgba(0,0,0,0.06)' }} />}
                 <div key={i} style={{ padding:'11px 6px', textAlign:'center' }}>
                   <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
-                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#b8860b', margin:0, lineHeight:1 }}>
+                  <p className="syne gold-text" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, margin:0, lineHeight:1 }}>
                     {s.fmt ? <CountUp value={s.value} /> : s.value}
                   </p>
                   {s.entries !== null && <p style={{ fontSize:9, color:'#6b7280', margin:'3px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} entries</p>}
@@ -290,11 +301,11 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           3. SMART WIDGETS ROW
       ══════════════════════════════════ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10, animation:'slideUp 0.4s ease-out 0.1s both' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10, animation:'slideUp 0.4s ease-out 0.1s both' }}>
         {/* Weekly Progress */}
-        <div style={{ padding:'14px', background:'linear-gradient(135deg,#fafafa,#e0e0e0,#f0f0f0)', borderRadius:18, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'4px 4px 12px rgba(0,0,0,0.08),-3px -3px 8px rgba(255,255,255,0.9)' }}>
+        <div style={{ padding:'10px 10 px', background:'linear-gradient(135deg,#fafafa,#e0e0e0,#f0f0f0)', borderRadius:12, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'3px 3px 8px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10 }}>
-            <span style={{ fontSize:16 }}>📊</span>
+            <span style={{ fontSize:11 }}>📊</span>
             <p style={{ fontSize:10, fontWeight:700, color:'#374151', margin:0, fontFamily:'Poppins,sans-serif' }}>Weekly Goal</p>
           </div>
           <ProgressBar pct={Math.min((Math.min(daysActive,7)/7)*100,100)} color={themeAccent} />
@@ -302,18 +313,18 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
 
         {/* Streak tracker */}
-        <div style={{ padding:'14px', background:'linear-gradient(145deg,#fffbeb,#fef3c7)', borderRadius:18, border:'1.5px solid #fde68a', boxShadow:'4px 4px 12px rgba(217,119,6,0.1),-3px -3px 8px rgba(255,255,255,0.9)' }}>
+        <div style={{ padding:'10px 10 px', background:'linear-gradient(145deg,#fffbeb,#fef3c7)', borderRadius:12, border:'1.5px solid #fde68a', boxShadow:'3px 3px 8px rgba(217,119,6,0.1),-2px -2px 6px rgba(255,255,255,0.9)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-            <span style={{ fontSize:20 }}>🔥</span>
+            <span style={{ fontSize:11 }}>🔥</span>
             <p style={{ fontSize:10, fontWeight:700, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif' }}>Streak</p>
           </div>
-          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:28, color:'#b8860b', margin:'0 0 2px' }}>{daysActive}</p>
+          <p className="syne gold-text" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, margin:'0 0 2px' }}>{daysActive}</p>
           <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600 }}>days active</p>
         </div>
       </div>
 
       {/* ── AI Tip ── */}
-      <div style={{ padding:'12px 16px', background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', borderRadius:16, border:'1.5px solid #ddd6fe', boxShadow:'3px 3px 10px rgba(124,58,237,0.08),-2px -2px 6px rgba(255,255,255,0.9)', marginBottom:14, display:'flex', alignItems:'center', gap:12, animation:'slideUp 0.4s ease-out 0.12s both' }}>
+      <div style={{ padding:'12px 16px', background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', borderRadius:12, border:'1.5px solid #ddd6fe', boxShadow:'3px 3px 10px rgba(124,58,237,0.08),-2px -2px 6px rgba(255,255,255,0.9)', marginBottom:14, display:'flex', alignItems:'center', gap:12, animation:'slideUp 0.4s ease-out 0.12s both' }}>
         <div style={{ width:36, height:36, borderRadius:12, background:'linear-gradient(135deg,#7c3aed20,#7c3aed10)', border:'1px solid #ddd6fe', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>💡</div>
         <div>
           <p style={{ fontSize:9, fontWeight:800, color:'#7c3aed', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>AI Daily Tip</p>
@@ -329,9 +340,9 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px 8px' }}>
           {QUICK_ACTIONS.map((a,i) => (
             <button key={a.id} className="qa-card" onClick={() => navigate(a.id)}
-              style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'14px 6px 12px', background:`linear-gradient(145deg,${a.bg},#fff)`, border:`1.5px solid ${a.border}`, borderRadius:16, cursor:'pointer', transition:'all 0.2s', animation:`slideUp 0.35s ease-out ${i*40}ms both`, boxShadow:`3px 3px 10px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)`, position:'relative', overflow:'hidden', transform: clickedBtn===a.id?'scale(0.93)':'scale(1)' }}>
+              style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'14px 6px 12px', background:`linear-gradient(145deg,${a.bg},#fff)`, border:`1.5px solid ${a.border}`, borderRadius:12, cursor:'pointer', transition:'all 0.2s', animation:`slideUp 0.35s ease-out ${i*40}ms both`, boxShadow:`3px 3px 10px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)`, position:'relative', overflow:'hidden', transform: clickedBtn===a.id?'scale(0.93)':'scale(1)' }}>
               {/* Ripple overlay on click */}
-              {clickedBtn===a.id && <div style={{ position:'absolute', inset:0, background:`${a.accent}15`, borderRadius:16 }} />}
+              {clickedBtn===a.id && <div style={{ position:'absolute', inset:0, background:`${a.accent}15`, borderRadius:12 }} />}
               <div style={{ width:46, height:46, borderRadius:14, background:`linear-gradient(145deg,${a.bg},${a.border})`, border:`1.5px solid ${a.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:`inset 1px 1px 3px rgba(0,0,0,0.05),inset -1px -1px 2px rgba(255,255,255,0.8)`, transition:'all 0.2s' }}>
                 {a.icon}
               </div>
@@ -366,7 +377,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                     {log.time} · {new Date(log.id).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}
                   </p>
                 </div>
-                <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:'#b8860b', margin:0, flexShrink:0 }}>₹{log.amount.toLocaleString('en-IN')}</p>
+                <p className="syne gold-text" style = {{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, margin:0, flexShrink:0 }}>₹{log.amount.toLocaleString('en-IN')}</p>
               </div>
             ))}
           </div>
@@ -382,7 +393,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
             {/* Spending pattern insight */}
             {topCat && (
-              <div style={{ display:'flex', gap:10, padding:'12px 14px', background:`linear-gradient(145deg,${catColor(topCat[0])}08,#fff)`, borderRadius:14, border:`1px solid ${catColor(topCat[0])}20`, boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+              <div style={{ display:'flex', gap:8, padding:'12px 14px', background:`linear-gradient(145deg,${catColor(topCat[0])}08,#fff)`, borderRadius:14, border:`1px solid ${catColor(topCat[0])}20`, boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
                 <div style={{ width:34, height:34, borderRadius:10, background:`${catColor(topCat[0])}15`, border:`1px solid ${catColor(topCat[0])}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>{catIcon(topCat[0])}</div>
                 <div>
                   <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>You spend most on {topCat[0]}</p>
@@ -392,7 +403,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             )}
             {/* Week comparison */}
             {weekChange !== null && (
-              <div style={{ display:'flex', gap:10, padding:'12px 14px', background: weekChange>0?'linear-gradient(145deg,#fff1f2,#fff)':'linear-gradient(145deg,#f0fdf4,#fff)', borderRadius:14, border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+              <div style={{ display:'flex', gap:8, padding:'12px 14px', background: weekChange>0?'linear-gradient(145deg,#fff1f2,#fff)':'linear-gradient(145deg,#f0fdf4,#fff)', borderRadius:14, border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
                 <div style={{ width:34, height:34, borderRadius:10, background: weekChange>0?'#fee2e2':'#dcfce7', border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>{weekChange>0?'📈':'📉'}</div>
                 <div>
                   <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>{weekChange>0?`Spending up ${weekChange}% this week`:`Spending down ${Math.abs(weekChange)}% this week`}</p>
@@ -401,7 +412,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
               </div>
             )}
             {/* Tracking streak */}
-            <div style={{ display:'flex', gap:10, padding:'12px 14px', background:'linear-gradient(145deg,#fffbeb,#fff)', borderRadius:14, border:'1px solid #fde68a', boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+            <div style={{ display:'flex', gap:8, padding:'12px 14px', background:'linear-gradient(145deg,#fffbeb,#fff)', borderRadius:14, border:'1px solid #fde68a', boxShadow:'2px 2px 6px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)' }}>
               <div style={{ width:34, height:34, borderRadius:10, background:'#fef3c7', border:'1px solid #fde68a', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>🔥</div>
               <div>
                 <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>{daysActive} day{daysActive!==1?'s':''} of consistent tracking</p>
@@ -447,7 +458,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         <SectionHeader title="About ACR MAX" accent={themeAccent} />
 
         {/* Brand */}
-        <div style={{ display:'flex', alignItems:'center', gap:14, padding:'14px', background:'linear-gradient(145deg,#f5f5f5,#ebebeb)', borderRadius:16, border:'1px solid #e2e8f0', boxShadow:'inset 2px 2px 5px rgba(0,0,0,0.07),inset -1px -1px 3px rgba(255,255,255,0.9)', marginBottom:13 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14, padding:'14px', background:'linear-gradient(145deg,#f5f5f5,#ebebeb)', borderRadius:12, border:'1px solid #e2e8f0', boxShadow:'inset 2px 2px 5px rgba(0,0,0,0.07),inset -1px -1px 3px rgba(255,255,255,0.9)', marginBottom:13 }}>
           <img src="/logo.jpg" alt="ACR MAX" style={{ width:54, height:54, borderRadius:'50%', objectFit:'cover', border:`2.5px solid ${themeAccent}50`, boxShadow:`3px 3px 10px ${themeAccent}25,-2px -2px 5px rgba(255,255,255,0.8)`, flexShrink:0 }} />
           <div>
             <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:18, color:'#1a1a1a', margin:'0 0 2px' }}>ACR MAX</p>
@@ -457,7 +468,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
 
         {/* Developer */}
-        <div style={{ padding:'16px', background:`linear-gradient(145deg,${themeAccent}06,#fff)`, borderRadius:16, border:`1.5px solid ${themeAccent}20`, boxShadow:`3px 3px 10px rgba(0,0,0,0.06),-2px -2px 6px rgba(255,255,255,0.9)`, marginBottom:13 }}>
+        <div style={{ padding:'16px', background:`linear-gradient(145deg,${themeAccent}06,#fff)`, borderRadius:12, border:`1.5px solid ${themeAccent}20`, boxShadow:`3px 3px 10px rgba(0,0,0,0.06),-2px -2px 6px rgba(255,255,255,0.9)`, marginBottom:13 }}>
           <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 12px', textAlign:'center', fontFamily:'Poppins,sans-serif' }}>Concept · Design · Development</p>
           <div style={{ display:'flex', alignItems:'center', gap:13 }}>
             <div style={{ width:50, height:50, borderRadius:'50%', background:`linear-gradient(135deg,${themeAccent},${themeAccent}80)`, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#fff', flexShrink:0, boxShadow:`4px 4px 12px ${themeAccent}35,-2px -2px 6px rgba(255,255,255,0.8)` }}>A</div>
@@ -469,7 +480,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           </div>
           <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:12 }}>
             {['💡 Product Vision','🎨 UI/UX Design','⚙️ Engineering','☁️ Cloud Infra','🔐 Security'].map((tag,i) => (
-              <span key={i} style={{ padding:'3px 10px', borderRadius:20, fontSize:9, fontWeight:700, background:`${themeAccent}12`, border:`1px solid ${themeAccent}28`, color:themeAccent, fontFamily:'Poppins,sans-serif' }}>{tag}</span>
+              <span key={i} style={{ padding:'3px 10px', borderRadius:14, fontSize:9, fontWeight:700, background:`${themeAccent}12`, border:`1px solid ${themeAccent}28`, color:themeAccent, fontFamily:'Poppins,sans-serif' }}>{tag}</span>
             ))}
           </div>
         </div>
