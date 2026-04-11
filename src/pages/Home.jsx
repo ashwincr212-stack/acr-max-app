@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import IPLCricket from './IPLCricket'
+import SurprisesModal from './SurprisesModal'
 
 /* ── Greeting ── */
 function useGreeting() {
@@ -87,6 +89,8 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
   const greeting = useGreeting()
   const [time, setTime]           = useState(new Date())
   const [clickedBtn, setClickedBtn] = useState(null)
+  const [surprisesOpen, setSurprisesOpen] = useState(false)
+  const [iplOpen, setIplOpen] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -158,7 +162,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
     { id:'expense', icon:'💰', label:'+ Add Expense', sub:'Log spending',    bg:'#fef3c7', border:'#fde68a', accent:'#d97706' },
     { id:'ledger',  icon:'🤝', label:'View Ledger',   sub:'Track debts',     bg:'#ecfdf5', border:'#a7f3d0', accent:'#059669' },
     { id:'market',  icon:'📰', label:'Check News',    sub:'Stay updated',    bg:'#eff6ff', border:'#bfdbfe', accent:'#1d4ed8' },
-    { id:'cricket', icon:'🏏', label:'Cricket Live',  sub:'Scores & more',   bg:'#fdf4ff', border:'#e9d5ff', accent:'#7c3aed' },
+    { id:'cricket', icon:'🏏', label:'IPL 2025',      sub:'Live · Table · Caps', bg:'#fff7ed', border:'#fed7aa', accent:'#f97316', ipl:true },
     { id:'astro',   icon:'✨', label:'Astro Insights', sub:'Your forecast',  bg:'#faf5ff', border:'#ddd6fe', accent:'#6d28d9' },
     { id:'space',   icon:'🚀', label:'Space World',   sub:'ISS tracker',     bg:'#f0f9ff', border:'#bae6fd', accent:'#0ea5e9' },
     { id:'chat',    icon:'🤖', label:'AI Chat',       sub:'Ask anything',    bg:'#f0fdf4', border:'#bbf7d0', accent:'#16a34a' },
@@ -186,6 +190,9 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       @keyframes shimBar  { 0%{transform:translateX(-100%)} 100%{transform:translateX(250%)} }
       @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
       @keyframes quoteIn  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+      @keyframes giftFloat { 0%,100%{transform:translateY(0) rotate(-3deg)} 50%{transform:translateY(-5px) rotate(3deg)} }
+      @keyframes spin { to{transform:rotate(360deg)} }
+      @keyframes fadeIn { from{opacity:0} to{opacity:1} }
       @keyframes ripple   { to{transform:scale(4);opacity:0} }
       .qa-card:hover { transform:translateY(-3px) !important; }
       .qa-card:active { transform:scale(0.95) !important; }
@@ -301,15 +308,22 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           <p style={{ fontSize:10, color:'#6b7280', margin:'7px 0 0', fontFamily:'Poppins,sans-serif' }}>{Math.min(daysActive,7)}/7 days tracked</p>
         </div>
 
-        {/* Streak tracker */}
-        <div style={{ padding:'14px', background:'linear-gradient(145deg,#fffbeb,#fef3c7)', borderRadius:18, border:'1.5px solid #fde68a', boxShadow:'4px 4px 12px rgba(217,119,6,0.1),-3px -3px 8px rgba(255,255,255,0.9)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-            <span style={{ fontSize:20 }}>🔥</span>
-            <p style={{ fontSize:10, fontWeight:700, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif' }}>Streak</p>
+        {/* Surprises card — replaces streak */}
+        <button onClick={()=>setSurprisesOpen(true)} style={{ padding:'14px', background:'linear-gradient(135deg,#faf5ff,#ede9fe)', borderRadius:18, border:'1.5px solid #c4b5fd', boxShadow:'4px 4px 12px rgba(124,58,237,0.12),-3px -3px 8px rgba(255,255,255,0.9)', cursor:'pointer', textAlign:'left', transition:'all 0.2s', position:'relative', overflow:'hidden' }}
+          onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='6px 6px 16px rgba(124,58,237,0.18),-3px -3px 8px rgba(255,255,255,0.9)'}}
+          onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='4px 4px 12px rgba(124,58,237,0.12),-3px -3px 8px rgba(255,255,255,0.9)'}}>
+          {/* Subtle glow orb */}
+          <div style={{ position:'absolute', top:-10, right:-10, width:60, height:60, borderRadius:'50%', background:'rgba(167,139,250,0.2)', pointerEvents:'none' }} />
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:7 }}>
+            <span style={{ fontSize:22, animation:'giftFloat 3s ease-in-out infinite' }}>🎁</span>
+            <p style={{ fontSize:11, fontWeight:800, color:'#6d28d9', margin:0, fontFamily:'Poppins,sans-serif' }}>Surprises!!</p>
           </div>
-          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:28, color:'#b8860b', margin:'0 0 2px' }}>{daysActive}</p>
-          <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600 }}>days active</p>
-        </div>
+          <p style={{ fontSize:10, color:'#7c3aed', margin:'0 0 6px', fontFamily:'Poppins,sans-serif', fontWeight:600, lineHeight:1.35 }}>Tweak your brain 🧠</p>
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            <span style={{ fontSize:9, fontWeight:700, color:'rgba(124,58,237,0.6)', fontFamily:'Poppins,sans-serif' }}>15 facts daily</span>
+            <span style={{ fontSize:9, color:'rgba(124,58,237,0.4)' }}>→</span>
+          </div>
+        </button>
       </div>
 
       {/* ── AI Tip ── */}
@@ -328,7 +342,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         <SectionHeader title="Quick Actions" accent={themeAccent} />
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px 8px' }}>
           {QUICK_ACTIONS.map((a,i) => (
-            <button key={a.id} className="qa-card" onClick={() => navigate(a.id)}
+            <button key={a.id} className="qa-card" onClick={() => a.ipl ? setIplOpen(true) : navigate(a.id)}
               style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'14px 6px 12px', background:`linear-gradient(145deg,${a.bg},#fff)`, border:`1.5px solid ${a.border}`, borderRadius:16, cursor:'pointer', transition:'all 0.2s', animation:`slideUp 0.35s ease-out ${i*40}ms both`, boxShadow:`3px 3px 10px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)`, position:'relative', overflow:'hidden', transform: clickedBtn===a.id?'scale(0.93)':'scale(1)' }}>
               {/* Ripple overlay on click */}
               {clickedBtn===a.id && <div style={{ position:'absolute', inset:0, background:`${a.accent}15`, borderRadius:16 }} />}
@@ -412,8 +426,10 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </NeuCard>
       )}
 
+
+
       {/* ══════════════════════════════════
-          7. SECURITY CERTIFICATIONS
+          8. SECURITY CERTIFICATIONS
       ══════════════════════════════════ */}
       <NeuCard style={{ marginBottom:14 }}>
         <SectionHeader title="Security & Compliance" accent="#059669" />
@@ -513,6 +529,28 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       </div>
 
       </div>{/* end padding wrapper */}
+      {/* IPL Modal */}
+      {iplOpen && (
+        <div style={{ position:'fixed', inset:0, zIndex:800, display:'flex', flexDirection:'column', background:'linear-gradient(160deg,#f0f0f0,#e4e4e4)', animation:'fadeIn 0.25s ease-out' }}>
+          {/* Modal header */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', background:'linear-gradient(135deg,#1e293b,#0f172a)', flexShrink:0, boxShadow:'0 2px 12px rgba(0,0,0,0.3)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:36, height:36, borderRadius:11, background:'rgba(249,115,22,0.2)', border:'1px solid rgba(249,115,22,0.4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🏏</div>
+              <div>
+                <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:16, color:'#fff', margin:0 }}>IPL 2025</p>
+                <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)', margin:0, fontFamily:'Poppins,sans-serif' }}>Live · Results · Table · Caps</p>
+              </div>
+            </div>
+            <button onClick={()=>setIplOpen(false)} style={{ width:34, height:34, borderRadius:10, background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', color:'rgba(255,255,255,0.7)', fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700 }}>✕</button>
+          </div>
+          {/* Modal body - scrollable */}
+          <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 80px' }}>
+            <IPLCricket />
+          </div>
+        </div>
+      )}
+      {/* Surprises Modal */}
+      <SurprisesModal isOpen={surprisesOpen} onClose={()=>setSurprisesOpen(false)} currentUser={currentUser} />
     </div>
     </>
   )
