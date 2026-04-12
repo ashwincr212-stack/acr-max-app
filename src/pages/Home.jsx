@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
+import { db } from '../firebase'
+import { doc, onSnapshot, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 /* ── Greeting ── */
 function useGreeting() {
@@ -91,11 +93,36 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
   const [clickedBtn, setClickedBtn] = useState(null)
   const [surprisesOpen, setSurprisesOpen] = useState(false)
   const [iplOpen, setIplOpen] = useState(false)
+  const [coins, setCoins] = useState(null)
+  const [streak, setStreak] = useState(0)
+  const [predictions, setPredictions] = useState(0)
+  const [coinAnim, setCoinAnim] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
+
+  // Wallet real-time listener
+  useEffect(() => {
+    const userId = currentUser?.username
+    if (!userId) { setCoins(500); return }
+    const ref = doc(db, 'ipl_wallets', userId)
+    // Create wallet if not exists
+    getDoc(ref).then(snap => {
+      if (!snap.exists()) setDoc(ref, { coins:100, streak:0, predictions:0, wins:0, lastLogin:null, createdAt:serverTimestamp() })
+    }).catch(()=>{})
+    // Real-time listener
+    const unsub = onSnapshot(ref, snap => {
+      if (snap.exists()) {
+        const d = snap.data()
+        setCoins(prev => { if (prev !== null && d.coins > prev) setCoinAnim(true); return d.coins })
+        setStreak(d.streak || 0)
+        setPredictions(d.predictions || 0)
+      } else { setCoins(500) }
+    }, () => setCoins(500))
+    return () => unsub()
+  }, [currentUser])
 
   const navigate = (id) => {
     setClickedBtn(id)
@@ -162,7 +189,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
     { id:'expense', icon:'💰', label:'+ Add Expense', sub:'Log spending',    bg:'#fef3c7', border:'#fde68a', accent:'#d97706' },
     { id:'ledger',  icon:'🤝', label:'View Ledger',   sub:'Track debts',     bg:'#ecfdf5', border:'#a7f3d0', accent:'#059669' },
     { id:'market',  icon:'📰', label:'Check News',    sub:'Stay updated',    bg:'#eff6ff', border:'#bfdbfe', accent:'#1d4ed8' },
-    { id:'cricket', icon:'🏏', label:'IPL 2025',      sub:'Live · Table · Caps', bg:'#fff7ed', border:'#fed7aa', accent:'#f97316', ipl:true },
+    { id:'cricket', icon:'🏏', label:'IPL 2026',      sub:'Predict & Win 💰',     bg:'#EEF2FF', border:'#C7D7FD', accent:'#1A56DB', ipl:true, iplLogo:true },
     { id:'astro',   icon:'✨', label:'Astro Insights', sub:'Your forecast',  bg:'#faf5ff', border:'#ddd6fe', accent:'#6d28d9' },
     { id:'space',   icon:'🚀', label:'Space World',   sub:'ISS tracker',     bg:'#f0f9ff', border:'#bae6fd', accent:'#0ea5e9' },
     { id:'chat',    icon:'🤖', label:'AI Chat',       sub:'Ask anything',    bg:'#f0fdf4', border:'#bbf7d0', accent:'#16a34a' },
@@ -191,6 +218,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
       @keyframes quoteIn  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
       @keyframes giftFloat { 0%,100%{transform:translateY(0) rotate(-3deg)} 50%{transform:translateY(-5px) rotate(3deg)} }
+      @keyframes coinPop  { 0%{transform:scale(1)} 40%{transform:scale(1.35) rotate(-8deg)} 70%{transform:scale(0.95) rotate(4deg)} 100%{transform:scale(1) rotate(0deg)} }
       @keyframes spin { to{transform:rotate(360deg)} }
       @keyframes fadeIn { from{opacity:0} to{opacity:1} }
       @keyframes ripple   { to{transform:scale(4);opacity:0} }
@@ -286,10 +314,53 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             ))}
           </div>
 
-          {/* Daily quote */}
-          <div style={{ marginTop:14, padding:'10px 13px', background:'linear-gradient(145deg,#f5f5f5,#ebebeb)', borderRadius:12, border:'1px solid #e5e7eb', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.06),inset -1px -1px 3px rgba(255,255,255,0.9)', animation:'quoteIn 0.5s ease-out 0.4s both' }}>
-            <p style={{ fontSize:11, fontWeight:500, color:'#374151', margin:'0 0 3px', lineHeight:1.55, fontStyle:'italic', fontFamily:'Poppins,sans-serif' }}>"{todayQuote}"</p>
-            <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', margin:0, letterSpacing:'0.08em', fontFamily:'Poppins,sans-serif' }}>— ACR MAX</p>
+          {/* 💰 COIN WALLET BANNER */}
+          <div style={{ marginTop:12, borderRadius:14, overflow:'hidden', border:'1.5px solid rgba(245,166,35,0.35)', boxShadow:'0 3px 12px rgba(245,166,35,0.15)', animation:'quoteIn 0.5s ease-out 0.4s both', position:'relative' }}>
+            {/* Gold gradient background */}
+            <div style={{ background:'linear-gradient(135deg,#fffbeb,#fff3d0,#fef9ec)', padding:'13px 14px' }}>
+              {/* Shine effect */}
+              <div style={{ position:'absolute', top:0, right:0, width:80, height:80, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.6),transparent 65%)', pointerEvents:'none' }} />
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  {/* Animated coin icon */}
+                  <div style={{ width:42, height:42, borderRadius:14, background:'linear-gradient(135deg,#F5A623,#E8941A)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:'0 4px 12px rgba(245,166,35,0.4)', animation: coinAnim?'coinPop 0.5s cubic-bezier(.34,1.56,.64,1)':'none', flexShrink:0 }}
+                    onAnimationEnd={()=>setCoinAnim(false)}>
+                    💰
+                  </div>
+                  <div>
+                    <p style={{ fontSize:9, fontWeight:700, color:'#92400e', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 1px', fontFamily:'Poppins,sans-serif' }}>Your Balance</p>
+                    <div style={{ display:'flex', alignItems:'baseline', gap:4 }}>
+                      <p style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:24, color:'#b45309', margin:0, lineHeight:1 }}>
+                        {coins === null ? '…' : coins.toLocaleString()}
+                      </p>
+                      <p style={{ fontSize:11, fontWeight:700, color:'#d97706', margin:0, fontFamily:'Poppins,sans-serif' }}>coins</p>
+                    </div>
+                  </div>
+                </div>
+                {/* Stats column */}
+                <div style={{ textAlign:'right' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:5, justifyContent:'flex-end', marginBottom:4 }}>
+                    <span style={{ fontSize:13 }}>🔥</span>
+                    <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:13, color:'#ea580c', margin:0 }}>{streak}d streak</p>
+                  </div>
+                  <p style={{ fontSize:10, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600 }}>🎯 {predictions} predictions</p>
+                </div>
+              </div>
+
+              {/* Motivational tag */}
+              <div style={{ marginTop:10, padding:'8px 12px', background:'rgba(245,166,35,0.15)', borderRadius:10, border:'1px solid rgba(245,166,35,0.3)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <p style={{ fontSize:11, fontWeight:600, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif', lineHeight:1.4 }}>
+                  {coins === null ? '…' : coins >= 200
+                    ? '🚀 High roller! Keep predicting to grow!'
+                    : coins >= 100
+                    ? '🎯 Predict IPL matches to win more coins!'
+                    : '⚡ Almost there! Predict & win to grow your balance'}
+                </p>
+                <button onClick={() => setIplOpen(true)} style={{ flexShrink:0, marginLeft:8, padding:'5px 12px', borderRadius:20, border:'none', background:'linear-gradient(135deg,#F5A623,#E8941A)', color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:10, cursor:'pointer', whiteSpace:'nowrap', boxShadow:'0 2px 8px rgba(245,166,35,0.4)' }}>
+                  Predict →
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -346,8 +417,11 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
               style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'14px 6px 12px', background:`linear-gradient(145deg,${a.bg},#fff)`, border:`1.5px solid ${a.border}`, borderRadius:16, cursor:'pointer', transition:'all 0.2s', animation:`slideUp 0.35s ease-out ${i*40}ms both`, boxShadow:`3px 3px 10px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)`, position:'relative', overflow:'hidden', transform: clickedBtn===a.id?'scale(0.93)':'scale(1)' }}>
               {/* Ripple overlay on click */}
               {clickedBtn===a.id && <div style={{ position:'absolute', inset:0, background:`${a.accent}15`, borderRadius:16 }} />}
-              <div style={{ width:46, height:46, borderRadius:14, background:`linear-gradient(145deg,${a.bg},${a.border})`, border:`1.5px solid ${a.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:`inset 1px 1px 3px rgba(0,0,0,0.05),inset -1px -1px 2px rgba(255,255,255,0.8)`, transition:'all 0.2s' }}>
-                {a.icon}
+              <div style={{ width:46, height:46, borderRadius:14, background: a.iplLogo ? 'linear-gradient(135deg,#002A7F,#0A1F6E)' : `linear-gradient(145deg,${a.bg},${a.border})`, border:`1.5px solid ${a.iplLogo ? '#1A56DB' : a.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow: a.iplLogo ? '0 4px 12px rgba(0,42,127,0.35)' : `inset 1px 1px 3px rgba(0,0,0,0.05),inset -1px -1px 2px rgba(255,255,255,0.8)`, transition:'all 0.2s', overflow:'hidden' }}>
+                {a.iplLogo
+                  ? <img src="/ipl_logo.jpeg" alt="IPL" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                  : null}
+                <span style={{display: a.iplLogo ? 'none' : 'flex'}}>{a.icon}</span>
               </div>
               <div style={{ textAlign:'center' }}>
                 <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', lineHeight:1.25, fontFamily:'Poppins,sans-serif' }}>{a.label}</p>
@@ -532,20 +606,35 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* IPL Modal */}
       {iplOpen && (
         <div style={{ position:'fixed', inset:0, zIndex:800, display:'flex', flexDirection:'column', background:'linear-gradient(160deg,#f0f0f0,#e4e4e4)', animation:'fadeIn 0.25s ease-out' }}>
-          {/* Modal header */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', background:'linear-gradient(135deg,#1e293b,#0f172a)', flexShrink:0, boxShadow:'0 2px 12px rgba(0,0,0,0.3)' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <div style={{ width:36, height:36, borderRadius:11, background:'rgba(249,115,22,0.2)', border:'1px solid rgba(249,115,22,0.4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🏏</div>
-              <div>
-                <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:16, color:'#fff', margin:0 }}>IPL 2025</p>
-                <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)', margin:0, fontFamily:'Poppins,sans-serif' }}>Live · Results · Table · Caps</p>
+          {/* Modal header — IPL branded */}
+          <div style={{ flexShrink:0, position:'relative', overflow:'hidden' }}>
+            <div style={{ background:'linear-gradient(135deg,#002A7F 0%,#0A1F6E 45%,#001563 100%)', padding:'14px 18px', position:'relative' }}>
+              {/* Top stripe */}
+              <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'linear-gradient(90deg,#FF6B35,#FFD700,#00C9A7,#6C5CE7)' }} />
+              {/* Decorative circles */}
+              <div style={{ position:'absolute', top:-30, right:-20, width:120, height:120, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.07)', pointerEvents:'none' }} />
+              <div style={{ position:'absolute', bottom:-20, left:-10, width:80, height:80, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.05)', pointerEvents:'none' }} />
+
+              <div style={{ position:'relative', zIndex:2, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  {/* IPL Logo */}
+                  <div style={{ width:42, height:42, borderRadius:12, overflow:'hidden', background:'rgba(255,255,255,0.1)', border:'1.5px solid rgba(255,255,255,0.18)', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <img src="/ipl_logo.jpeg" alt="IPL"
+                      onError={e=>{e.target.style.display='none';e.target.parentNode.innerHTML='<span style="font-size:22px">🏏</span>'}}
+                      style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                  </div>
+                  <div>
+                    <p style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:16, color:'#fff', margin:0, letterSpacing:'0.03em' }}>TATA IPL 2026</p>
+                    <p style={{ fontSize:9, color:'rgba(255,255,255,0.5)', margin:0, fontFamily:'Poppins,sans-serif', letterSpacing:'0.08em' }}>LIVE · RESULTS · TABLE · CAPS</p>
+                  </div>
+                </div>
+                <button onClick={()=>setIplOpen(false)} style={{ width:34, height:34, borderRadius:10, background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.8)', fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700 }}>✕</button>
               </div>
             </div>
-            <button onClick={()=>setIplOpen(false)} style={{ width:34, height:34, borderRadius:10, background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', color:'rgba(255,255,255,0.7)', fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700 }}>✕</button>
           </div>
           {/* Modal body - scrollable */}
           <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 80px' }}>
-            <IPLCricket />
+            <IPLCricket currentUser={currentUser} />
           </div>
         </div>
       )}
