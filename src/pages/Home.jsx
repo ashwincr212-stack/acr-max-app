@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
-import { MysteryBoxModal, MysteryBoxCard } from './MysteryBox'
+import { SkillMachineModal, SkillMachineCard } from './SkillMachine'
 import { db } from '../firebase'
-import { doc, onSnapshot, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, collection, query, orderBy, limit, onSnapshot, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore'
 
 /* ── Greeting ── */
 function useGreeting() {
@@ -94,12 +94,12 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
   const [clickedBtn, setClickedBtn] = useState(null)
   const [surprisesOpen, setSurprisesOpen] = useState(false)
   const [iplOpen, setIplOpen] = useState(false)
-  const [mysteryOpen, setMysteryOpen] = useState(false)
-  const [boxSpins, setBoxSpins] = useState(3)
+  const [skillOpen, setSkillOpen] = useState(false)
   const [coins, setCoins] = useState(null)
   const [streak, setStreak] = useState(0)
   const [predictions, setPredictions] = useState(0)
   const [coinAnim, setCoinAnim] = useState(false)
+  const [leaderboard, setLeaderboard] = useState([])
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -113,7 +113,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
     const ref = doc(db, 'ipl_wallets', userId)
     // Create wallet if not exists
     getDoc(ref).then(snap => {
-      if (!snap.exists()) setDoc(ref, { coins:100, streak:0, predictions:0, wins:0, lastLogin:null, createdAt:serverTimestamp() })
+      if (!snap.exists()) setDoc(ref, { coins:500, streak:0, predictions:0, wins:0, lastLogin:null, createdAt:serverTimestamp() })
     }).catch(()=>{})
     // Real-time listener
     const unsub = onSnapshot(ref, snap => {
@@ -126,6 +126,23 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
     }, () => setCoins(500))
     return () => unsub()
   }, [currentUser])
+
+  // Leaderboard — top 5 by coins
+  useEffect(() => {
+    try {
+      const q = query(collection(db, 'ipl_wallets'), orderBy('coins','desc'), limit(5))
+      const unsub = onSnapshot(q, snap => {
+        setLeaderboard(snap.docs.map((d,i) => ({
+          rank: i+1,
+          userId: d.id,
+          coins: d.data().coins || 0,
+          wins:  d.data().wins  || 0,
+          predictions: d.data().predictions || 0,
+        })))
+      }, () => {})
+      return () => unsub()
+    } catch { return () => {} }
+  }, [])
 
   const navigate = (id) => {
     setClickedBtn(id)
@@ -371,24 +388,27 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           3. SMART WIDGETS ROW
       ══════════════════════════════════ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8, animation:'slideUp 0.4s ease-out 0.1s both' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:8, animation:'slideUp 0.4s ease-out 0.1s both' }}>
         {/* Mystery Box card */}
-        <MysteryBoxCard userId={currentUser?.username} spinsLeft={boxSpins} onClick={()=>setMysteryOpen(true)} />
+        <SkillMachineCard userId={currentUser?.username} onClick={()=>setSkillOpen(true)} />
 
-        {/* Surprises card — replaces streak */}
-        <button onClick={()=>setSurprisesOpen(true)} style={{ padding:'14px', background:'linear-gradient(135deg,#faf5ff,#ede9fe)', borderRadius:18, border:'1.5px solid #c4b5fd', boxShadow:'4px 4px 12px rgba(124,58,237,0.12),-3px -3px 8px rgba(255,255,255,0.9)', cursor:'pointer', textAlign:'left', transition:'all 0.2s', position:'relative', overflow:'hidden' }}
-          onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='6px 6px 16px rgba(124,58,237,0.18),-3px -3px 8px rgba(255,255,255,0.9)'}}
-          onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='4px 4px 12px rgba(124,58,237,0.12),-3px -3px 8px rgba(255,255,255,0.9)'}}>
-          {/* Subtle glow orb */}
-          <div style={{ position:'absolute', top:-10, right:-10, width:60, height:60, borderRadius:'50%', background:'rgba(167,139,250,0.2)', pointerEvents:'none' }} />
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:7 }}>
-            <span style={{ fontSize:22, animation:'giftFloat 3s ease-in-out infinite' }}>🎁</span>
-            <p style={{ fontSize:11, fontWeight:800, color:'#6d28d9', margin:0, fontFamily:'Poppins,sans-serif' }}>Surprises!!</p>
-          </div>
-          <p style={{ fontSize:10, color:'#7c3aed', margin:'0 0 6px', fontFamily:'Poppins,sans-serif', fontWeight:600, lineHeight:1.35 }}>Tweak your brain 🧠</p>
-          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-            <span style={{ fontSize:9, fontWeight:700, color:'rgba(124,58,237,0.6)', fontFamily:'Poppins,sans-serif' }}>15 facts daily</span>
-            <span style={{ fontSize:9, color:'rgba(124,58,237,0.4)' }}>→</span>
+        {/* Surprises card — same size as SkillMachineCard */}
+        <button onClick={()=>setSurprisesOpen(true)} style={{ width:'100%',border:'none',padding:0,background:'none',cursor:'pointer',textAlign:'left' }}>
+          <div style={{ padding:'10px 12px',height:'100%',
+            background:'linear-gradient(135deg,rgba(124,58,237,0.08),rgba(109,40,217,0.06))',
+            borderRadius:14, border:'1px solid rgba(124,58,237,0.25)',
+            boxShadow:'0 3px 16px rgba(124,58,237,0.12),inset 0 1px 0 rgba(255,255,255,0.6)',
+            position:'relative',overflow:'hidden',transition:'transform 0.2s' }}
+            onMouseEnter={e=>e.currentTarget.style.transform='translateY(-2px)'}
+            onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
+            <div style={{ position:'absolute',top:-8,right:-8,width:50,height:50,borderRadius:'50%',background:'rgba(167,139,250,0.15)',pointerEvents:'none' }}/>
+            <div style={{ display:'flex',alignItems:'center',gap:9 }}>
+              <div style={{ width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#7C3AED,#6D28D9)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,boxShadow:'0 3px 10px rgba(124,58,237,0.4)',animation:'giftFloat 3s ease-in-out infinite' }}>🎁</div>
+              <div style={{ flex:1,minWidth:0 }}>
+                <p style={{ fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:12,color:'#4C1D95',margin:'0 0 1px',whiteSpace:'nowrap' }}>Surprises</p>
+                <p style={{ fontSize:9,color:'#7C3AED',margin:0,fontFamily:'Poppins,sans-serif',whiteSpace:'nowrap',fontWeight:600 }}>15 facts · Brain boost 🧠</p>
+              </div>
+            </div>
           </div>
         </button>
       </div>
@@ -410,7 +430,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             { label:'Streak', value: `${streak||0}d`, icon:'🔥', color:'#ea580c' },
             { label:'Predicts', value: predictions||0, icon:'🎯', color:'#0891b2' },
             { label:'Accuracy', value: '—', icon:'📊', color:'#059669' },
-            { label:'Spins', value: `${boxSpins}/3`, icon:'🎁', color:'#7c3aed' },
+            { label:'Skills', value: '3/3', icon:'⚡', color:'#7c3aed' },
           ].map((s,i)=>(
             <div key={i} style={{ padding:'7px 4px', background:'linear-gradient(145deg,#fafafa,#efefef)', borderRadius:12, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'2px 2px 6px rgba(0,0,0,0.07),-1px -1px 4px rgba(255,255,255,0.9)', textAlign:'center' }}>
               <p style={{ fontSize:14, margin:'0 0 1px' }}>{s.icon}</p>
@@ -516,6 +536,45 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       )}
 
 
+
+      {/* ══════════════════════════════════
+          7. LEADERBOARD
+      ══════════════════════════════════ */}
+      {leaderboard.length > 0 && (
+        <NeuCard style={{ marginBottom:10 }} accent="#F59E0B">
+          <SectionHeader title="🏆 Top Predictors" accent="#F59E0B"
+            right={<button onClick={()=>setIplOpen(true)} style={{ background:'none',border:'none',fontSize:11,fontWeight:700,color:'#F59E0B',cursor:'pointer',fontFamily:'Poppins,sans-serif' }}>Full table →</button>} />
+          <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
+            {leaderboard.map((row,i) => {
+              const medals = ['🥇','🥈','🥉']
+              const isMe = row.userId === currentUser?.username
+              return (
+                <div key={i} style={{ display:'flex',alignItems:'center',gap:10,padding:'9px 11px',borderRadius:12,
+                  background: isMe ? 'linear-gradient(145deg,#fffbeb,#fef3c7)' : 'linear-gradient(145deg,#fafafa,#f0f0f0)',
+                  border: isMe ? '1.5px solid #FCD34D' : '1px solid #f0f0f0',
+                  boxShadow:'2px 2px 5px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)',
+                  animation:`slideUp 0.3s ease-out ${i*60}ms both` }}>
+                  <span style={{ fontSize:i<3?18:13,width:24,textAlign:'center',flexShrink:0 }}>{i<3?medals[i]:i+1}</span>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <p style={{ fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:12,color:'#1a1a1a',margin:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>
+                      {row.userId}{isMe&&<span style={{ fontSize:10,color:'#d97706',marginLeft:5 }}>(You)</span>}
+                    </p>
+                    <p style={{ fontSize:9,color:'#9ca3af',margin:0,fontFamily:'Poppins,sans-serif' }}>
+                      {row.predictions} predictions · {row.wins} wins
+                    </p>
+                  </div>
+                  <p style={{ fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:13,color:'#d97706',margin:0,flexShrink:0 }}>
+                    {(row.coins||0).toLocaleString()} 💰
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+          <p style={{ fontSize:9,color:'#9ca3af',textAlign:'center',margin:'10px 0 0',fontFamily:'Poppins,sans-serif' }}>
+            ⚖️ Skill-based game · Coins are virtual · No monetary value
+          </p>
+        </NeuCard>
+      )}
 
       {/* ══════════════════════════════════
           8. SECURITY CERTIFICATIONS
@@ -654,11 +713,8 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
       )}
       {/* Mystery Box Modal */}
-      <MysteryBoxModal userId={currentUser?.username} isOpen={mysteryOpen} onClose={()=>setMysteryOpen(false)}
-        onReward={(r)=>{
-          if(r.coins>0) setCoins(c=>(c||500)+r.coins)
-          setBoxSpins(s=>Math.max(0,s-1))
-        }} />
+      <SkillMachineModal userId={currentUser?.username} isOpen={skillOpen} onClose={()=>setSkillOpen(false)}
+        onReward={(r)=>{ if(r?.coins>0) setCoins(c=>(c||500)+r.coins) }} />
       {/* Surprises Modal */}
       <SurprisesModal isOpen={surprisesOpen} onClose={()=>setSurprisesOpen(false)} currentUser={currentUser} />
     </div>

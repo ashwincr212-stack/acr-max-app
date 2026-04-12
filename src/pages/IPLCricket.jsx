@@ -371,9 +371,10 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
   const started = matchHasStarted(match)
   const canPredict = !started && userId && !isLive && !isDone
   const cd = useCountdown(match.date, match.time)
-  const [showPredict,setShowPredict] = useState(false)
+  const [showPredict,setShowPredict]   = useState(false)
   const [myPrediction,setMyPrediction] = useState(null)
-  const [predLoading,setPredLoading] = useState(false)
+  const [predLoading,setPredLoading]   = useState(false)
+  const [expanded,setExpanded]         = useState(false)
 
   // Load user's prediction for this match
   useEffect(()=>{
@@ -416,7 +417,8 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
         <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',alignItems:'center',gap:10,marginBottom:12}} onClick={()=>onClick?.(match)}>
           <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,cursor:'pointer'}}>
             <TeamLogo name={match.team1} size={54}/>
-            {(isLive||isDone)&&match.score1&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:C.g1,margin:0,textAlign:'center'}}>{match.score1}</p>}
+            {/* Score shown here ONLY for completed matches — live scores shown in strip below */}
+            {isDone&&match.score1&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:C.g1,margin:0,textAlign:'center'}}>{match.score1}</p>}
           </div>
           <div style={{textAlign:'center'}}>
             {isDone?<div style={{padding:'4px 9px',background:C.g5,borderRadius:8}}><span style={{fontSize:9,fontWeight:800,color:C.g3,fontFamily:'Poppins,sans-serif'}}>FINAL</span></div>:
@@ -427,7 +429,7 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
           </div>
           <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,cursor:'pointer'}}>
             <TeamLogo name={match.team2} size={54}/>
-            {(isLive||isDone)&&match.score2&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:C.g1,margin:0,textAlign:'center'}}>{match.score2}</p>}
+            {isDone&&match.score2&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:C.g1,margin:0,textAlign:'center'}}>{match.score2}</p>}
           </div>
         </div>
 
@@ -435,15 +437,6 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
         {isDone&&match.result&&(
           <div style={{padding:'8px 12px',background:C.green2,border:`1px solid ${C.green}25`,borderRadius:11,textAlign:'center',marginBottom:10}}>
             <p style={{fontSize:12,fontWeight:700,color:C.green,margin:0,fontFamily:'Poppins,sans-serif'}}>🏆 {match.result}</p>
-          </div>
-        )}
-
-        {/* Live scores */}
-        {isLive&&(match.score1||match.score2)&&(
-          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:7,marginBottom:10}}>
-            <div style={{padding:'8px',background:`${t1.c}08`,border:`1px solid ${t1.c}18`,borderRadius:10,textAlign:'center'}}><p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:14,color:t1.c,margin:0}}>{match.score1||'—'}</p></div>
-            <div style={{display:'flex',alignItems:'center'}}><span style={{color:C.g4}}>v</span></div>
-            <div style={{padding:'8px',background:`${t2.c}08`,border:`1px solid ${t2.c}18`,borderRadius:10,textAlign:'center'}}><p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:14,color:t2.c,margin:0}}>{match.score2||'—'}</p></div>
           </div>
         )}
 
@@ -474,6 +467,178 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
             <p style={{fontSize:11,color:C.g3,margin:0,fontFamily:'Poppins,sans-serif'}}>⏸ Predictions closed · Match in progress</p>
           </div>
         )}
+
+        {/* ── View Details toggle ── */}
+        <button onClick={()=>setExpanded(e=>!e)}
+          style={{width:'100%',marginTop:10,padding:'7px',borderRadius:10,border:`1px solid ${C.g4}`,
+            background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5,
+            fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:11,color:C.g3,transition:'all 0.18s'}}
+          onMouseEnter={e=>{e.currentTarget.style.background=C.g5;e.currentTarget.style.color=C.g2}}
+          onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color=C.g3}}>
+          <span style={{transition:'transform 0.25s',transform:expanded?'rotate(180deg)':'rotate(0deg)',display:'inline-block'}}>▼</span>
+          {expanded ? 'Hide Details' : 'View Details'}
+        </button>
+
+        {/* ── Expandable Details Section ── */}
+        <div style={{
+          overflow:'hidden',
+          maxHeight: expanded ? 600 : 0,
+          opacity:   expanded ? 1 : 0,
+          transition:'max-height 0.3s ease, opacity 0.25s ease',
+          marginTop: expanded ? 10 : 0,
+        }}>
+          <div style={{borderTop:`1px solid ${C.g4}`,paddingTop:10,display:'flex',flexDirection:'column',gap:7}}>
+
+            {/* Match Info */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+              {[
+                {icon:'📍', label:'Venue',  value: match?.venue?.split(',')[0] || 'TBD'},
+                {icon:'🏆', label:'Status', value: (match?.status||'upcoming').charAt(0).toUpperCase()+(match?.status||'upcoming').slice(1)},
+                {icon:'📅', label:'Date',   value: fmtDate(match?.date)},
+                {icon:'⏰', label:'Time',   value: fmtTime(match?.time)},
+              ].map((row,i)=>(
+                <div key={i} style={{padding:'7px 9px',background:C.g5,borderRadius:9,border:`1px solid ${C.g4}`}}>
+                  <p style={{fontSize:8,fontWeight:700,color:C.g3,textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 2px',fontFamily:'Poppins,sans-serif'}}>{row.icon} {row.label}</p>
+                  <p style={{fontSize:11,fontWeight:700,color:C.g1,margin:0,fontFamily:'Poppins,sans-serif',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{row.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Toss */}
+            {match?.toss && (
+              <div style={{padding:'7px 10px',background:`${C.gold}08`,border:`1px solid ${C.gold}20`,borderRadius:9,display:'flex',alignItems:'center',gap:7}}>
+                <span style={{fontSize:14}}>🪙</span>
+                <div>
+                  <p style={{fontSize:8,fontWeight:700,color:C.gold,textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 1px',fontFamily:'Poppins,sans-serif'}}>Toss</p>
+                  <p style={{fontSize:11,fontWeight:700,color:C.g1,margin:0,fontFamily:'Poppins,sans-serif'}}>{match.toss}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Batting/Bowling teams */}
+            {(match?.batting || match?.bowling) && (
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                {match?.batting && (
+                  <div style={{padding:'7px 9px',background:`${C.green}06`,border:`1px solid ${C.green}18`,borderRadius:9}}>
+                    <p style={{fontSize:8,fontWeight:700,color:C.green,textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 2px',fontFamily:'Poppins,sans-serif'}}>🏏 Batting</p>
+                    <p style={{fontSize:11,fontWeight:700,color:C.g1,margin:0,fontFamily:'Poppins,sans-serif'}}>{match.batting}</p>
+                  </div>
+                )}
+                {match?.bowling && (
+                  <div style={{padding:'7px 9px',background:`${C.blue}06`,border:`1px solid ${C.blue}18`,borderRadius:9}}>
+                    <p style={{fontSize:8,fontWeight:700,color:C.blue,textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 2px',fontFamily:'Poppins,sans-serif'}}>🎯 Bowling</p>
+                    <p style={{fontSize:11,fontWeight:700,color:C.g1,margin:0,fontFamily:'Poppins,sans-serif'}}>{match.bowling}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Live score with CRR/RRR */}
+            {isLive && (match?.score1 || match?.score2) && (
+              <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:6}}>
+                <div style={{padding:'8px 10px',background:`${t1.c}06`,border:`1px solid ${t1.c}15`,borderRadius:10,textAlign:'center'}}>
+                  <p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:t1.c,margin:'0 0 2px'}}>{match?.score1||'—'}</p>
+                  {match?.crr && <p style={{fontSize:9,color:C.g3,margin:0,fontFamily:'Poppins,sans-serif'}}>CRR {match.crr}</p>}
+                </div>
+                <div style={{display:'flex',alignItems:'center'}}><span style={{fontSize:11,color:C.g4,fontWeight:700}}>v</span></div>
+                <div style={{padding:'8px 10px',background:`${t2.c}06`,border:`1px solid ${t2.c}15`,borderRadius:10,textAlign:'center'}}>
+                  <p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:t2.c,margin:'0 0 2px'}}>{match?.score2||'—'}</p>
+                  {match?.rrr && <p style={{fontSize:9,color:C.g3,margin:0,fontFamily:'Poppins,sans-serif'}}>RRR {match.rrr}</p>}
+                </div>
+              </div>
+            )}
+
+            {/* Batsmen at crease */}
+            {match?.batsmen?.length > 0 && (
+              <div style={{padding:'8px 10px',background:C.g5,border:`1px solid ${C.g4}`,borderRadius:10}}>
+                <p style={{fontSize:8,fontWeight:700,color:C.g3,textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 7px',fontFamily:'Poppins,sans-serif'}}>🏏 At Crease</p>
+                {match.batsmen.map((b,i)=>(
+                  <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:i<match.batsmen.length-1?5:0}}>
+                    <p style={{fontSize:11,fontWeight:b?.onStrike?800:600,color:b?.onStrike?C.g1:C.g2,margin:0,fontFamily:'Poppins,sans-serif'}}>
+                      {b?.onStrike?'★ ':''}{b?.name||'—'}
+                    </p>
+                    <p style={{fontSize:11,fontWeight:700,color:C.g1,margin:0,fontFamily:'Poppins,sans-serif'}}>
+                      {b?.runs??'—'}<span style={{fontSize:9,color:C.g3,fontWeight:400}}> ({b?.balls??0})</span>
+                      <span style={{fontSize:9,color:C.g3,marginLeft:4}}>SR {b?.sr||'—'}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Current bowler */}
+            {match?.bowler && (
+              <div style={{padding:'8px 10px',background:C.g5,border:`1px solid ${C.g4}`,borderRadius:10}}>
+                <p style={{fontSize:8,fontWeight:700,color:C.g3,textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 5px',fontFamily:'Poppins,sans-serif'}}>🎯 Current Bowler</p>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <p style={{fontSize:11,fontWeight:700,color:C.g1,margin:0,fontFamily:'Poppins,sans-serif'}}>{match.bowler?.name||'—'}</p>
+                  <p style={{fontSize:10,color:C.g2,margin:0,fontFamily:'Poppins,sans-serif'}}>
+                    {match.bowler?.overs||0}-{match.bowler?.runs||0}-{match.bowler?.wickets||0}
+                    <span style={{color:C.g3}}> · Econ {match.bowler?.econ||'—'}</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Partnership */}
+            {match?.partnership && (
+              <div style={{display:'flex',alignItems:'center',gap:7,padding:'7px 10px',background:C.g5,border:`1px solid ${C.g4}`,borderRadius:9}}>
+                <span style={{fontSize:14}}>🤝</span>
+                <p style={{fontSize:11,color:C.g2,margin:0,fontFamily:'Poppins,sans-serif'}}>
+                  Partnership: <span style={{fontWeight:800,color:C.g1}}>{match.partnership?.runs||0} runs</span>
+                  <span style={{color:C.g3}}> ({match.partnership?.balls||0} balls)</span>
+                </p>
+              </div>
+            )}
+
+            {/* Last over */}
+            {match?.lastOver?.length > 0 && (
+              <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
+                <p style={{fontSize:9,color:C.g3,fontFamily:'Poppins,sans-serif',fontWeight:700,flexShrink:0,margin:0}}>Last over:</p>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                  {match.lastOver.map((ball,i)=>{
+                    const isW=ball==='W', is4=ball==='4', is6=ball==='6'
+                    return (
+                      <div key={i} style={{width:24,height:24,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',
+                        fontSize:9,fontWeight:800,fontFamily:'Poppins,sans-serif',
+                        background:isW?C.red:is6?C.green:is4?C.blue:C.g5,
+                        color:isW||is6||is4?'#fff':C.g2,
+                        border:`1px solid ${isW?`${C.red}40`:is6?`${C.green}40`:is4?`${C.blue}40`:C.g4}`}}>
+                        {ball}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Man of the Match */}
+            {match?.motm && (
+              <div style={{padding:'7px 10px',background:'linear-gradient(135deg,#fffbeb,#fef3c7)',border:`1px solid ${C.gold}30`,borderRadius:9,display:'flex',alignItems:'center',gap:7}}>
+                <span style={{fontSize:16}}>🏅</span>
+                <div>
+                  <p style={{fontSize:8,fontWeight:700,color:C.gold,textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 1px',fontFamily:'Poppins,sans-serif'}}>Man of the Match</p>
+                  <p style={{fontSize:11,fontWeight:700,color:C.g1,margin:0,fontFamily:'Poppins,sans-serif'}}>{match.motm}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Result margin */}
+            {isDone && match?.result && (
+              <div style={{padding:'8px 12px',background:C.green2,border:`1px solid ${C.green}25`,borderRadius:10,textAlign:'center'}}>
+                <p style={{fontSize:12,fontWeight:700,color:C.green,margin:0,fontFamily:'Poppins,sans-serif'}}>🏆 {match.result}</p>
+              </div>
+            )}
+
+            {/* No extra data fallback */}
+            {!match?.toss && !match?.batting && !match?.bowler && !match?.batsmen?.length && !match?.lastOver?.length && (
+              <p style={{fontSize:11,color:C.g3,textAlign:'center',fontFamily:'Poppins,sans-serif',margin:'4px 0'}}>
+                Detailed stats unavailable — data updates during live match
+              </p>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   )
@@ -752,11 +917,17 @@ function Detail({match,onClose}) {
             {match.result&&<div style={{padding:'9px 12px',background:C.green2,borderRadius:11,textAlign:'center',border:`1px solid ${C.green}25`}}><p style={{fontSize:12,fontWeight:700,color:C.green,margin:0,fontFamily:'Poppins,sans-serif'}}>🏆 {match.result}</p></div>}
           </div>
         </div>
-        {[{i:'📅',l:'Date',v:fmtDate(match.date)},{i:'⏰',l:'Time',v:fmtTime(match.time)},{i:'📍',l:'Venue',v:match.venue||'TBD'}].map((r,i,a)=>(
-          <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 13px',background:'#fff',borderRadius:i===0?'12px 12px 0 0':i===a.length-1?'0 0 12px 12px':'0',borderBottom:i<a.length-1?`1px solid ${C.g4}`:'none',border:`1px solid ${C.g4}`,marginTop:i===0?0:-1}}>
-            <span style={{fontSize:15,width:22,textAlign:'center'}}>{r.i}</span>
+        {[
+          {i:'📅',l:'Date',   v:fmtDate(match.date)},
+          {i:'⏰',l:'Time',   v:fmtTime(match.time)},
+          {i:'📍',l:'Venue',  v:match.venue||'TBD'},
+          ...(match.toss ? [{i:'🪙',l:'Toss',v:match.toss}] : []),
+          ...(match.motm ? [{i:'🏅',l:'MOTM', v:match.motm}] : []),
+        ].map((r,i,a)=>(
+          <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 13px',background:'#fff',borderRadius:i===0?'12px 12px 0 0':i===a.length-1?'0 0 12px 12px':'0',borderBottom:i<a.length-1?`1px solid ${C.g4}`:'none',border:`1px solid ${C.g4}`,marginTop:i===0?0:-1}}>
+            <span style={{fontSize:15,width:22,textAlign:'center',flexShrink:0}}>{r.i}</span>
             <p style={{fontSize:10,color:C.g3,fontFamily:'Poppins,sans-serif',fontWeight:600,margin:0,width:52,flexShrink:0}}>{r.l}</p>
-            <p style={{fontSize:11,color:C.g1,fontFamily:'Poppins,sans-serif',fontWeight:700,margin:0}}>{r.v}</p>
+            <p style={{fontSize:11,color:C.g1,fontFamily:'Poppins,sans-serif',fontWeight:700,margin:0,flex:1,wordBreak:'break-word'}}>{r.v}</p>
           </div>
         ))}
       </div>
