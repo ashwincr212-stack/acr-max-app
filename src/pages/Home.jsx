@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
+import { MysteryBoxModal, MysteryBoxCard } from './MysteryBox'
 import { db } from '../firebase'
 import { doc, onSnapshot, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 
@@ -93,6 +94,8 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
   const [clickedBtn, setClickedBtn] = useState(null)
   const [surprisesOpen, setSurprisesOpen] = useState(false)
   const [iplOpen, setIplOpen] = useState(false)
+  const [mysteryOpen, setMysteryOpen] = useState(false)
+  const [boxSpins, setBoxSpins] = useState(3)
   const [coins, setCoins] = useState(null)
   const [streak, setStreak] = useState(0)
   const [predictions, setPredictions] = useState(0)
@@ -189,7 +192,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
     { id:'expense', icon:'💰', label:'+ Add Expense', sub:'Log spending',    bg:'#fef3c7', border:'#fde68a', accent:'#d97706' },
     { id:'ledger',  icon:'🤝', label:'View Ledger',   sub:'Track debts',     bg:'#ecfdf5', border:'#a7f3d0', accent:'#059669' },
     { id:'market',  icon:'📰', label:'Check News',    sub:'Stay updated',    bg:'#eff6ff', border:'#bfdbfe', accent:'#1d4ed8' },
-    { id:'cricket', icon:'🏏', label:'IPL 2026',      sub:'Predict & Win 💰',     bg:'#EEF2FF', border:'#C7D7FD', accent:'#1A56DB', ipl:true, iplLogo:true },
+    { id:'cricket', icon:'🏏', label:'IPL 2025',      sub:'Predict & Win 💰',     bg:'#EEF2FF', border:'#C7D7FD', accent:'#1A56DB', ipl:true, iplLogo:true },
     { id:'astro',   icon:'✨', label:'Astro Insights', sub:'Your forecast',  bg:'#faf5ff', border:'#ddd6fe', accent:'#6d28d9' },
     { id:'space',   icon:'🚀', label:'Space World',   sub:'ISS tracker',     bg:'#f0f9ff', border:'#bae6fd', accent:'#0ea5e9' },
     { id:'chat',    icon:'🤖', label:'AI Chat',       sub:'Ask anything',    bg:'#f0fdf4', border:'#bbf7d0', accent:'#16a34a' },
@@ -232,7 +235,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           1. TOP HEADER
       ══════════════════════════════════ */}
-      <div style={{ padding:'10px 14px 0', animation:'fadeIn 0.4s ease-out both' }}>
+      <div style={{ padding:'8px 10px 0', animation:'fadeIn 0.4s ease-out both' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
           {/* Logo + brand */}
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -255,7 +258,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
       </div>
 
-      <div style={{ padding:'0 14px' }}>
+      <div style={{ padding:'0 10px' }}>
 
       {/* ══════════════════════════════════
           2. WELCOME + DASHBOARD CARD
@@ -270,16 +273,16 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       }}>
         {/* Accent top stripe in theme color */}
         <div style={{ height:4, background:`linear-gradient(90deg,transparent,${themeAccent},${themeAccent}80,transparent)` }} />
-        <div style={{ padding:'14px 16px 16px', position:'relative' }}>
+        <div style={{ padding:'10px 13px 12px', position:'relative' }}>
           {/* Decorative silver orbs */}
           <div style={{ position:'absolute', top:-10, right:-10, width:100, height:100, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.8),transparent 65%)', pointerEvents:'none' }} />
 
           {/* Welcome + name */}
-          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
-          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#1a1a1a', margin:'0 0 10px', lineHeight:1.1 }}>{displayName} 👋</p>
+          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
+          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:19, color:'#1a1a1a', margin:'0 0 7px', lineHeight:1.1 }}>{displayName} 👋</p>
 
           {/* Key insight badges */}
-          <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:14 }}>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
             {topCat && (
               <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>
                 <span style={{ fontSize:12 }}>{catIcon(topCat[0])}</span>
@@ -303,34 +306,34 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             ].map((s,i) => (
               <>
                 {i>0 && <div key={`d${i}`} style={{ background:'rgba(0,0,0,0.06)' }} />}
-                <div key={i} style={{ padding:'11px 6px', textAlign:'center' }}>
+                <div key={i} style={{ padding:'8px 4px', textAlign:'center' }}>
                   <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
-                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#b8860b', margin:0, lineHeight:1 }}>
+                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:14, color:'#b8860b', margin:0, lineHeight:1 }}>
                     {s.fmt ? <CountUp value={s.value} /> : s.value}
                   </p>
-                  {s.entries !== null && <p style={{ fontSize:9, color:'#6b7280', margin:'3px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} entries</p>}
+                  {s.entries !== null && <p style={{ fontSize:8, color:'#6b7280', margin:'2px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} entries</p>}
                 </div>
               </>
             ))}
           </div>
 
           {/* 💰 COIN WALLET BANNER */}
-          <div style={{ marginTop:12, borderRadius:14, overflow:'hidden', border:'1.5px solid rgba(245,166,35,0.35)', boxShadow:'0 3px 12px rgba(245,166,35,0.15)', animation:'quoteIn 0.5s ease-out 0.4s both', position:'relative' }}>
+          <div style={{ marginTop:8, borderRadius:12, overflow:'hidden', border:'1px solid rgba(245,166,35,0.3)', boxShadow:'0 3px 12px rgba(245,166,35,0.15)', animation:'quoteIn 0.5s ease-out 0.4s both', position:'relative' }}>
             {/* Gold gradient background */}
-            <div style={{ background:'linear-gradient(135deg,#fffbeb,#fff3d0,#fef9ec)', padding:'13px 14px' }}>
+            <div style={{ background:'linear-gradient(135deg,#fffbeb,#fff3d0,#fef9ec)', padding:'10px 12px' }}>
               {/* Shine effect */}
               <div style={{ position:'absolute', top:0, right:0, width:80, height:80, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.6),transparent 65%)', pointerEvents:'none' }} />
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   {/* Animated coin icon */}
-                  <div style={{ width:42, height:42, borderRadius:14, background:'linear-gradient(135deg,#F5A623,#E8941A)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:'0 4px 12px rgba(245,166,35,0.4)', animation: coinAnim?'coinPop 0.5s cubic-bezier(.34,1.56,.64,1)':'none', flexShrink:0 }}
+                  <div style={{ width:36, height:36, borderRadius:11, background:'linear-gradient(135deg,#F5A623,#E8941A)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:'0 4px 12px rgba(245,166,35,0.4)', animation: coinAnim?'coinPop 0.5s cubic-bezier(.34,1.56,.64,1)':'none', flexShrink:0 }}
                     onAnimationEnd={()=>setCoinAnim(false)}>
                     💰
                   </div>
                   <div>
                     <p style={{ fontSize:9, fontWeight:700, color:'#92400e', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 1px', fontFamily:'Poppins,sans-serif' }}>Your Balance</p>
                     <div style={{ display:'flex', alignItems:'baseline', gap:4 }}>
-                      <p style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:24, color:'#b45309', margin:0, lineHeight:1 }}>
+                      <p style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:20, color:'#b45309', margin:0, lineHeight:1 }}>
                         {coins === null ? '…' : coins.toLocaleString()}
                       </p>
                       <p style={{ fontSize:11, fontWeight:700, color:'#d97706', margin:0, fontFamily:'Poppins,sans-serif' }}>coins</p>
@@ -348,7 +351,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
               </div>
 
               {/* Motivational tag */}
-              <div style={{ marginTop:10, padding:'8px 12px', background:'rgba(245,166,35,0.15)', borderRadius:10, border:'1px solid rgba(245,166,35,0.3)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div style={{ marginTop:7, padding:'6px 10px', background:'rgba(245,166,35,0.15)', borderRadius:10, border:'1px solid rgba(245,166,35,0.3)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <p style={{ fontSize:11, fontWeight:600, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif', lineHeight:1.4 }}>
                   {coins === null ? '…' : coins >= 200
                     ? '🚀 High roller! Keep predicting to grow!'
@@ -368,16 +371,9 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           3. SMART WIDGETS ROW
       ══════════════════════════════════ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10, animation:'slideUp 0.4s ease-out 0.1s both' }}>
-        {/* Weekly Progress */}
-        <div style={{ padding:'14px', background:'linear-gradient(135deg,#fafafa,#e0e0e0,#f0f0f0)', borderRadius:18, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'4px 4px 12px rgba(0,0,0,0.08),-3px -3px 8px rgba(255,255,255,0.9)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10 }}>
-            <span style={{ fontSize:16 }}>📊</span>
-            <p style={{ fontSize:10, fontWeight:700, color:'#374151', margin:0, fontFamily:'Poppins,sans-serif' }}>Weekly Goal</p>
-          </div>
-          <ProgressBar pct={Math.min((Math.min(daysActive,7)/7)*100,100)} color={themeAccent} />
-          <p style={{ fontSize:10, color:'#6b7280', margin:'7px 0 0', fontFamily:'Poppins,sans-serif' }}>{Math.min(daysActive,7)}/7 days tracked</p>
-        </div>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8, animation:'slideUp 0.4s ease-out 0.1s both' }}>
+        {/* Mystery Box card */}
+        <MysteryBoxCard userId={currentUser?.username} spinsLeft={boxSpins} onClick={()=>setMysteryOpen(true)} />
 
         {/* Surprises card — replaces streak */}
         <button onClick={()=>setSurprisesOpen(true)} style={{ padding:'14px', background:'linear-gradient(135deg,#faf5ff,#ede9fe)', borderRadius:18, border:'1.5px solid #c4b5fd', boxShadow:'4px 4px 12px rgba(124,58,237,0.12),-3px -3px 8px rgba(255,255,255,0.9)', cursor:'pointer', textAlign:'left', transition:'all 0.2s', position:'relative', overflow:'hidden' }}
@@ -398,34 +394,53 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       </div>
 
       {/* ── AI Tip ── */}
-      <div style={{ padding:'12px 16px', background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', borderRadius:16, border:'1.5px solid #ddd6fe', boxShadow:'3px 3px 10px rgba(124,58,237,0.08),-2px -2px 6px rgba(255,255,255,0.9)', marginBottom:14, display:'flex', alignItems:'center', gap:12, animation:'slideUp 0.4s ease-out 0.12s both' }}>
-        <div style={{ width:36, height:36, borderRadius:12, background:'linear-gradient(135deg,#7c3aed20,#7c3aed10)', border:'1px solid #ddd6fe', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>💡</div>
+      <div style={{ padding:'9px 13px', background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', borderRadius:13, border:'1px solid #ddd6fe', boxShadow:'2px 2px 7px rgba(124,58,237,0.07),-1px -1px 4px rgba(255,255,255,0.9)', marginBottom:10, display:'flex', alignItems:'center', gap:12, animation:'slideUp 0.4s ease-out 0.12s both' }}>
+        <div style={{ width:30, height:30, borderRadius:9, background:'linear-gradient(135deg,#7c3aed20,#7c3aed10)', border:'1px solid #ddd6fe', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, flexShrink:0 }}>💡</div>
         <div>
           <p style={{ fontSize:9, fontWeight:800, color:'#7c3aed', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>AI Daily Tip</p>
           <p style={{ fontSize:12, fontWeight:600, color:'#374151', margin:0, fontFamily:'Poppins,sans-serif', lineHeight:1.45 }}>{todayTip}</p>
         </div>
       </div>
 
+      {/* ── Prediction Stats Strip ── */}
+      {currentUser?.username && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:6, marginBottom:10, animation:'slideUp 0.4s ease-out 0.08s both' }}>
+          {[
+            { label:'Balance', value: coins===null?'…':(coins||500).toLocaleString(), icon:'💰', color:'#b45309' },
+            { label:'Streak', value: `${streak||0}d`, icon:'🔥', color:'#ea580c' },
+            { label:'Predicts', value: predictions||0, icon:'🎯', color:'#0891b2' },
+            { label:'Accuracy', value: '—', icon:'📊', color:'#059669' },
+            { label:'Spins', value: `${boxSpins}/3`, icon:'🎁', color:'#7c3aed' },
+          ].map((s,i)=>(
+            <div key={i} style={{ padding:'7px 4px', background:'linear-gradient(145deg,#fafafa,#efefef)', borderRadius:12, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'2px 2px 6px rgba(0,0,0,0.07),-1px -1px 4px rgba(255,255,255,0.9)', textAlign:'center' }}>
+              <p style={{ fontSize:14, margin:'0 0 1px' }}>{s.icon}</p>
+              <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:11, color:s.color, margin:'0 0 1px', lineHeight:1 }}>{s.value}</p>
+              <p style={{ fontSize:7, color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ══════════════════════════════════
           4. QUICK ACTIONS — interactive cards
       ══════════════════════════════════ */}
-      <NeuCard style={{ padding:'18px 14px 14px', marginBottom:14 }} accent={themeAccent}>
+      <NeuCard style={{ padding:'14px 12px 12px', marginBottom:12 }} accent={themeAccent}>
         <SectionHeader title="Quick Actions" accent={themeAccent} />
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px 8px' }}>
           {QUICK_ACTIONS.map((a,i) => (
             <button key={a.id} className="qa-card" onClick={() => a.ipl ? setIplOpen(true) : navigate(a.id)}
-              style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'14px 6px 12px', background:`linear-gradient(145deg,${a.bg},#fff)`, border:`1.5px solid ${a.border}`, borderRadius:16, cursor:'pointer', transition:'all 0.2s', animation:`slideUp 0.35s ease-out ${i*40}ms both`, boxShadow:`3px 3px 10px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)`, position:'relative', overflow:'hidden', transform: clickedBtn===a.id?'scale(0.93)':'scale(1)' }}>
+              style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'11px 5px 10px', background:`linear-gradient(145deg,${a.bg},#fff)`, border:`1.5px solid ${a.border}`, borderRadius:16, cursor:'pointer', transition:'all 0.2s', animation:`slideUp 0.35s ease-out ${i*40}ms both`, boxShadow:`3px 3px 10px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)`, position:'relative', overflow:'hidden', transform: clickedBtn===a.id?'scale(0.93)':'scale(1)' }}>
               {/* Ripple overlay on click */}
               {clickedBtn===a.id && <div style={{ position:'absolute', inset:0, background:`${a.accent}15`, borderRadius:16 }} />}
-              <div style={{ width:46, height:46, borderRadius:14, background: a.iplLogo ? 'linear-gradient(135deg,#002A7F,#0A1F6E)' : `linear-gradient(145deg,${a.bg},${a.border})`, border:`1.5px solid ${a.iplLogo ? '#1A56DB' : a.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow: a.iplLogo ? '0 4px 12px rgba(0,42,127,0.35)' : `inset 1px 1px 3px rgba(0,0,0,0.05),inset -1px -1px 2px rgba(255,255,255,0.8)`, transition:'all 0.2s', overflow:'hidden' }}>
+              <div style={{ width:40, height:40, borderRadius:12, background: a.iplLogo ? 'linear-gradient(135deg,#002A7F,#0A1F6E)' : `linear-gradient(145deg,${a.bg},${a.border})`, border:`1.5px solid ${a.iplLogo ? '#1A56DB' : a.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:19, boxShadow: a.iplLogo ? '0 4px 12px rgba(0,42,127,0.35)' : `inset 1px 1px 3px rgba(0,0,0,0.05),inset -1px -1px 2px rgba(255,255,255,0.8)`, transition:'all 0.2s', overflow:'hidden' }}>
                 {a.iplLogo
                   ? <img src="/ipl_logo.jpeg" alt="IPL" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
                   : null}
                 <span style={{display: a.iplLogo ? 'none' : 'flex'}}>{a.icon}</span>
               </div>
               <div style={{ textAlign:'center' }}>
-                <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', lineHeight:1.25, fontFamily:'Poppins,sans-serif' }}>{a.label}</p>
-                <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:500 }}>{a.sub}</p>
+                <p style={{ fontSize:11, fontWeight:700, color:'#1a1a1a', margin:'0 0 1px', lineHeight:1.2, fontFamily:'Poppins,sans-serif' }}>{a.label}</p>
+                <p style={{ fontSize:9, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:500 }}>{a.sub}</p>
               </div>
             </button>
           ))}
@@ -436,7 +451,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           5. RECENT ACTIVITY FEED
       ══════════════════════════════════ */}
       {recentLogs.length > 0 && (
-        <NeuCard style={{ marginBottom:14 }} accent="#059669">
+        <NeuCard style={{ marginBottom:10 }} accent="#059669">
           <SectionHeader title="Recent Activity" accent="#059669"
             right={<button onClick={()=>navigate('expense')} style={{ background:'none', border:'none', fontSize:11, fontWeight:700, color:themeAccent, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>See all →</button>} />
           <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
@@ -465,7 +480,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           6. FOR YOU — personalization
       ══════════════════════════════════ */}
       {logs.length >= 3 && (
-        <NeuCard style={{ marginBottom:14 }} accent={themeAccent}>
+        <NeuCard style={{ marginBottom:10 }} accent={themeAccent}>
           <SectionHeader title="For You" accent={themeAccent} />
           <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
             {/* Spending pattern insight */}
@@ -505,7 +520,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           8. SECURITY CERTIFICATIONS
       ══════════════════════════════════ */}
-      <NeuCard style={{ marginBottom:14 }}>
+      <NeuCard style={{ marginBottom:10 }}>
         <SectionHeader title="Security & Compliance" accent="#059669" />
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:9, marginBottom:13 }}>
           {[
@@ -533,7 +548,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           8. ABOUT & CREDITS
       ══════════════════════════════════ */}
-      <NeuCard style={{ marginBottom:14 }} accent={themeAccent}>
+      <NeuCard style={{ marginBottom:10 }} accent={themeAccent}>
         <SectionHeader title="About ACR MAX" accent={themeAccent} />
 
         {/* Brand */}
@@ -624,7 +639,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                       style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                   </div>
                   <div>
-                    <p style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:16, color:'#fff', margin:0, letterSpacing:'0.03em' }}>TATA IPL 2026</p>
+                    <p style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:16, color:'#fff', margin:0, letterSpacing:'0.03em' }}>TATA IPL 2025</p>
                     <p style={{ fontSize:9, color:'rgba(255,255,255,0.5)', margin:0, fontFamily:'Poppins,sans-serif', letterSpacing:'0.08em' }}>LIVE · RESULTS · TABLE · CAPS</p>
                   </div>
                 </div>
@@ -638,6 +653,12 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           </div>
         </div>
       )}
+      {/* Mystery Box Modal */}
+      <MysteryBoxModal userId={currentUser?.username} isOpen={mysteryOpen} onClose={()=>setMysteryOpen(false)}
+        onReward={(r)=>{
+          if(r.coins>0) setCoins(c=>(c||500)+r.coins)
+          setBoxSpins(s=>Math.max(0,s-1))
+        }} />
       {/* Surprises Modal */}
       <SurprisesModal isOpen={surprisesOpen} onClose={()=>setSurprisesOpen(false)} currentUser={currentUser} />
     </div>
