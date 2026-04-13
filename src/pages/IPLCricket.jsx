@@ -329,7 +329,7 @@ function PredictPanel({match, userId, wallet, onDone}) {
 function PredictionStatus({prediction}) {
   const team = getTeam(prediction.predictedWinner)
   const statusConfig = {
-    pending: {bg:'#FFF7ED',border:'#FED7AA',color:'#92400E',icon:'⏳',label:'Pending Result'},
+    pending: {bg:'#FFF7ED',border:'#FED7AA',color:'#92400E',icon:'⏳',label:t.pendingResult||'Pending Result'},
     won:     {bg:C.green2,border:`${C.green}40`,color:C.green,icon:'🏆',label:'Correct! Coins Earned'},
     lost:    {bg:'#FEF2F2',border:'#FECACA',color:C.red,icon:'❌',label:'Incorrect'},
   }
@@ -346,7 +346,7 @@ function PredictionStatus({prediction}) {
             🔒 Your Prediction: <span style={{color:team.c}}>{team.s}</span>
           </p>
           <p style={{fontSize:10,color:C.g3,margin:0,fontFamily:'Poppins,sans-serif'}}>
-            {prediction.freeEntry===true?'Free entry':(prediction.coinsWagered||0)===0?'Free':`${prediction.coinsWagered||0} coins wagered`}
+            {prediction.freeEntry===true?'Free entry':(prediction.coinsWagered||0)===0?t.free||'Free':`${prediction.coinsWagered||0} coins wagered`}
             {prediction.createdAt?.seconds ? ` · ${fmtDateTime(new Date(prediction.createdAt.seconds*1000))}` : ''}
           </p>
         </div>
@@ -412,26 +412,7 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
         </div>
       </div>
 
-      <div style={{padding:'14px'}}>
-        {/* Teams */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',alignItems:'center',gap:10,marginBottom:12}} onClick={()=>onClick?.(match)}>
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,cursor:'pointer'}}>
-            <TeamLogo name={match.team1} size={54}/>
-            {/* Score shown here ONLY for completed matches — live scores shown in strip below */}
-            {isDone&&match.score1&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:C.g1,margin:0,textAlign:'center'}}>{match.score1}</p>}
-          </div>
-          <div style={{textAlign:'center'}}>
-            {isDone?<div style={{padding:'4px 9px',background:C.g5,borderRadius:8}}><span style={{fontSize:9,fontWeight:800,color:C.g3,fontFamily:'Poppins,sans-serif'}}>FINAL</span></div>:
-             isLive?<LiveDot/>:
-             <div style={{width:38,height:38,borderRadius:'50%',background:C.g5,border:`1.5px solid ${C.g4}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-               <span style={{fontSize:11,fontWeight:800,color:C.g3,fontFamily:'Poppins,sans-serif'}}>VS</span>
-             </div>}
-          </div>
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,cursor:'pointer'}}>
-            <TeamLogo name={match.team2} size={54}/>
-            {isDone&&match.score2&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:C.g1,margin:0,textAlign:'center'}}>{match.score2}</p>}
-          </div>
-        </div>
+      <div style={{padding:'14px'}}>         {/* Teams */}         <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',alignItems:'center',gap:10,marginBottom:12}} onClick={()=>onClick?.(match)}>           <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:5,cursor:'pointer'}}>             <TeamLogo name={match.team1} size={54}/>             {/* Score always shown under logo for both live and completed */}             {(isLive||isDone)&&match.score1&&(               <p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:isLive?t1.c:C.g1,margin:0,textAlign:'center',lineHeight:1.1}}>{match.score1}</p>             )}             {isLive&&match.crr&&<p style={{fontSize:9,color:C.g3,margin:0,fontFamily:'Poppins,sans-serif'}}>CRR {match.crr}</p>}           </div>           <div style={{textAlign:'center'}}>             {isDone               ? <div style={{padding:'4px 9px',background:C.g5,borderRadius:8}}><span style={{fontSize:9,fontWeight:800,color:C.g3,fontFamily:'Poppins,sans-serif'}}>FINAL</span></div>               : isLive               ? <LiveDot/>               : <div style={{width:38,height:38,borderRadius:'50%',background:C.g5,border:`1.5px solid ${C.g4}`,display:'flex',alignItems:'center',justifyContent:'center'}}>                   <span style={{fontSize:11,fontWeight:800,color:C.g3,fontFamily:'Poppins,sans-serif'}}>VS</span>                 </div>             }           </div>           <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:5,cursor:'pointer'}}>             <TeamLogo name={match.team2} size={54}/>             {(isLive||isDone)&&match.score2&&(               <p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:15,color:isLive?t2.c:C.g1,margin:0,textAlign:'center',lineHeight:1.1}}>{match.score2}</p>             )}             {isLive&&match.rrr&&<p style={{fontSize:9,color:C.g3,margin:0,fontFamily:'Poppins,sans-serif'}}>RRR {match.rrr}</p>}           </div>         </div>
 
         {/* Result */}
         {isDone&&match.result&&(
@@ -476,7 +457,7 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
           onMouseEnter={e=>{e.currentTarget.style.background=C.g5;e.currentTarget.style.color=C.g2}}
           onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color=C.g3}}>
           <span style={{transition:'transform 0.25s',transform:expanded?'rotate(180deg)':'rotate(0deg)',display:'inline-block'}}>▼</span>
-          {expanded ? 'Hide Details' : 'View Details'}
+          {expanded ? t.hideDetails||'Hide Details' : t.viewDetails||'View Details'}
         </button>
 
         {/* ── Expandable Details Section ── */}
@@ -986,12 +967,12 @@ export default function IPLCricket({currentUser}) {
   const handlePredicted = (c) => setWallet(w=>w?{...w,coins:Math.max(0,(w.coins||500)-c)}:w)
 
   const TABS=[
-    {id:'today',   icon:'📅',label:'Today',   n:today.length},
-    {id:'results', icon:'📊',label:'Results', n:results.length},
-    {id:'upcoming',icon:'🗓',label:'Upcoming',n:upcoming.length},
-    {id:'table',   icon:'📋',label:'Table',   n:null},
-    {id:'caps',    icon:'🏆',label:'Caps',    n:null},
-    {id:'leaders', icon:'🏅',label:'Leaders', n:null},
+    {id:'today',   icon:'📅',label:t.todayMatches||'Today',   n:today.length},
+    {id:'results', icon:'📊',label:t.results||'Results', n:results.length},
+    {id:'upcoming',icon:'🗓',label:t.upcoming||'Upcoming',n:upcoming.length},
+    {id:'table',   icon:'📋',label:t.table||'Table',   n:null},
+    {id:'caps',    icon:'🏆',label:t.caps||'Caps',    n:null},
+    {id:'leaders', icon:'🏅',label:t.leaders||'Leaders', n:null},
   ]
 
   return (

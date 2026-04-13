@@ -1,457 +1,356 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { db } from '../firebase'
-import {
-  collection, doc, getDoc, setDoc, query,
-  where, getDocs, orderBy, limit, serverTimestamp
-} from 'firebase/firestore'
+import { doc, getDoc, setDoc, arrayUnion, serverTimestamp } from 'firebase/firestore'
+import { useLanguage } from '../context/LanguageContext'
 
 /* ═══════════════════════════════════════════════════════════════
-   ACR MAX — Surprises!! 🎁
-   Swipeable daily facts modal · Firebase cached · Zero API calls
-   Architecture: factsPool → userDailyFacts → 15 cards/day
+   ACR MAX — Surprises!! 🎁  (Multilingual via LanguageContext)
+   Coins are virtual tokens with no monetary value
 ═══════════════════════════════════════════════════════════════ */
 
-/* ── Category config ── */
-const CATEGORY_CONFIG = {
-  science:       { label:'Science',       emoji:'🔬', color:'#0891b2', bg:'#f0f9ff', border:'#bae6fd' },
-  space:         { label:'Space',         emoji:'🚀', color:'#7c3aed', bg:'#faf5ff', border:'#ddd6fe' },
-  food:          { label:'Food',          emoji:'🍎', color:'#16a34a', bg:'#f0fdf4', border:'#bbf7d0' },
-  india:         { label:'India',         emoji:'🇮🇳', color:'#ea580c', bg:'#fff7ed', border:'#fed7aa' },
-  water:         { label:'Water',         emoji:'💧', color:'#0284c7', bg:'#f0f9ff', border:'#bae6fd' },
-  people:        { label:'People',        emoji:'🧠', color:'#db2777', bg:'#fdf2f8', border:'#fbcfe8' },
-  'indian-states':{ label:'Indian States',emoji:'🏛', color:'#d97706', bg:'#fffbeb', border:'#fde68a' },
-  random:        { label:'Random',        emoji:'✨', color:'#6d28d9', bg:'#faf5ff', border:'#ddd6fe' },
-  history:       { label:'History',       emoji:'📜', color:'#92400e', bg:'#fffbeb', border:'#fde68a' },
-  nature:        { label:'Nature',        emoji:'🌿', color:'#15803d', bg:'#f0fdf4', border:'#bbf7d0' },
+const MAX_FACTS  = 15
+const REWARDS    = [10, 20, 30, 50]
+const TODAY      = () => new Date().toISOString().slice(0, 10)
+
+const CAT = {
+  science:'🔬', space:'🚀', food:'🍎', india:'🇮🇳', ocean:'🌊',
+  mars:'🪐', universe:'✨', forest:'🌿', history:'📜', moon:'🌙',
+  sun:'☀️', 'indian-states':'🏛', 'world-history':'🗺', rivers:'🏞', fruits:'🍓',
 }
 
-/* ── Rich local fact pool (500+ facts, structured by category) ── */
-const LOCAL_FACTS = [
-  // SCIENCE
-  { id:'s1', category:'science', text:'Honey never spoils. Archaeologists found 3000-year-old honey in Egyptian tombs that was still edible.', image:'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=600' },
-  { id:'s2', category:'science', text:'A single lightning bolt is five times hotter than the surface of the Sun.', image:'https://images.unsplash.com/photo-1531306728370-e2ebd9d7bb99?w=600' },
-  { id:'s3', category:'science', text:'Your body produces about 25 million new cells every second — that\'s more than the population of Australia.', image:'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=600' },
-  { id:'s4', category:'science', text:'Bananas are slightly radioactive due to their potassium-40 content — but perfectly safe to eat.', image:'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600' },
-  { id:'s5', category:'science', text:'Water can boil and freeze simultaneously — it\'s called the "triple point" and happens at 0.01°C.', image:'https://images.unsplash.com/photo-1559827291-72ee739d0d9a?w=600' },
-  { id:'s6', category:'science', text:'A day on Venus is longer than a year on Venus. It rotates so slowly it takes 243 Earth days to complete one rotation.', image:'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=600' },
-  { id:'s7', category:'science', text:'Crows can recognize and remember human faces — and hold grudges against people who wrong them.', image:'https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=600' },
-  { id:'s8', category:'science', text:'The human nose can detect over 1 trillion different scents.', image:'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=600' },
-  { id:'s9', category:'science', text:'Hot water freezes faster than cold water under certain conditions — this is called the Mpemba Effect.', image:'https://images.unsplash.com/photo-1518133835878-5a93cc3f89e5?w=600' },
-  { id:'s10', category:'science', text:'Octopuses have three hearts and blue blood. Two hearts pump blood through the gills, one through the body.', image:'https://images.unsplash.com/photo-1564349683136-77e08dba1ef7?w=600' },
-  // SPACE
-  { id:'sp1', category:'space', text:'There are more stars in the observable universe than grains of sand on all of Earth\'s beaches — about 10^24.', image:'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=600' },
-  { id:'sp2', category:'space', text:'One million Earths could fit inside the Sun. Yet the Sun is considered a medium-sized star.', image:'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=600' },
-  { id:'sp3', category:'space', text:'Neutron stars are so dense that a teaspoon of their material would weigh about 10 million tonnes on Earth.', image:'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600' },
-  { id:'sp4', category:'space', text:'The footprints left by Apollo astronauts on the Moon will remain there for at least 100 million years.', image:'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=600' },
-  { id:'sp5', category:'space', text:'Saturn\'s moon Titan has lakes and rivers — but they\'re filled with liquid methane, not water.', image:'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=600' },
-  { id:'sp6', category:'space', text:'There is a planet made of diamond — 55 Cancri e is twice Earth\'s size and its surface may be graphite and diamond.', image:'https://images.unsplash.com/photo-1501862700950-18382cd41497?w=600' },
-  { id:'sp7', category:'space', text:'In space, you can cry but tears won\'t fall. They form floating orbs around your eyes.', image:'https://images.unsplash.com/photo-1616292880753-45bb3a5d2c2d?w=600' },
-  { id:'sp8', category:'space', text:'The Great Red Spot on Jupiter is a storm that has been raging for over 350 years.', image:'https://images.unsplash.com/photo-1630839437035-dac17da580d0?w=600' },
-  { id:'sp9', category:'space', text:'If you removed all empty space from every atom in the human body, all 8 billion humans would fit in a sugar cube.', image:'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600' },
-  { id:'sp10', category:'space', text:'TRAPPIST-1 system has 7 Earth-sized planets, three in the habitable zone, just 39 light-years away.', image:'https://images.unsplash.com/photo-1446776858070-70c3d5ed6758?w=600' },
-  // FOOD
-  { id:'f1', category:'food', text:'Chocolate was once used as currency by the Aztecs. Cacao beans were so valuable they were used to buy goods.', image:'https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=600' },
-  { id:'f2', category:'food', text:'Apples float in water because 25% of their volume is air — making them the perfect bobbing fruit.', image:'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=600' },
-  { id:'f3', category:'food', text:'Strawberries are not technically berries, but bananas, avocados, and watermelons are classified as berries.', image:'https://images.unsplash.com/photo-1518635017498-87f514b751ba?w=600' },
-  { id:'f4', category:'food', text:'Carrots were originally purple, not orange. Dutch farmers bred orange ones to honor King William of Orange.', image:'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600' },
-  { id:'f5', category:'food', text:'Pistachios are technically seeds, not nuts — they come from the fruit of the pistachio tree.', image:'https://images.unsplash.com/photo-1598636116745-1c0a9aad2413?w=600' },
-  { id:'f6', category:'food', text:'India produces 70% of the world\'s spices. Black pepper was once so valuable it was used as currency.', image:'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=600' },
-  { id:'f7', category:'food', text:'A single teaspoon of ground nutmeg can be toxic enough to cause hallucinations and even be fatal.', image:'https://images.unsplash.com/photo-1585320806297-9794b3e4aaae?w=600' },
-  { id:'f8', category:'food', text:'Coffee beans are actually seeds inside a fruit that looks like a red cherry — often called a coffee cherry.', image:'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=600' },
-  { id:'f9', category:'food', text:'Cashews cannot be sold raw in stores — raw cashews contain urushiol, the same compound that makes poison ivy toxic.', image:'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=600' },
-  { id:'f10', category:'food', text:'Pineapple contains bromelain, an enzyme that literally digests the proteins in your mouth as you eat it.', image:'https://images.unsplash.com/photo-1589820296156-2454bb8a6ad1?w=600' },
-  // INDIA
-  { id:'i1', category:'india', text:'India invented the number zero — mathematician Brahmagupta formalized it as a number in 628 CE.', image:'https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=600' },
-  { id:'i2', category:'india', text:'The Indian Railways is the world\'s 4th largest railway network employing over 1.3 million people.', image:'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600' },
-  { id:'i3', category:'india', text:'Chess was invented in India — originally called Chaturanga in the 6th century AD in the Gupta Empire.', image:'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=600' },
-  { id:'i4', category:'india', text:'India is the world\'s largest democracy with over 900 million eligible voters in a single election.', image:'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=600' },
-  { id:'i5', category:'india', text:'The Kumbh Mela is the world\'s largest gathering — 50 million people visited in 2013, visible from space.', image:'https://images.unsplash.com/photo-1584461977194-c9946c26a2c4?w=600' },
-  { id:'i6', category:'india', text:'India has the world\'s highest cricket ground — the Chail Cricket Ground in Himachal Pradesh at 2,444m above sea level.', image:'https://images.unsplash.com/photo-1540747913346-19212a4f89d6?w=600' },
-  { id:'i7', category:'india', text:'Bangalore is home to over 1,500 IT companies and generates about 35% of India\'s software exports.', image:'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=600' },
-  { id:'i8', category:'india', text:'India launched the Mars Orbiter Mission for just $74 million — cheaper than the Hollywood film Gravity.', image:'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=600' },
-  { id:'i9', category:'india', text:'The Taj Mahal changes color throughout the day — pink at sunrise, white at noon, and golden at sunset.', image:'https://images.unsplash.com/photo-1586183189334-c2e33b7d6e5a?w=600' },
-  { id:'i10', category:'india', text:'India has the highest number of vegetarians in the world — approximately 40% of the population.', image:'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600' },
-  // WATER
-  { id:'w1', category:'water', text:'97% of Earth\'s water is saltwater. Of the remaining 3%, most is frozen in glaciers and ice caps.', image:'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=600' },
-  { id:'w2', category:'water', text:'The Amazon River discharges more water into the ocean than the next seven largest rivers combined.', image:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600' },
-  { id:'w3', category:'water', text:'A single cloud can weigh more than a million pounds — water droplets suspended in air by updrafts.', image:'https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=600' },
-  { id:'w4', category:'water', text:'The ocean produces 50–80% of the oxygen we breathe, mostly from marine plants and phytoplankton.', image:'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?w=600' },
-  { id:'w5', category:'water', text:'Lake Baikal in Russia contains 20% of the world\'s unfrozen surface fresh water.', image:'https://images.unsplash.com/photo-1547483238-f400e65ccd56?w=600' },
-  { id:'w6', category:'water', text:'The deepest point in the ocean — Challenger Deep — is deeper than Mount Everest is tall.', image:'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=600' },
-  { id:'w7', category:'water', text:'Hot water pipes can burst in summer too — thermal expansion causes pipes to crack even without freezing.', image:'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=600' },
-  { id:'w8', category:'water', text:'Glaciers store about 75% of the world\'s freshwater. If all melted, sea levels would rise 70 meters.', image:'https://images.unsplash.com/photo-1464852045489-bccb7d17fe39?w=600' },
-  // PEOPLE
-  { id:'p1', category:'people', text:'The human brain is more active during sleep than during the day — it replays and organizes memories.', image:'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=600' },
-  { id:'p2', category:'people', text:'Humans share 50% of their DNA with bananas. We share 98.7% with chimpanzees.', image:'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=600' },
-  { id:'p3', category:'people', text:'The average person will spend 6 months of their life waiting for red lights to turn green.', image:'https://images.unsplash.com/photo-1517960413843-0aee8e2b3285?w=600' },
-  { id:'p4', category:'people', text:'Your stomach gets a new lining every 3 to 4 days — the acids would otherwise digest it completely.', image:'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=600' },
-  { id:'p5', category:'people', text:'Humans are the only animals that blush. Darwin called it "the most peculiar and most human of all expressions."', image:'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600' },
-  { id:'p6', category:'people', text:'Your eye can distinguish between 10 million different colors — but your brain can only name about 30.', image:'https://images.unsplash.com/photo-1582721478779-0ae163c05a60?w=600' },
-  { id:'p7', category:'people', text:'Laughter is a social behavior — 30x more likely when with others than alone. It predates speech by millions of years.', image:'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600' },
-  { id:'p8', category:'people', text:'The human heart beats about 100,000 times per day, pumping about 2,000 gallons of blood.', image:'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=600' },
-  // INDIAN STATES
-  { id:'is1', category:'indian-states', text:'Kerala has a 96.2% literacy rate — the highest in India — and was the first state in Asia to go completely digital.', image:'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=600' },
-  { id:'is2', category:'indian-states', text:'Rajasthan\'s Thar Desert is one of the most populated deserts in the world with over 80 people per sq km.', image:'https://images.unsplash.com/photo-1524293568345-75d62c3664f7?w=600' },
-  { id:'is3', category:'indian-states', text:'Meghalaya receives the highest rainfall in the world — Mawsynram village averages 11,873mm of rain annually.', image:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600' },
-  { id:'is4', category:'indian-states', text:'Goa has only 15 cities but the highest per capita income in India and the best human development index.', image:'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600' },
-  { id:'is5', category:'indian-states', text:'Tamil Nadu is home to more than one-third of all temples in India — with over 38,000 Hindu temples.', image:'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=600' },
-  { id:'is6', category:'indian-states', text:'Sikkim was the last state to join India in 1975 and is the first fully organic state in the world.', image:'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600' },
-  { id:'is7', category:'indian-states', text:'Maharashtra\'s Mumbai handles 40% of India\'s maritime trade and is home to Asia\'s largest slum, Dharavi.', image:'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=600' },
-  { id:'is8', category:'indian-states', text:'Assam produces 55% of India\'s tea — more than any other region — and the Brahmaputra flows through it.', image:'https://images.unsplash.com/photo-1544918877-1c5a9be1b88b?w=600' },
-  // RANDOM
-  { id:'r1', category:'random', text:'A group of flamingos is called a "flamboyance." They only eat with their heads upside down.', image:'https://images.unsplash.com/photo-1527152395929-0e8c6be8c6b4?w=600' },
-  { id:'r2', category:'random', text:'Nintendo was founded in 1889 — originally making playing cards. It became a video game company 85 years later.', image:'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=600' },
-  { id:'r3', category:'random', text:'The world\'s oldest known living tree is Methuselah — a 4,855-year-old Great Basin bristlecone pine.', image:'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600' },
-  { id:'r4', category:'random', text:'Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid of Giza.', image:'https://images.unsplash.com/photo-1591543620767-582b2e76369e?w=600' },
-  { id:'r5', category:'random', text:'Oxford University is older than the Aztec Empire. Teaching began there around 1096 — Aztecs founded Tenochtitlan in 1325.', image:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600' },
-  { id:'r6', category:'random', text:'The total weight of all ants on Earth equals the total weight of all humans on Earth.', image:'https://images.unsplash.com/photo-1544985361-b420d7a77043?w=600' },
-  { id:'r7', category:'random', text:'There are more possible iterations of a game of chess than there are atoms in the observable universe.', image:'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=600' },
-  { id:'r8', category:'random', text:'Sloths are so slow that algae grows on their fur — and they use it as camouflage to hide from predators.', image:'https://images.unsplash.com/photo-1546587348-d12660c30c50?w=600' },
-  { id:'r9', category:'random', text:'The average cloud weighs about 500,000 kg — roughly the weight of 100 elephants floating above your head.', image:'https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=600' },
-  { id:'r10', category:'random', text:'Sharks are older than trees — they existed 450 million years ago, while the first trees appeared 350 million years ago.', image:'https://images.unsplash.com/photo-1560275619-4cc5fa59d3ae?w=600' },
-  { id:'r11', category:'random', text:'The shortest war in history lasted 38–45 minutes — the Anglo-Zanzibar War of 1896.', image:'https://images.unsplash.com/photo-1569982175971-d92b01cf8694?w=600' },
-  { id:'r12', category:'random', text:'Wombat droppings are cube-shaped — the only known animal to produce cubic faeces, used to mark territory.', image:'https://images.unsplash.com/photo-1518715303843-586e350430c0?w=600' },
-  { id:'r13', category:'random', text:'A bolt of lightning contains enough energy to cook about 100,000 pieces of toast.', image:'https://images.unsplash.com/photo-1531306728370-e2ebd9d7bb99?w=600' },
-  { id:'r14', category:'random', text:'The dot over a lowercase "i" is called a "tittle" — one of the smallest named marks in typography.', image:'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600' },
-  { id:'r15', category:'random', text:'An octopus can open a jar, recognize faces, play, and even dream — one of Earth\'s most intelligent invertebrates.', image:'https://images.unsplash.com/photo-1564349683136-77e08dba1ef7?w=600' },
-  { id:'r16', category:'random', text:'Dinosaurs and humans never coexisted — 66 million years separated the last dinosaur from the first human.', image:'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=600' },
-  { id:'r17', category:'random', text:'The tongue is the only muscle in the human body attached at only one end.', image:'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=600' },
-  { id:'r18', category:'random', text:'Goats have rectangular pupils — giving them a 320-degree field of vision to spot predators from almost any direction.', image:'https://images.unsplash.com/photo-1524024973431-2ad682da4575?w=600' },
-  { id:'r19', category:'random', text:'The smell of rain (petrichor) is caused by a bacteria called actinomycetes releasing geosmin into the air.', image:'https://images.unsplash.com/photo-1428592953211-078e5e9fb4f7?w=600' },
-  { id:'r20', category:'random', text:'Humans share 60% of their DNA with bananas — because all living things use the same genetic machinery.', image:'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600' },
+const IMG_POOL = {
+  india:'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=600&q=80',
+  science:'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=600&q=80',
+  space:'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=600&q=80',
+  ocean:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
+  forest:'https://images.unsplash.com/photo-1448375240586-882707db888b?w=600&q=80',
+  mars:'https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=600&q=80',
+  moon:'https://images.unsplash.com/photo-1505506874110-6a7a69069a08?w=600&q=80',
+  sun:'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=600&q=80',
+  food:'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80',
+  fruits:'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=600&q=80',
+  history:'https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&q=80',
+  'world-history':'https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&q=80',
+  'indian-states':'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=600&q=80',
+  rivers:'https://images.unsplash.com/photo-1504701954957-2010ec3bcec1?w=600&q=80',
+  universe:'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=600&q=80',
+}
+const getImg = (fact) => IMG_POOL[fact.category||fact.cat] || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
+
+const FACTS_POOL = [
+  {id:'in1',category:'india',text:{en:"India has the world's largest postal network — over 155,000 post offices.",ta:"இந்தியாவில் உலகின் மிகப் பெரிய தபால் நெட்வொர்க் — 155,000+ தபால் நிலையங்கள்.",hi:"भारत में दुनिया का सबसे बड़ा डाक नेटवर्क — 1,55,000+ डाकघर।",ml:"ഇന്ത്യയിൽ ലോകത്തിലെ ഏറ്റവും വലിയ തപാൽ ശൃംഖല — 1,55,000+ ഓഫീസുകൾ."}},
+  {id:'in2',category:'india',text:{en:"Chess was invented in India during the Gupta Empire around the 6th century AD.",ta:"சதுரங்கம் இந்தியாவில் குப்த பேரரசின் காலத்தில் கண்டுபிடிக்கப்பட்டது.",hi:"शतरंज का आविष्कार भारत में गुप्त साम्राज्य के दौरान हुआ था।",ml:"ഗുപ്ത സാമ്രാജ്യ കാലത്ത് ഇന്ത്യയിൽ ചെസ്സ് കണ്ടുപിടിക്കപ്പെട്ടു."}},
+  {id:'in3',category:'india',text:{en:"India invented the number zero — Brahmagupta formalized it around 628 AD.",ta:"இந்தியா பூஜ்ஜியத்தை கண்டுபிடித்தது — பிரம்மகுப்தர் 628 இல் முறைப்படுத்தினார்.",hi:"भारत ने शून्य की खोज की — ब्रह्मगुप्त ने 628 ई. में इसे औपचारिक रूप दिया।",ml:"ഇന്ത്യ പൂജ്യം കണ്ടുപിടിച്ചു — ബ്രഹ്മഗുപ്തൻ 628 AD-ൽ ഔദ്യോഗികമാക്കി."}},
+  {id:'in4',category:'india',text:{en:"The Kumbh Mela can be seen from space — 50 million gathered in one day in 2019.",ta:"கும்ப மேளா விண்வெளியிலிருந்து காணலாம் — 2019ல் ஒரே நாளில் 5 கோடி பேர்.",hi:"कुंभ मेला अंतरिक्ष से दिखता है — 2019 में एक दिन 5 करोड़ लोग।",ml:"കുംഭ മേള ബഹിരാകാശത്ത് നിന്ന് കാണാം — 2019-ൽ ഒരു ദിവസം 5 കോടി."}},
+  {id:'in5',category:'india',text:{en:"Shampoo was invented in India — from the Hindi 'champo', meaning to massage.",ta:"ஷாம்பூ இந்தியாவில் கண்டுபிடிக்கப்பட்டது — இந்தி சம்போ என்றால் மசாஜ்.",hi:"शैम्पू का आविष्कार भारत में हुआ — हिंदी 'चंपो' से आया।",ml:"ഷാംപൂ ഇന്ത്യയിൽ കണ്ടുപിടിക്കപ്പെട്ടു — ഹിന്ദി ചമ്പോ അർഥം മസ്സാജ്."}},
+  {id:'sc1',category:'science',text:{en:"Honey never spoils — 3,000-year-old honey found in Egyptian tombs was still edible.",ta:"தேன் ஒருபோதும் கெடாது — எகிப்திய சமாதிகளில் 3,000 ஆண்டு பழமையான தேன் சாப்பிடக்கூடியதாக இருந்தது.",hi:"शहद कभी खराब नहीं होता — मिस्र की कब्रों में 3,000 साल पुराना शहद मिला।",ml:"തേൻ ഒരിക്കലും കേടാകില്ല — ഈജിപ്ഷ്യൻ ശവകുടീരങ്ങളിൽ 3,000 വർഷം പഴക്കമുള്ള തേൻ ഭക്ഷ്യയോഗ്യം."}},
+  {id:'sc2',category:'science',text:{en:"A single lightning bolt is 5x hotter than the Sun's surface — reaching 30,000 Kelvin.",ta:"ஒரு மின்னல் சூரியனை விட 5 மடங்கு வெப்பமானது — 30,000 கெல்வின்.",hi:"बिजली सूरज की सतह से 5 गुना गर्म होती है — 30,000 केल्विन।",ml:"ഒരു മിന്നൽ സൂര്യന്റെ ഉപരിതലത്തേക്കാൾ 5 മടങ്ങ് ചൂടുണ്ട്."}},
+  {id:'sc3',category:'science',text:{en:"Octopuses have 3 hearts and blue blood — two hearts pump blood through the gills.",ta:"ஆக்டோபஸ்களுக்கு 3 இதயங்களும் நீல இரத்தமும் உள்ளன.",hi:"ऑक्टोपस के 3 दिल और नीला खून होता है।",ml:"ഒക്ടോപ്പസിന് 3 ഹൃദയങ്ങളും നീല രക്തവുമുണ്ട്."}},
+  {id:'sc4',category:'science',text:{en:"Sharks are older than trees — they evolved 450M years ago; trees appeared 360M years ago.",ta:"சுறாக்கள் மரங்களை விட பழமையானவை — 45 கோடி ஆண்டுகள் முன்பு வந்தவை.",hi:"शार्क पेड़ों से पुरानी हैं — 45 करोड़ साल पहले विकसित हुई।",ml:"സ്രാവ് മരങ്ങളേക്കാൾ പഴക്കമുള്ളതാണ് — 45 കോടി വർഷം മുൻപ്."}},
+  {id:'sc5',category:'science',text:{en:"The human nose can detect over 1 trillion different scents.",ta:"மனித மூக்கு 1 டிரில்லியனுக்கும் அதிகமான வாசனைகளை கண்டறியலாம்.",hi:"मानव नाक 1 ट्रिलियन से अधिक गंध पहचान सकती है।",ml:"മനുഷ്യ മൂക്കിന് 1 ട്രില്ല്യണിലധികം ഗന്ധങ്ങൾ കണ്ടെത്താൻ കഴിയും."}},
+  {id:'sp1',category:'space',text:{en:"One day on Venus is longer than one year on Venus — it rotates every 243 Earth days.",ta:"வீனஸில் ஒரு நாள் ஒரு வருடத்தை விட நீளமானது.",hi:"शुक्र पर एक दिन एक साल से भी लंबा होता है।",ml:"ശുക്രനിൽ ഒരു ദിവസം ഒരു വർഷത്തേക്കാൾ നീളുന്നു."}},
+  {id:'sp2',category:'space',text:{en:"Apollo footprints on the Moon will last 100 million years — there's no wind to erase them.",ta:"சந்திரனில் அப்பல்லோ கால்தடங்கள் 10 கோடி ஆண்டுகள் நீடிக்கும்.",hi:"चंद्रमा पर अपोलो के पदचिह्न 10 करोड़ साल तक रहेंगे।",ml:"ചന്ദ്രനിൽ അപ്പോളോ കാൽപ്പാടുകൾ 10 കോടി വർഷം നിലനിൽക്കും."}},
+  {id:'sp3',category:'space',text:{en:"Saturn's density is so low it would float on water — the only planet in our solar system that would.",ta:"சனி நீரில் மிதக்கும் — சூரிய குடும்பத்தில் அப்படி செய்யும் ஒரே கிரகம்.",hi:"शनि पानी पर तैरेगा — सौरमंडल का एकमात्र ऐसा ग्रह।",ml:"ശനി വെള്ളത്തിൽ പൊങ്ങും — സൗരയൂഥത്തിൽ ഒരേ ഒരു ഗ്രഹം."}},
+  {id:'oc1',category:'ocean',text:{en:"We have mapped only 20% of the ocean floor — more of the Moon is mapped than Earth's seafloor.",ta:"கடல் தளத்தில் 20% மட்டுமே வரைபடம் உள்ளது.",hi:"हमने केवल 20% समुद्र तल का मानचित्र बनाया है।",ml:"നാം കടൽ അടിത്തട്ടിന്റെ 20% മാത്രം ഭൂപടം ഉണ്ടാക്കി."}},
+  {id:'oc2',category:'ocean',text:{en:"The ocean produces over 50% of Earth's oxygen — mostly from phytoplankton, not forests.",ta:"கடல் பூமியின் 50%+ ஆக்சிஜனை உற்பத்தி செய்கிறது.",hi:"महासागर पृथ्वी की 50%+ ऑक्सीजन बनाता है।",ml:"കടൽ ഭൂമിയുടെ 50%-ൽ അധികം ഓക്സിജൻ ഉൽപ്പാദിപ്പിക്കുന്നു."}},
+  {id:'ma1',category:'mars',text:{en:"A day on Mars is 24 hours, 39 minutes — almost the same as Earth's day.",ta:"செவ்வாயில் ஒரு நாள் 24 மணி 39 நிமிடம்.",hi:"मंगल पर एक दिन 24 घंटे 39 मिनट का होता है।",ml:"ചൊവ്വയിൽ ഒരു ദിവസം 24 മണിക്കൂർ 39 മിനിറ്റ്."}},
+  {id:'mo1',category:'moon',text:{en:"The Moon is moving away from Earth at 3.8 cm per year.",ta:"சந்திரன் ஆண்டுக்கு 3.8 செமீ விலகிச் செல்கிறது.",hi:"चंद्रमा हर साल 3.8 सेमी दूर हो रहा है।",ml:"ചന്ദ്രൻ പ്രതിവർഷം 3.8 cm ഭൂമിയിൽ നിന്ന് അകലുന്നു."}},
+  {id:'su1',category:'sun',text:{en:"Light from the Sun takes 8 minutes 20 seconds to reach Earth.",ta:"சூரியனிலிருந்து வெளிச்சம் பூமியை 8 நிமிடம் 20 விநாடியில் அடைகிறது.",hi:"सूरज की रोशनी पृथ्वी तक 8 मिनट 20 सेकंड में पहुंचती है।",ml:"സൂര്യനിൽ നിന്ന് പ്രകാശം ഭൂമിയിൽ എത്താൻ 8 മിനിറ്റ് 20 സെക്കൻഡ്."}},
+  {id:'fo1',category:'food',text:{en:"Chocolate was once currency — Aztecs used cacao beans to buy goods and pay taxes.",ta:"சாக்லேட் ஒருகாலத்தில் நாணயமாக இருந்தது.",hi:"चॉकलेट कभी मुद्रा था — एज़्टेक इससे सामान खरीदते थे।",ml:"ചോക്ലേറ്റ് ഒരുകാലത്ത് കറൻസിയായിരുന്നു."}},
+  {id:'fl1',category:'forest',text:{en:"Trees communicate through underground fungal networks — the 'Wood Wide Web'.",ta:"மரங்கள் நிலத்தடி பூஞ்சை நெட்வொர்க்கில் தொடர்பு கொள்கின்றன.",hi:"पेड़ भूमिगत फफूंद नेटवर्क से संवाद करते हैं।",ml:"മരങ്ങൾ ഭൂഗർഭ ഫംഗൽ ശൃംഖലകൾ വഴി ആശയവിനിമയം നടത്തുന്നു."}},
 ]
 
-const TODAY_KEY = () => new Date().toISOString().slice(0, 10)
-
-/* ── Firestore: get/create user daily facts ── */
-async function getTodayFacts(userId) {
-  const today = TODAY_KEY()
-  const userRef = doc(db, 'userDailyFacts', `${userId}_${today}`)
-
-  try {
-    // Check if user already has today's facts
-    const snap = await getDoc(userRef)
-    if (snap.exists()) {
-      const data = snap.data()
-      const factIds = data.factIds || []
-      // Fetch actual facts from factsPool (only the 15 needed)
-      const facts = await fetchFactsByIds(factIds)
-      if (facts.length >= 10) return facts // enough cached facts
-    }
-
-    // No cache — select 15 unique random facts
-    const selected = selectRandomFacts(userId, today)
-
-    // Save selection to Firestore
-    try {
-      await setDoc(userRef, {
-        userId, date: today,
-        factIds: selected.map(f => f.id),
-        createdAt: serverTimestamp(),
-      })
-    } catch {}
-
-    return selected
-
-  } catch {
-    // Firestore unavailable — return random local facts
-    return selectRandomFacts(userId, today)
-  }
+/* ── Firestore helpers ── */
+const getUD = async (userId) => {
+  try { const s=await getDoc(doc(db,'userDailyFacts',userId)); return s.exists()?s.data():{} } catch { return {} }
 }
-
-/* ── Fetch facts by IDs (from Firestore factsPool, fallback to local) ── */
-async function fetchFactsByIds(ids) {
-  // Try Firestore first
+const recFact = async (userId, factId, count) => {
+  try { await setDoc(doc(db,'userDailyFacts',userId),{seenFacts:arrayUnion(factId),factsUsage:{date:TODAY(),count},updatedAt:serverTimestamp()},{merge:true}) } catch {}
+}
+const saveScratch = async (userId, r) => {
+  try { await setDoc(doc(db,'userDailyFacts',userId),{scratchReward:r,scratchClaimed:false},{merge:true}) } catch {}
+}
+const claimScratch = async (userId, r) => {
   try {
-    const promises = ids.slice(0, 15).map(id => getDoc(doc(db, 'factsPool', id)))
-    const snaps = await Promise.all(promises)
-    const facts = snaps.filter(s => s.exists()).map(s => ({ id: s.id, ...s.data() }))
-    if (facts.length >= 10) return facts
+    const ref=doc(db,'ipl_wallets',userId); const s=await getDoc(ref)
+    const cur=s.exists()?(s.data().coins||500):500
+    await setDoc(ref,{coins:cur+r},{merge:true})
+    await setDoc(doc(db,'userDailyFacts',userId),{scratchClaimed:true},{merge:true})
   } catch {}
-
-  // Fallback: match from local pool
-  return ids.map(id => LOCAL_FACTS.find(f => f.id === id)).filter(Boolean)
 }
 
-/* ── Select 15 random facts (seeded by userId+date for consistency) ── */
-function selectRandomFacts(userId = '', date = '') {
-  // Deterministic seed so same user gets same facts on same day
-  let seed = 0
-  const seedStr = userId + date
-  for (let i = 0; i < seedStr.length; i++) seed += seedStr.charCodeAt(i)
-
-  // Fisher-Yates shuffle with seed
-  const pool = [...LOCAL_FACTS]
-  const rand = (max) => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return Math.abs(seed) % max }
-
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = rand(i + 1);
-    [pool[i], pool[j]] = [pool[j], pool[i]]
-  }
-
-  // Mix categories — don't show 3+ of same cat consecutively
-  const categorized = {}
-  pool.forEach(f => { if (!categorized[f.category]) categorized[f.category] = []; categorized[f.category].push(f) })
-
-  const result = []
-  const cats = Object.keys(categorized)
-  let catIdx = 0
-  while (result.length < 15 && pool.length > 0) {
-    const cat = cats[catIdx % cats.length]
-    const catPool = categorized[cat]
-    if (catPool && catPool.length > 0) result.push(catPool.shift())
-    catIdx++
-  }
-
-  return result.slice(0, 15)
+const buildQueue = (seenFacts, userId) => {
+  const seen=new Set(seenFacts)
+  let pool=FACTS_POOL.filter(f=>!seen.has(f.id))
+  if(pool.length<MAX_FACTS) pool=[...FACTS_POOL]
+  const seed=(TODAY().replace(/-/g,'')+userId).split('').reduce((a,c)=>a+c.charCodeAt(0),0)
+  let s=seed; const arr=[...pool]
+  for(let i=arr.length-1;i>0;i--){s=(s*1664525+1013904223)&0xffffffff;const j=Math.abs(s)%(i+1);[arr[i],arr[j]]=[arr[j],arr[i]]}
+  return arr.slice(0,MAX_FACTS)
 }
+const preload = (url) => { try { new Image().src=url } catch {} }
 
-/* ═══════════════════════════════════════════════════
-   SWIPE CARD COMPONENT
-═══════════════════════════════════════════════════ */
-function SwipeCard({ fact, index, total, onNext, onPrev, isActive }) {
-  const [dragX, setDragX] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const [exiting, setExiting] = useState(null) // 'left' | 'right'
-  const [imgLoaded, setImgLoaded] = useState(false)
-  const startX = useRef(null)
-  const startY = useRef(null)
-  const cardRef = useRef(null)
+/* ═══════════════════════════════════════════
+   INLINE SCRATCH CARD
+═══════════════════════════════════════════ */
+function ScratchCard({ reward, onScratched, scratched }) {
+  const { t } = useLanguage()
+  const canvasRef=useRef(null), drawing=useRef(false)
+  const [pct,setPct]=useState(0)
+  const W=300,H=230,THRESH=55
 
-  const catConf = CATEGORY_CONFIG[fact.category] || CATEGORY_CONFIG.random
+  useEffect(()=>{
+    if(scratched) return
+    const c=canvasRef.current; if(!c) return
+    const ctx=c.getContext('2d')
+    const g=ctx.createLinearGradient(0,0,W,H)
+    g.addColorStop(0,'#6a6a6a');g.addColorStop(0.18,'#C0C0C0')
+    g.addColorStop(0.35,'#d4af37');g.addColorStop(0.5,'#f4d03f')
+    g.addColorStop(0.65,'#d4af37');g.addColorStop(0.82,'#C0C0C0');g.addColorStop(1,'#a87520')
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H)
+    for(let i=0;i<10;i++){ctx.save();ctx.globalAlpha=0.07;ctx.fillStyle='#fff';ctx.beginPath();const x=(W*i)/10;ctx.moveTo(x,0);ctx.lineTo(x+18,0);ctx.lineTo(x+28,H);ctx.lineTo(x+10,H);ctx.fill();ctx.restore()}
+    ctx.globalAlpha=0.25;ctx.fillStyle='#3a2800';ctx.font='bold 12px Poppins,sans-serif';ctx.textAlign='center'
+    for(let r=0;r<5;r++)for(let c=0;c<5;c++)ctx.fillText('✦',30+c*58,30+r*44)
+    ctx.globalAlpha=0.6;ctx.font='bold 14px Poppins,sans-serif';ctx.fillText('✦ SCRATCH HERE ✦',W/2,H/2+6);ctx.globalAlpha=1
+  },[scratched])
 
-  // Touch handlers
-  const onTouchStart = (e) => {
-    startX.current = e.touches[0].clientX
-    startY.current = e.touches[0].clientY
-    setDragging(true)
+  const scratchAt=(cx,cy)=>{
+    if(scratched) return
+    const c=canvasRef.current; if(!c) return
+    const ctx=c.getContext('2d'); const r=c.getBoundingClientRect()
+    const x=(cx-r.left)*(c.width/r.width),y=(cy-r.top)*(c.height/r.height)
+    ctx.globalCompositeOperation='destination-out';ctx.beginPath();ctx.arc(x,y,30,0,Math.PI*2);ctx.fill()
+    const d=ctx.getImageData(0,0,c.width,c.height).data
+    let tp=0;for(let i=3;i<d.length;i+=16)if(d[i]<128)tp++
+    const p=Math.min(Math.round((tp/(c.width*c.height/4))*100),100);setPct(p)
+    if(p>=THRESH&&!scratched)onScratched()
   }
-  const onTouchMove = (e) => {
-    if (!dragging) return
-    const dx = e.touches[0].clientX - startX.current
-    const dy = Math.abs(e.touches[0].clientY - startY.current)
-    if (dy > 30) { setDragging(false); setDragX(0); return } // vertical scroll
-    setDragX(dx)
-  }
-  const onTouchEnd = () => {
-    setDragging(false)
-    if (Math.abs(dragX) > 80) {
-      const dir = dragX > 0 ? 'right' : 'left'
-      setExiting(dir)
-      setTimeout(() => { setDragX(0); setExiting(null); dir === 'left' ? onNext() : onPrev() }, 320)
-    } else {
-      setDragX(0)
-    }
-  }
-
-  // Mouse drag
-  const onMouseDown = (e) => { startX.current = e.clientX; setDragging(true) }
-  const onMouseMove = (e) => { if (!dragging || startX.current === null) return; setDragX(e.clientX - startX.current) }
-  const onMouseUp = () => {
-    setDragging(false)
-    if (Math.abs(dragX) > 80) {
-      const dir = dragX > 0 ? 'right' : 'left'
-      setExiting(dir)
-      setTimeout(() => { setDragX(0); setExiting(null); dir === 'left' ? onNext() : onPrev() }, 320)
-    } else { setDragX(0) }
-    startX.current = null
-  }
-
-  const rotate = dragX * 0.08
-  const opacity = exiting ? 0 : 1
-  const translateX = exiting === 'left' ? -300 : exiting === 'right' ? 300 : dragX
-  const scale = isActive ? 1 : 0.97
 
   return (
-    <div
-      ref={cardRef}
-      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-      onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-      style={{
-        position:'absolute', inset:0,
-        transform: `translateX(${translateX}px) rotate(${rotate}deg) scale(${scale})`,
-        opacity,
-        transition: dragging ? 'none' : 'transform 0.32s cubic-bezier(.34,1.1,.64,1), opacity 0.28s ease',
-        borderRadius:24, overflow:'hidden',
-        cursor: dragging ? 'grabbing' : 'grab',
-        userSelect:'none', WebkitUserSelect:'none',
-        boxShadow: `0 ${8 + Math.abs(dragX)*0.05}px ${32 + Math.abs(dragX)*0.1}px rgba(0,0,0,${0.18 + Math.abs(dragX)*0.001})`,
-        background:'#fff',
-      }}
-    >
-      {/* Image — top 58% */}
-      <div style={{ position:'relative', height:'58%', overflow:'hidden', background:'#e5e7eb' }}>
-        {!imgLoaded && (
-          <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%)', backgroundSize:'400% 100%', animation:'shimLoad 1.4s ease-in-out infinite' }} />
-        )}
-        <img
-          src={fact.image} alt={fact.category} loading="lazy"
-          onLoad={() => setImgLoaded(true)}
-          draggable={false}
-          style={{ width:'100%', height:'100%', objectFit:'cover', display:imgLoaded?'block':'none', transition:'opacity 0.3s', pointerEvents:'none' }}
-        />
-        {/* Gradient overlay */}
-        <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom,rgba(0,0,0,0) 50%,rgba(0,0,0,0.55) 100%)' }} />
-        {/* Category badge */}
-        <div style={{ position:'absolute', top:14, left:14, display:'flex', alignItems:'center', gap:5, padding:'5px 12px', background:'rgba(255,255,255,0.92)', borderRadius:20, backdropFilter:'blur(8px)', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' }}>
-          <span style={{ fontSize:13 }}>{catConf.emoji}</span>
-          <span style={{ fontSize:10, fontWeight:800, color:catConf.color, textTransform:'uppercase', letterSpacing:'0.12em', fontFamily:'Poppins,sans-serif' }}>{catConf.label}</span>
+    <div style={{width:'100%',maxWidth:300,margin:'0 auto',position:'relative'}}>
+      <div style={{position:scratched?'relative':'absolute',inset:0,borderRadius:20,overflow:'hidden',
+        background:'linear-gradient(135deg,#0d0b1e,#1a1a2e)',display:'flex',flexDirection:'column',
+        alignItems:'center',justifyContent:'center',gap:10,height:scratched?230:'auto',
+        border:'1px solid rgba(212,175,55,0.3)',boxShadow:'0 0 40px rgba(212,175,55,0.1)'}}>
+        <div style={{position:'absolute',inset:0,borderRadius:20,border:'1.5px solid rgba(212,175,55,0.35)'}}/>
+        <img src="/logo.jpg" alt="ACR MAX" style={{width:54,height:54,borderRadius:'50%',border:'2px solid rgba(212,175,55,0.55)',boxShadow:'0 0 24px rgba(212,175,55,0.45)',objectFit:'cover'}}/>
+        <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:22,letterSpacing:'0.1em',margin:'2px 0 0',
+          background:'linear-gradient(135deg,#8a8a8a,#C0C0C0,#d4af37,#f4d03f,#c9922a)',
+          WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>ACR MAX</p>
+        <p style={{fontSize:9,color:'rgba(212,175,55,0.55)',fontFamily:'Poppins,sans-serif',letterSpacing:'0.18em',textTransform:'uppercase',margin:0}}>Maximising Lifes</p>
+        <div style={{padding:'10px 28px',marginTop:4,background:'linear-gradient(135deg,rgba(212,175,55,0.14),rgba(212,175,55,0.07))',border:'1px solid rgba(212,175,55,0.4)',borderRadius:14,boxShadow:'0 0 28px rgba(212,175,55,0.2)'}}>
+          <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:32,color:'#f4d03f',margin:0,textShadow:'0 0 20px rgba(244,208,63,0.7)'}}>{reward} {t.coins||'coins'} 💰</p>
         </div>
-        {/* Progress */}
-        <div style={{ position:'absolute', top:14, right:14, padding:'4px 11px', background:'rgba(0,0,0,0.45)', borderRadius:20, backdropFilter:'blur(4px)' }}>
-          <span style={{ fontSize:11, fontWeight:700, color:'#fff', fontFamily:'Poppins,sans-serif' }}>{index+1}<span style={{ opacity:0.6 }}>/{total}</span></span>
-        </div>
-        {/* Swipe hint on first card */}
-        {index === 0 && !dragging && (
-          <div style={{ position:'absolute', bottom:10, left:'50%', transform:'translateX(-50%)', display:'flex', alignItems:'center', gap:6, padding:'4px 12px', background:'rgba(0,0,0,0.4)', borderRadius:20, backdropFilter:'blur(4px)' }}>
-            <span style={{ fontSize:11, color:'rgba(255,255,255,0.85)', fontFamily:'Poppins,sans-serif', fontWeight:600 }}>← Swipe →</span>
-          </div>
-        )}
-        {/* Drag direction indicators */}
-        {Math.abs(dragX) > 30 && (
-          <div style={{ position:'absolute', inset:0, background: dragX > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', transition:'background 0.1s', display:'flex', alignItems:'center', justifyContent: dragX > 0 ? 'flex-start' : 'flex-end', padding:'0 20px', pointerEvents:'none' }}>
-            <div style={{ padding:'8px 14px', background: dragX > 0 ? 'rgba(34,197,94,0.85)' : 'rgba(239,68,68,0.85)', borderRadius:12, backdropFilter:'blur(4px)' }}>
-              <span style={{ fontSize:18 }}>{dragX > 0 ? '👈' : '👉'}</span>
-            </div>
-          </div>
-        )}
+        <p style={{fontSize:10,color:'rgba(255,255,255,0.18)',fontFamily:'cursive',margin:'4px 0 0',fontStyle:'italic'}}>— Aswin CR</p>
       </div>
+      {!scratched&&(
+        <>
+          <canvas ref={canvasRef} width={W} height={H}
+            style={{position:'relative',zIndex:1,width:'100%',height:H,borderRadius:20,cursor:'crosshair',touchAction:'none',display:'block',boxShadow:'0 8px 32px rgba(0,0,0,0.4)'}}
+            onMouseDown={()=>drawing.current=true} onMouseUp={()=>drawing.current=false}
+            onMouseMove={e=>{if(drawing.current)scratchAt(e.clientX,e.clientY)}}
+            onTouchMove={e=>{e.preventDefault();const t=e.touches[0];scratchAt(t.clientX,t.clientY)}}
+            onTouchStart={()=>{}} onTouchEnd={()=>{}}/>
+          <p style={{textAlign:'center',fontSize:10,color:'rgba(255,255,255,0.35)',fontFamily:'Poppins,sans-serif',marginTop:8}}>
+            {t.scratchReveal||'Scratch to reveal'} · {pct}%
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
 
-      {/* Content — bottom 42% */}
-      <div style={{ height:'42%', padding:'16px 18px 14px', display:'flex', flexDirection:'column', justifyContent:'space-between', background:'#fff' }}>
-        <div>
-          <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:15, color:'#1a1a1a', lineHeight:1.5, margin:0 }}>{fact.text}</p>
+/* ═══════════════════════════════════════════
+   SWIPE CARD
+═══════════════════════════════════════════ */
+function SwipeCard({ fact, index, total, onSwipe, language }) {
+  const { t } = useLanguage()
+  const [dragX,setDragX]=useState(0),[dragging,setDragging]=useState(false)
+  const [exiting,setExiting]=useState(null),[imgLoaded,setImgLoaded]=useState(false),[imgErr,setImgErr]=useState(false)
+  const startX=useRef(null),startY=useRef(null)
+  const imgSrc=imgErr?'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80':getImg(fact)
+
+  const fire=(dir)=>{setExiting(dir);setTimeout(()=>{setExiting(null);setDragX(0);onSwipe(dir)},340)}
+  const onTS=(e)=>{startX.current=e.touches[0].clientX;startY.current=e.touches[0].clientY;setDragging(true)}
+  const onTM=(e)=>{if(!dragging)return;const dx=e.touches[0].clientX-startX.current,dy=Math.abs(e.touches[0].clientY-startY.current);if(dy>40){setDragging(false);setDragX(0);return}setDragX(dx)}
+  const onTE=()=>{setDragging(false);Math.abs(dragX)>75?fire(dragX>0?'right':'left'):setDragX(0)}
+  const onMD=(e)=>{startX.current=e.clientX;setDragging(true)}
+  const onMM=(e)=>{if(!dragging||!startX.current)return;setDragX(e.clientX-startX.current)}
+  const onMU=()=>{setDragging(false);Math.abs(dragX)>75?fire(dragX>0?'right':'left'):setDragX(0);startX.current=null}
+
+  const tx=exiting==='left'?-380:exiting==='right'?380:dragX
+  const rot=exiting?dragX*0.12:dragX*0.07,op=exiting?0:1
+
+  const factText=useMemo(()=>{
+    if(fact.text&&typeof fact.text==='object')return fact.text[language]||fact.text.en||''
+    return fact.text||''
+  },[fact,language])
+
+  return (
+    <div onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
+      onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}
+      style={{position:'absolute',inset:0,borderRadius:24,overflow:'hidden',cursor:dragging?'grabbing':'grab',
+        userSelect:'none',WebkitUserSelect:'none',
+        transform:`translateX(${tx}px) rotate(${rot}deg)`,opacity:op,
+        transition:dragging?'none':'transform 0.32s cubic-bezier(.34,1.1,.64,1), opacity 0.28s ease',
+        boxShadow:`0 ${12+Math.abs(dragX)*0.04}px ${36+Math.abs(dragX)*0.08}px rgba(0,0,0,0.25)`}}>
+      <div style={{position:'absolute',inset:0,background:'#0d0b1e'}}>
+        {!imgLoaded&&<div style={{position:'absolute',inset:0,background:'linear-gradient(90deg,#1a1a2e 25%,#16213e 50%,#1a1a2e 75%)',backgroundSize:'200% 100%',animation:'shimLoad 1.4s ease infinite'}}/>}
+        <img src={imgSrc} alt="" loading="lazy" draggable={false}
+          onLoad={()=>setImgLoaded(true)} onError={()=>{setImgErr(true);setImgLoaded(true)}}
+          style={{width:'100%',height:'100%',objectFit:'cover',opacity:imgLoaded?1:0,transition:'opacity 0.4s',pointerEvents:'none'}}/>
+        <div style={{position:'absolute',inset:0,background:'linear-gradient(to bottom,rgba(0,0,0,0.1) 0%,rgba(0,0,0,0.3) 35%,rgba(0,0,0,0.88) 100%)'}}/>
+      </div>
+      <div style={{position:'absolute',top:16,left:16,right:16,display:'flex',justifyContent:'space-between',zIndex:2}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',background:'rgba(255,255,255,0.16)',borderRadius:20,backdropFilter:'blur(10px)',border:'1px solid rgba(255,255,255,0.22)'}}>
+          <span style={{fontSize:13}}>{CAT[fact.category||fact.cat]||'✨'}</span>
+          <span style={{fontSize:10,fontWeight:800,color:'#fff',textTransform:'uppercase',letterSpacing:'0.1em',fontFamily:'Poppins,sans-serif'}}>{fact.category||fact.cat}</span>
         </div>
-        {/* Progress bar */}
-        <div>
-          <div style={{ height:3, borderRadius:3, background:'#f3f4f6', overflow:'hidden', marginBottom:10 }}>
-            <div style={{ height:'100%', width:`${((index+1)/total)*100}%`, background:`linear-gradient(90deg,${catConf.color},${catConf.color}90)`, borderRadius:3, transition:'width 0.4s ease' }} />
-          </div>
-          {/* Nav buttons */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <button onClick={onPrev} disabled={index===0} style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 14px', borderRadius:10, border:'1.5px solid #e5e7eb', background:index===0?'#f9fafb':'#fff', color:index===0?'#d1d5db':'#374151', fontWeight:700, fontSize:12, cursor:index===0?'not-allowed':'pointer', fontFamily:'Poppins,sans-serif', boxShadow:index===0?'none':'0 1px 4px rgba(0,0,0,0.07)', transition:'all 0.15s' }}>
-              ← Prev
-            </button>
-            <div style={{ display:'flex', gap:3 }}>
-              {Array.from({length:Math.min(total,15)}).map((_,i)=>(
-                <div key={i} style={{ width: i===index?16:5, height:5, borderRadius:5, background: i===index?catConf.color:'#e5e7eb', transition:'all 0.3s' }} />
-              ))}
-            </div>
-            <button onClick={onNext} disabled={index===total-1} style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 14px', borderRadius:10, border:'none', background:index===total-1?'#f3f4f6':`linear-gradient(135deg,${catConf.color},${catConf.color}cc)`, color:index===total-1?'#9ca3af':'#fff', fontWeight:700, fontSize:12, cursor:index===total-1?'not-allowed':'pointer', fontFamily:'Poppins,sans-serif', boxShadow:index===total-1?'none':`0 2px 8px ${catConf.color}40`, transition:'all 0.15s' }}>
-              {index===total-1?'Done ✓':'Next →'}
-            </button>
-          </div>
+        <div style={{padding:'4px 11px',background:'rgba(0,0,0,0.5)',borderRadius:20}}>
+          <span style={{fontSize:11,fontWeight:700,color:'#fff',fontFamily:'Poppins,sans-serif'}}>{index+1}<span style={{opacity:0.5}}>/{total}</span></span>
+        </div>
+      </div>
+      {dragX>40&&<div style={{position:'absolute',top:'50%',left:20,transform:'translateY(-50%)',padding:'8px 16px',background:'rgba(34,197,94,0.85)',borderRadius:12,border:'2px solid #22c55e',zIndex:3,opacity:Math.min((dragX-40)/60,1)}}><span style={{fontSize:14,fontWeight:900,color:'#fff',fontFamily:'Poppins,sans-serif'}}>❤️ {t.like||'LIKE'}</span></div>}
+      {dragX<-40&&<div style={{position:'absolute',top:'50%',right:20,transform:'translateY(-50%)',padding:'8px 16px',background:'rgba(239,68,68,0.85)',borderRadius:12,border:'2px solid #ef4444',zIndex:3,opacity:Math.min((-dragX-40)/60,1)}}><span style={{fontSize:14,fontWeight:900,color:'#fff',fontFamily:'Poppins,sans-serif'}}>{t.skip||'SKIP'} ✕</span></div>}
+      <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'20px 20px 24px',zIndex:2}}>
+        <p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:'#fff',margin:'0 0 14px',lineHeight:1.6,textShadow:'0 1px 6px rgba(0,0,0,0.6)'}}>{factText}</p>
+        {index===0&&<p style={{fontSize:11,color:'rgba(255,255,255,0.5)',textAlign:'center',fontFamily:'Poppins,sans-serif',margin:'0 0 10px'}}>{t.swipeHint||'Swipe to continue'}</p>}
+        <div style={{display:'flex',gap:14,justifyContent:'center'}}>
+          <button onClick={()=>fire('left')} style={{width:48,height:48,borderRadius:'50%',border:'2px solid rgba(239,68,68,0.5)',background:'rgba(239,68,68,0.15)',backdropFilter:'blur(8px)',fontSize:20,cursor:'pointer',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+          <button onClick={()=>fire('right')} style={{width:48,height:48,borderRadius:'50%',border:'2px solid rgba(34,197,94,0.5)',background:'rgba(34,197,94,0.15)',backdropFilter:'blur(8px)',fontSize:20,cursor:'pointer',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>❤️</button>
         </div>
       </div>
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════════════
-   MAIN SURPRISES MODAL
-═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   MAIN MODAL
+═══════════════════════════════════════════ */
 export default function SurprisesModal({ isOpen, onClose, currentUser }) {
-  const [facts, setFacts]       = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [cardIndex, setCardIndex] = useState(0)
-  const [done, setDone]         = useState(false)
+  const { language, t } = useLanguage()
 
-  useEffect(() => {
-    if (!isOpen) return
-    setLoading(true); setCardIndex(0); setDone(false)
-    const userId = currentUser?.username || 'guest'
-    getTodayFacts(userId).then(f => { setFacts(f); setLoading(false) })
-  }, [isOpen, currentUser])
+  const [facts,setFacts]=useState([]),[loading,setLoading]=useState(true)
+  const [cardIndex,setCardIndex]=useState(0),[done,setDone]=useState(false)
+  const [showScratch,setShowScratch]=useState(false),[scratched,setScratched]=useState(false)
+  const [reward,setReward]=useState(0),[dailyDone,setDailyDone]=useState(false)
+  const [dailyCount,setDailyCount]=useState(0)
+  const userId=currentUser?.username||'guest'
 
-  const handleNext = useCallback(() => {
-    if (cardIndex >= facts.length - 1) { setDone(true); return }
-    setCardIndex(i => i + 1)
-  }, [cardIndex, facts.length])
+  useEffect(()=>{
+    if(!isOpen) return
+    setLoading(true);setCardIndex(0);setDone(false);setShowScratch(false);setScratched(false)
+    const load=async()=>{
+      try{
+        const ud=await getUD(userId)
+        const today=TODAY(),usage=ud.factsUsage||{}
+        const count=usage.date===today?(usage.count||0):0
+        if(count>=MAX_FACTS){
+          setDailyDone(true);setDailyCount(MAX_FACTS)
+          const r=ud.scratchReward||0;if(r){setReward(r);setShowScratch(!ud.scratchClaimed)}
+          setScratched(!!ud.scratchClaimed);setLoading(false);return
+        }
+        setDailyDone(false);setDailyCount(count)
+        const queue=buildQueue(ud.seenFacts||[],userId)
+        const resumeIdx=Math.min(count,queue.length-1)
+        setFacts(queue);setCardIndex(resumeIdx)
+        if(queue[resumeIdx])preload(getImg(queue[resumeIdx]))
+        if(queue[resumeIdx+1])preload(getImg(queue[resumeIdx+1]))
+      }catch{setFacts(FACTS_POOL.slice(0,MAX_FACTS))}
+      setLoading(false)
+    }
+    load()
+  },[isOpen,userId])
 
-  const handlePrev = useCallback(() => {
-    setCardIndex(i => Math.max(0, i - 1))
-  }, [])
+  const handleSwipe=useCallback(async(dir)=>{
+    const newCount=dailyCount+1;setDailyCount(newCount)
+    if(facts[cardIndex+2])preload(getImg(facts[cardIndex+2]))
+    recFact(userId,facts[cardIndex]?.id||'',newCount)
+    if(newCount>=MAX_FACTS||cardIndex>=facts.length-1){
+      const r=REWARDS[Math.floor(Math.random()*REWARDS.length)];setReward(r);saveScratch(userId,r)
+      setDone(true);setTimeout(()=>setShowScratch(true),700)
+    } else { setCardIndex(i=>i+1) }
+  },[cardIndex,dailyCount,facts,userId])
 
-  const handleClose = () => { setDone(false); setCardIndex(0); onClose() }
+  const handleScratched=useCallback(()=>{setScratched(true);claimScratch(userId,reward)},[userId,reward])
+  const handleClose=()=>{setDone(false);setCardIndex(0);onClose()}
 
-  if (!isOpen) return null
+  if(!isOpen) return null
 
   return (
     <>
     <style>{`
       @keyframes shimLoad{0%{background-position:200% center}100%{background-position:-200% center}}
-      @keyframes modalIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
-      @keyframes slideUp2{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-      @keyframes confetti{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(-80px) rotate(360deg);opacity:0}}
+      @keyframes modalIn{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+      @keyframes slideUp2{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes coinPop{0%{transform:scale(0.4);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
     `}</style>
-
-    {/* Backdrop */}
-    <div
-      onClick={handleClose}
-      style={{ position:'fixed', inset:0, zIndex:800, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', animation:'fadeIn 0.25s ease-out' }}
-    />
-
-    {/* Modal */}
-    <div style={{ position:'fixed', inset:0, zIndex:801, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px', pointerEvents:'none' }}>
-      <div style={{ width:'100%', maxWidth:420, height:'min(680px,88vh)', background:'#f8f9fa', borderRadius:28, overflow:'hidden', animation:'modalIn 0.35s cubic-bezier(.34,1.1,.64,1) both', pointerEvents:'all', display:'flex', flexDirection:'column', boxShadow:'0 32px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1)', position:'relative' }}>
-
-        {/* Header */}
-        <div style={{ padding:'14px 18px 12px', background:'#fff', borderBottom:'1px solid #f1f5f9', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+    <div onClick={handleClose} style={{position:'fixed',inset:0,zIndex:800,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(10px)'}}/>
+    <div style={{position:'fixed',inset:0,zIndex:801,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px',pointerEvents:'none'}}>
+      <div style={{width:'100%',maxWidth:420,height:'min(700px,90vh)',background:'#0a0c14',borderRadius:28,overflow:'hidden',
+        animation:'modalIn 0.35s cubic-bezier(.34,1.1,.64,1) both',pointerEvents:'all',display:'flex',flexDirection:'column',
+        boxShadow:'0 32px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(212,175,55,0.1)',position:'relative'}}>
+        <div style={{padding:'14px 18px 12px',background:'rgba(255,255,255,0.025)',borderBottom:'1px solid rgba(255,255,255,0.06)',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
           <div>
-            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:16, color:'#1a1a1a', margin:0 }}>Surprises!! 🎁</p>
-            {!loading && !done && <p style={{ fontSize:10, color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif' }}>Fact {cardIndex+1} of {facts.length} · Daily refresh</p>}
+            <p style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:16,color:'#fff',margin:0}}>{t.surprises||'Surprises!! 🎁'}</p>
+            {!loading&&!done&&!dailyDone&&<p style={{fontSize:10,color:'rgba(255,255,255,0.3)',margin:0,fontFamily:'Poppins,sans-serif'}}>{t.factOf||'Fact'} {cardIndex+1} / {MAX_FACTS}</p>}
+            {(done||dailyDone)&&<p style={{fontSize:10,color:'#F59E0B',margin:0,fontFamily:'Poppins,sans-serif'}}>{t.dailyComplete||'Daily complete'}</p>}
           </div>
-          <button onClick={handleClose} style={{ width:32, height:32, borderRadius:10, background:'#f3f4f6', border:'1px solid #e5e7eb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, cursor:'pointer', color:'#6b7280', fontWeight:700 }}>✕</button>
+          <button onClick={handleClose} style={{width:32,height:32,borderRadius:10,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,cursor:'pointer',color:'rgba(255,255,255,0.5)',fontWeight:700}}>✕</button>
         </div>
-
-        {/* Body */}
-        <div style={{ flex:1, position:'relative', overflow:'hidden' }}>
-          {loading ? (
-            <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14 }}>
-              <div style={{ width:48, height:48, border:'3px solid #e5e7eb', borderTop:'3px solid #7c3aed', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
-              <p style={{ fontSize:13, color:'#6b7280', fontFamily:'Poppins,sans-serif', fontWeight:600 }}>Picking today's surprises…</p>
+        {!loading&&!done&&!dailyDone&&(
+          <div style={{height:2,background:'rgba(255,255,255,0.05)',flexShrink:0}}>
+            <div style={{height:'100%',width:`${(cardIndex/MAX_FACTS)*100}%`,background:'linear-gradient(90deg,#7c3aed,#d4af37)',transition:'width 0.4s ease'}}/>
+          </div>
+        )}
+        <div style={{flex:1,position:'relative',overflow:'hidden'}}>
+          {loading?(
+            <div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14}}>
+              <div style={{width:44,height:44,border:'3px solid rgba(255,255,255,0.08)',borderTop:'3px solid #7c3aed',borderRadius:'50%',animation:'shimLoad 0.7s linear infinite'}}/>
+              <p style={{fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'Poppins,sans-serif'}}>{t.loadingFacts||'Picking surprises…'}</p>
             </div>
-          ) : done ? (
-            /* Completion screen */
-            <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'28px', textAlign:'center', animation:'slideUp2 0.4s ease-out both' }}>
-              <div style={{ fontSize:60, marginBottom:16, animation:'confetti 1s ease-out both' }}>🎉</div>
-              <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1a1a1a', margin:'0 0 8px' }}>You're awesome!</p>
-              <p style={{ fontSize:14, color:'#6b7280', lineHeight:1.65, margin:'0 0 24px', fontFamily:'Poppins,sans-serif' }}>You went through all {facts.length} surprises for today. Come back tomorrow for a fresh set! 🧠</p>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:24, width:'100%' }}>
-                {Object.entries(facts.reduce((acc,f)=>({...acc,[f.category]:(acc[f.category]||0)+1}),{})).map(([cat,count])=>{
-                  const cc = CATEGORY_CONFIG[cat]||CATEGORY_CONFIG.random
-                  return (
-                    <div key={cat} style={{ padding:'10px 6px', background:`${cc.color}10`, border:`1px solid ${cc.color}25`, borderRadius:12, textAlign:'center' }}>
-                      <div style={{ fontSize:20, marginBottom:3 }}>{cc.emoji}</div>
-                      <p style={{ fontSize:9, fontWeight:700, color:cc.color, margin:0, fontFamily:'Poppins,sans-serif' }}>{count}</p>
-                    </div>
-                  )
-                })}
-              </div>
-              <div style={{ display:'flex', gap:10, width:'100%' }}>
-                <button onClick={()=>{setCardIndex(0);setDone(false)}} style={{ flex:1, padding:'12px', borderRadius:14, border:'1.5px solid #e5e7eb', background:'#fff', color:'#374151', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>← Review again</button>
-                <button onClick={handleClose} style={{ flex:1, padding:'12px', borderRadius:14, border:'none', background:'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'Poppins,sans-serif', boxShadow:'0 3px 12px rgba(124,58,237,0.3)' }}>Done ✓</button>
-              </div>
+          ):dailyDone&&!showScratch?(
+            <div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:28,textAlign:'center'}}>
+              <p style={{fontSize:52,marginBottom:12}}>🌙</p>
+              <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:22,color:'#fff',margin:'0 0 8px'}}>{t.seeYouTomorrow||'See you tomorrow!'}</p>
+              <p style={{fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'Poppins,sans-serif',lineHeight:1.6,margin:'0 0 24px'}}>{t.tomorrowMsg||"Come back tomorrow!"}</p>
+              {scratched&&<div style={{padding:'12px 24px',background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.25)',borderRadius:14}}><p style={{fontSize:13,color:'#F59E0B',fontFamily:'Poppins,sans-serif',margin:0,fontWeight:700}}>🏆 +{reward} {t.coins||'coins'}!</p></div>}
             </div>
-          ) : (
-            /* Card deck */
-            <div style={{ position:'relative', height:'100%', margin:'12px 14px' }}>
-              {/* Background cards (depth effect) */}
-              {facts[cardIndex+2] && (
-                <div style={{ position:'absolute', inset:'8px 16px', borderRadius:22, background:'#e5e7eb', transform:'translateY(8px) scale(0.93)', zIndex:0 }} />
+          ):showScratch?(
+            <div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'20px 24px',gap:14,animation:'slideUp2 0.4s ease both'}}>
+              <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:20,color:'#fff',margin:0,textAlign:'center'}}>{scratched?(t.rewardDone||'Coins Added!'):(t.rewardTitle||'Your Daily Reward!')}</p>
+              <p style={{fontSize:12,color:'rgba(255,255,255,0.35)',fontFamily:'Poppins,sans-serif',margin:0,textAlign:'center'}}>{scratched?`+${reward} ${t.rewardAdded||'coins added'}`:(t.scratchReveal||'Scratch to reveal')}</p>
+              <ScratchCard reward={reward} onScratched={handleScratched} scratched={scratched}/>
+              {scratched&&(
+                <>
+                  <div style={{textAlign:'center',animation:'coinPop 0.6s cubic-bezier(.34,1.56,.64,1) both'}}>
+                    <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:36,color:'#F59E0B',margin:'0 0 6px',textShadow:'0 0 30px rgba(245,158,11,0.6)'}}>+{reward} 💰</p>
+                    <p style={{fontSize:11,color:'rgba(255,255,255,0.25)',fontFamily:'Poppins,sans-serif',margin:0}}>{t.comeBackTomorrow||'Come back tomorrow!'}</p>
+                  </div>
+                  <button onClick={handleClose} style={{padding:'12px 36px',borderRadius:14,border:'none',background:'linear-gradient(135deg,#d4af37,#f4d03f)',color:'#1a1a1a',fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:14,cursor:'pointer',boxShadow:'0 6px 24px rgba(212,175,55,0.4)'}}>{t.doneBtn||'Done ✓'}</button>
+                </>
               )}
-              {facts[cardIndex+1] && (
-                <div style={{ position:'absolute', inset:'4px 8px', borderRadius:23, background:'#eff0f1', transform:'translateY(4px) scale(0.97)', zIndex:1 }} />
-              )}
-              {/* Active card */}
-              {facts[cardIndex] && (
-                <div style={{ position:'absolute', inset:0, zIndex:2 }}>
-                  <SwipeCard fact={facts[cardIndex]} index={cardIndex} total={facts.length} onNext={handleNext} onPrev={handlePrev} isActive={true} key={facts[cardIndex].id} />
+            </div>
+          ):!done&&facts.length>0?(
+            <div style={{position:'relative',height:'100%',margin:'12px 14px'}}>
+              {facts[cardIndex+2]&&<div style={{position:'absolute',inset:'8px 16px',borderRadius:22,background:'rgba(255,255,255,0.04)',transform:'translateY(8px) scale(0.93)',zIndex:0}}/>}
+              {facts[cardIndex+1]&&<div style={{position:'absolute',inset:'4px 8px',borderRadius:23,background:'rgba(255,255,255,0.07)',transform:'translateY(4px) scale(0.97)',zIndex:1}}/>}
+              {facts[cardIndex]&&(
+                <div style={{position:'absolute',inset:0,zIndex:2}}>
+                  <SwipeCard key={facts[cardIndex].id} fact={facts[cardIndex]} index={cardIndex}
+                    total={MAX_FACTS} onSwipe={handleSwipe} language={language}/>
                 </div>
               )}
             </div>
+          ):(
+            <div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:28,textAlign:'center'}}>
+              <p style={{fontSize:48,marginBottom:12}}>🎉</p>
+              <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:20,color:'#fff',margin:'0 0 6px'}}>{t.amazing||'All done!'}</p>
+              <p style={{fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'Poppins,sans-serif'}}>{t.preparing||'Preparing reward…'}</p>
+            </div>
           )}
         </div>
+        <p style={{fontSize:8,color:'rgba(255,255,255,0.08)',textAlign:'center',padding:'6px 20px 10px',fontFamily:'Poppins,sans-serif',flexShrink:0}}>{t.legalSkill||'Coins are virtual tokens with no monetary value'}</p>
       </div>
     </div>
     </>

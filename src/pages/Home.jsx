@@ -2,8 +2,82 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
 import { SkillMachineModal, SkillMachineCard } from './SkillMachine'
+import { useLanguage } from '../context/LanguageContext'
 import { db } from '../firebase'
 import { doc, collection, query, orderBy, limit, onSnapshot, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore'
+
+/* ── Language options ── */
+const LANGUAGES = [
+  { code:'en', native:'English'   },
+  { code:'ta', native:'தமிழ்'      },
+  { code:'hi', native:'हिन्दी'      },
+  { code:'ml', native:'മലയാളം'    },
+]
+
+/* ── Language Selector ── */
+function LanguageSelector() {
+  const { language, setLanguage } = useLanguage()
+  const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState(null)
+  const btnRef = useRef(null)
+  const current = LANGUAGES.find(l => l.code === language) || LANGUAGES[0]
+
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      setRect(btnRef.current.getBoundingClientRect())
+    }
+    setOpen(o => !o)
+  }
+
+  // Dropdown items rendered as part of document root via inline portal
+  const dropStyle = rect ? {
+    position: 'fixed',
+    top:  rect.bottom + 6,
+    left: rect.left,
+    zIndex: 2147483647,  // max possible z-index
+    background: '#ffffff',
+    borderRadius: 12,
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+    minWidth: 150,
+    overflow: 'hidden',
+  } : {}
+
+  return (
+    <>
+      <button ref={btnRef} onClick={toggle}
+        style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 10px',
+          borderRadius:20, border:'1px solid rgba(0,0,0,0.15)',
+          background:'rgba(255,255,255,0.85)', cursor:'pointer',
+          fontSize:10, fontWeight:700, color:'#374151',
+          fontFamily:'Poppins,sans-serif', whiteSpace:'nowrap' }}>
+        🌐 {current.native} <span style={{ opacity:0.5, fontSize:8 }}>{open?'▲':'▼'}</span>
+      </button>
+
+      {open && rect && (
+        <div style={dropStyle}>
+          <div onClick={() => setOpen(false)}
+            style={{ position:'fixed', inset:0, zIndex:-1 }}/>
+          {LANGUAGES.map(lang => (
+            <button key={lang.code}
+              onClick={() => { setLanguage(lang.code); setOpen(false) }}
+              style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                width:'100%', padding:'11px 16px', border:'none',
+                borderBottom:'1px solid #f3f4f6',
+                background: language === lang.code ? '#fffbeb' : '#fff',
+                cursor:'pointer', fontFamily:'Poppins,sans-serif',
+                fontSize:13, fontWeight: language === lang.code ? 700 : 400,
+                color: language === lang.code ? '#92400e' : '#111827',
+                textAlign:'left' }}>
+              {lang.native}
+              {language === lang.code && <span style={{ color:'#d97706', fontWeight:700 }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
 
 /* ── Greeting ── */
 function useGreeting() {
@@ -90,6 +164,7 @@ function ProgressBar({ pct, color, height = 7 }) {
 ════════════════════════════════════════════ */
 export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], overallTotal = 0, currentUser, onLogout }) {
   const greeting = useGreeting()
+  const { language, t } = useLanguage()
   const [time, setTime]           = useState(new Date())
   const [clickedBtn, setClickedBtn] = useState(null)
   const [surprisesOpen, setSurprisesOpen] = useState(false)
@@ -206,9 +281,9 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
 
   // Quick actions
   const QUICK_ACTIONS = [
-    { id:'expense', icon:'💰', label:'+ Add Expense', sub:'Log spending',    bg:'#fef3c7', border:'#fde68a', accent:'#d97706' },
-    { id:'ledger',  icon:'🤝', label:'View Ledger',   sub:'Track debts',     bg:'#ecfdf5', border:'#a7f3d0', accent:'#059669' },
-    { id:'market',  icon:'📰', label:'Check News',    sub:'Stay updated',    bg:'#eff6ff', border:'#bfdbfe', accent:'#1d4ed8' },
+    { id:'expense', icon:'💰', label:t.addExpense||'+ Add Expense', sub:t.logSpending||'Log spending',    bg:'#fef3c7', border:'#fde68a', accent:'#d97706' },
+    { id:'ledger',  icon:'🤝', label:t.viewLedger||'View Ledger',   sub:t.trackDebts||'Track debts',     bg:'#ecfdf5', border:'#a7f3d0', accent:'#059669' },
+    { id:'market',  icon:'📰', label:t.checkNews||'Check News',    sub:t.stayUpdated||'Stay updated',    bg:'#eff6ff', border:'#bfdbfe', accent:'#1d4ed8' },
     { id:'cricket', icon:'🏏', label:'IPL 2025',      sub:'Predict & Win 💰',     bg:'#EEF2FF', border:'#C7D7FD', accent:'#1A56DB', ipl:true, iplLogo:true },
     { id:'astro',   icon:'✨', label:'Astro Insights', sub:'Your forecast',  bg:'#faf5ff', border:'#ddd6fe', accent:'#6d28d9' },
     { id:'space',   icon:'🚀', label:'Space World',   sub:'ISS tracker',     bg:'#f0f9ff', border:'#bae6fd', accent:'#0ea5e9' },
@@ -233,6 +308,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       .home-root * { font-family:'Poppins',sans-serif !important; }
       .home-root .syne { font-family:'Syne',sans-serif !important; }
       @keyframes slideUp  { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+      @keyframes slideDown{ from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
       @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
       @keyframes shimBar  { 0%{transform:translateX(-100%)} 100%{transform:translateX(250%)} }
       @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
@@ -294,9 +370,14 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           {/* Decorative silver orbs */}
           <div style={{ position:'absolute', top:-10, right:-10, width:100, height:100, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.8),transparent 65%)', pointerEvents:'none' }} />
 
-          {/* Welcome + name */}
-          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
-          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:19, color:'#1a1a1a', margin:'0 0 7px', lineHeight:1.1 }}>{displayName} 👋</p>
+          {/* Welcome + name + language selector */}
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:2 }}>
+            <div>
+              <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>{t.welcome}</p>
+              <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:19, color:'#1a1a1a', margin:'0 0 7px', lineHeight:1.1 }}>{displayName} 👋</p>
+            </div>
+            <div style={{ display:'inline-block', flexShrink:0, marginTop:2 }}><LanguageSelector/></div>
+          </div>
 
           {/* Key insight badges */}
           <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
@@ -317,9 +398,9 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           {/* Stats bar — neumorphic inset */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1px 1fr 1px 1fr', background:'linear-gradient(145deg,#e4e4e4,#f5f5f5)', borderRadius:14, overflow:'hidden', boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.09),inset -2px -2px 5px rgba(255,255,255,0.9)', border:'1px solid #e2e8f0' }}>
             {[
-              { label:'Today', value:todayTotal, entries:todayLogs.length, fmt:true },
-              { label:'Total', value:overallTotal, entries:logs.length, fmt:true },
-              { label:'Avg/Entry', value:avgPerEntry, entries:null, fmt:true },
+              { label:t.today, value:todayTotal, entries:todayLogs.length, fmt:true },
+              { label:t.total, value:overallTotal, entries:logs.length, fmt:true },
+              { label:t.avgEntry, value:avgPerEntry, entries:null, fmt:true },
             ].map((s,i) => (
               <>
                 {i>0 && <div key={`d${i}`} style={{ background:'rgba(0,0,0,0.06)' }} />}
@@ -328,7 +409,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                   <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:14, color:'#b8860b', margin:0, lineHeight:1 }}>
                     {s.fmt ? <CountUp value={s.value} /> : s.value}
                   </p>
-                  {s.entries !== null && <p style={{ fontSize:8, color:'#6b7280', margin:'2px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} entries</p>}
+                  {s.entries !== null && <p style={{ fontSize:8, color:'#6b7280', margin:'2px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} {t.entries}</p>}
                 </div>
               </>
             ))}
@@ -426,11 +507,11 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {currentUser?.username && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:6, marginBottom:10, animation:'slideUp 0.4s ease-out 0.08s both' }}>
           {[
-            { label:'Balance', value: coins===null?'…':(coins||500).toLocaleString(), icon:'💰', color:'#b45309' },
-            { label:'Streak', value: `${streak||0}d`, icon:'🔥', color:'#ea580c' },
-            { label:'Predicts', value: predictions||0, icon:'🎯', color:'#0891b2' },
-            { label:'Accuracy', value: '—', icon:'📊', color:'#059669' },
-            { label:'Skills', value: '3/3', icon:'⚡', color:'#7c3aed' },
+            { label:t.balance, value: coins===null?'…':(coins||500).toLocaleString(), icon:'💰', color:'#b45309' },
+            { label:t.streak, value: `${streak||0}d`, icon:'🔥', color:'#ea580c' },
+            { label:t.predicts, value: predictions||0, icon:'🎯', color:'#0891b2' },
+            { label:t.accuracy, value: '—', icon:'📊', color:'#059669' },
+            { label:t.skills, value: '3/3', icon:'⚡', color:'#7c3aed' },
           ].map((s,i)=>(
             <div key={i} style={{ padding:'7px 4px', background:'linear-gradient(145deg,#fafafa,#efefef)', borderRadius:12, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'2px 2px 6px rgba(0,0,0,0.07),-1px -1px 4px rgba(255,255,255,0.9)', textAlign:'center' }}>
               <p style={{ fontSize:14, margin:'0 0 1px' }}>{s.icon}</p>
@@ -542,7 +623,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       ══════════════════════════════════ */}
       {leaderboard.length > 0 && (
         <NeuCard style={{ marginBottom:10 }} accent="#F59E0B">
-          <SectionHeader title="🏆 Top Predictors" accent="#F59E0B"
+          <SectionHeader title={t.topPredictors} accent="#F59E0B"
             right={<button onClick={()=>setIplOpen(true)} style={{ background:'none',border:'none',fontSize:11,fontWeight:700,color:'#F59E0B',cursor:'pointer',fontFamily:'Poppins,sans-serif' }}>Full table →</button>} />
           <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
             {leaderboard.map((row,i) => {

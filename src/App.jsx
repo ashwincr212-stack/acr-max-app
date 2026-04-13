@@ -11,6 +11,7 @@ import { useState, useEffect, useRef } from 'react'
 import { saveUserLogs, loadUserLogs, subscribeUserLogs } from './firebase'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
+import { LanguageProvider } from './context/LanguageContext'
 
 /* ── Animated Center Button — alternates logo ↔ ⚡ ACR MAX ─────────────────── */
 function AnimatedCenterBtn({ onNavigateHome }) {
@@ -116,7 +117,11 @@ function App() {
   if (!authChecked) return null
   if (!currentUser) return <Login onLogin={handleLogin} />
 
-  return <AppShell currentUser={currentUser} onLogout={handleLogout} />
+  return (
+    <LanguageProvider userId={currentUser?.username}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout} />
+    </LanguageProvider>
+  )
 }
 
 // ── Main App (only shown after login) ─────────────────────────────────────────
