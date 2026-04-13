@@ -1,3 +1,4 @@
+import { useLanguage } from '../context/LanguageContext'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { db } from '../firebase'
 import { doc, onSnapshot } from 'firebase/firestore'
@@ -106,6 +107,7 @@ function SectionHeader({ title, accent }) {
    MAIN PROFILE COMPONENT
 ═════════════════════════════════════════════════════ */
 export default function Profile({ logs, setLogs, overallTotal, summaryData, currentUser, onLogout }) {
+  const { t } = useLanguage()
   const [activeTheme, setActiveTheme]   = useState('violet')
   const [trackSmoking, setTrackSmoking] = useState(false)
   const [userName, setUserName]         = useState(currentUser?.name || 'User')
@@ -344,7 +346,7 @@ export default function Profile({ logs, setLogs, overallTotal, summaryData, curr
           3. ACHIEVEMENTS
       ═══════════════════════════════════ */}
       <NeuCard accent={acc}>
-        <SectionHeader title="Achievements" accent={acc} />
+        <SectionHeader title={t.profile ? t.profile+' Badges' : 'Achievements'} accent={acc} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>
           <AchievementBadge icon="🌱" label="First Log"    sub="Logged 1st"       unlocked={logs.length >= 1}   color="#16a34a" />
           <AchievementBadge icon="💰" label="Saver"        sub="₹1,000 tracked"   unlocked={overallTotal >= 1000}  color="#d97706" />
@@ -441,7 +443,7 @@ export default function Profile({ logs, setLogs, overallTotal, summaryData, curr
           6. SETTINGS
       ═══════════════════════════════════ */}
       <NeuCard>
-        <SectionHeader title="Settings" accent="#6b7280" />
+        <SectionHeader title={t.settings||'Settings'} accent="#6b7280" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {[
             { icon:'📤', label:'Export Data', sub:'CSV, JSON or text report', color:'#0891b2', action:() => alert('Go to Expenses → Export tab') },

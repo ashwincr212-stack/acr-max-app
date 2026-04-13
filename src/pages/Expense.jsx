@@ -2,6 +2,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie, Legend, AreaChart, Area
 } from 'recharts'
+import { useLanguage } from '../context/LanguageContext'
 import { useState, useMemo, useEffect, useRef } from 'react'
 
 const fmt = (n) => `₹${Number(n).toLocaleString('en-IN')}`
@@ -80,7 +81,7 @@ function SectionHdr({ title, accent='#7c3aed', right }) {
 /* ── Progress bar ── */
 function NeuBar({ pct, color, height=8 }) {
   const [w, setW] = useState(0)
-  useEffect(() => { const t=setTimeout(()=>setW(pct),250); return ()=>clearTimeout(t) }, [pct])
+  useEffect(() => { const tId=setTimeout(()=>setW(pct),250); return ()=>clearTimeout(tId) }, [pct])
   return (
     <div style={{ height, borderRadius:height, background:'linear-gradient(145deg,#e0e0e0,#f5f5f5)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.1),inset -1px -1px 2px rgba(255,255,255,0.8)', overflow:'hidden' }}>
       <div style={{ height:'100%', width:`${w}%`, borderRadius:height, background:`linear-gradient(90deg,${color},${color}cc)`, transition:'width 1.1s cubic-bezier(.34,1.1,.64,1)', position:'relative', overflow:'hidden' }}>
@@ -121,7 +122,7 @@ function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, 
           <p style={{ fontSize:11, color:'#6b7280', margin:'5px 0 0', fontFamily:'Poppins,sans-serif' }}>{logs.length} entries total</p>
         </div>
         <div style={{ textAlign:'right' }}>
-          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Today</p>
+          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>{t.today||'Today'}</p>
           <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color: todayTotal>0?'#d97706':'#16a34a', margin:0 }}>{fmt(todayTotal)}</p>
         </div>
       </div>
@@ -273,6 +274,7 @@ function BudgetBar({ spent, budget, color }) {
    MAIN EXPORT
 ════════════════════════════════════════ */
 export default function Expense(props) {
+  const { t } = useLanguage()
   const {
     logs, customAmount, setCustomAmount, customCategory, setCustomCategory,
     categories, addExpense, addExpenseWithMeta, deleteExpense, filteredLogs,
@@ -294,7 +296,7 @@ export default function Expense(props) {
   const topCategory    = useMemo(() => { const e=Object.entries(categoryTotals); return e.length?e.sort((a,b)=>b[1]-a[1])[0][0]:'—' }, [categoryTotals])
   const avgTransaction = logs.length?Math.round(overallTotal/logs.length):0
 
-  const alerts = useMemo(() => Object.entries(categoryTotals).filter(([c,t])=>budgets[c]&&t>budgets[c]).map(([cat,total])=>({cat,over:total-budgets[cat]})), [categoryTotals, budgets])
+  const alerts = useMemo(() => Object.entries(categoryTotals).filter(([c,v])=>budgets[c]&&v>budgets[c]).map(([cat,total])=>({cat,over:total-budgets[cat]})), [categoryTotals, budgets])
 
   const trendData = useMemo(() => {
     const hours = Array.from({length:24},(_,i)=>({hour:`${i}h`,amount:0}))
@@ -335,7 +337,7 @@ export default function Expense(props) {
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'})); a.download=`expenses_${new Date().toISOString().slice(0,10)}.csv`; a.click()
   }
   const exportJSON = () => { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(logs,null,2)],{type:'application/json'})); a.download=`expenses_${new Date().toISOString().slice(0,10)}.json`; a.click() }
-  const exportText = () => { let t=`ACR MAX Report\n${new Date().toLocaleDateString('en-IN')}\nTotal: ${fmt(overallTotal)}\n\n`; logs.forEach(l=>{t+=`[${l.time}] ${l.category}: ${fmt(l.amount)}${l.note?' — '+l.note:''}\n`}); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'})); a.download=`expenses_${new Date().toISOString().slice(0,10)}.txt`; a.click() }
+  const exportText = () => { let txt=`ACR MAX Report\n${new Date().toLocaleDateString('en-IN')}\nTotal: ${fmt(overallTotal)}\n\n`; logs.forEach(l=>{txt+=`[${l.time}] ${l.category}: ${fmt(l.amount)}${l.note?' — '+l.note:''}\n`}); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'})); a.download=`expenses_${new Date().toISOString().slice(0,10)}.txt`; a.click() }
 
   const neu = { background:'linear-gradient(145deg,#f8fafc,#e8ecf0)', border:'1.5px solid #e2e8f0', borderRadius:16, padding:'12px 14px', boxShadow:'3px 3px 8px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)' }
   const inputSt = { width:'100%', padding:'12px 14px', background:'linear-gradient(145deg,#e8e8e8,#ffffff)', boxShadow:'inset 3px 3px 6px rgba(0,0,0,0.09),inset -2px -2px 4px rgba(255,255,255,0.9)', border:'1.5px solid #e2e8f0', borderRadius:13, fontWeight:600, color:'#1a1a1a', fontSize:14, outline:'none', fontFamily:'Poppins,sans-serif', transition:'box-shadow 0.2s' }
@@ -373,17 +375,17 @@ export default function Expense(props) {
             <button onClick={()=>setShowMobileForm(false)} style={{ background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', borderRadius:8, color:'#6b7280', fontSize:15, cursor:'pointer', width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'2px 2px 4px rgba(0,0,0,0.08),-1px -1px 3px rgba(255,255,255,0.9)' }}>✕</button>
           </div>
           <div style={{ marginBottom:10 }}>
-            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>Category</label>
+            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>{t.category||'Category'}</label>
             <select value={customCategory} onChange={e=>setCustomCategory(e.target.value)} style={{ width:'100%', ...selectSt, padding:'10px 12px' }}>
               {categories.map(c=><option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div style={{ marginBottom:10 }}>
-            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>Amount (₹)</label>
+            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>{t.amount||'Amount'} (₹)</label>
             <input type="number" value={customAmount} onChange={e=>setCustomAmount(e.target.value)} onKeyDown={e=>e.key==='Enter'&&(handleAdd(),setShowMobileForm(false))} placeholder="0.00" autoFocus style={{ width:'100%', ...inputSt, fontSize:16, fontWeight:700 }} />
           </div>
           <div style={{ marginBottom:12 }}>
-            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>Note (optional)</label>
+            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>{t.note||'Note'} (optional)</label>
             <input type="text" value={noteInput} onChange={e=>setNoteInput(e.target.value)} placeholder="e.g. lunch" style={{ width:'100%', ...inputSt, fontSize:13 }} />
           </div>
           <div style={{ display:'flex', gap:8 }}>
@@ -426,15 +428,15 @@ export default function Expense(props) {
 
       {/* ── TABS ── */}
       <div className="exp-tabs" style={{ display:'flex', gap:7, marginBottom:16, overflowX:'auto', paddingBottom:4, scrollbarWidth:'none' }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={()=>setExpenseTab(t.id)} style={{
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={()=>setExpenseTab(tab.id)} style={{
             padding:'10px 18px', borderRadius:12, fontWeight:700, fontSize:12, whiteSpace:'nowrap', cursor:'pointer', transition:'all 0.2s', fontFamily:'Poppins,sans-serif',
-            background: expenseTab===t.id?'linear-gradient(145deg,#f0f0f0,#e4e4e4)':'linear-gradient(145deg,#ffffff,#f5f5f5)',
-            border: expenseTab===t.id?'1.5px solid #d1d5db':'1.5px solid #e8e8e8',
-            color: expenseTab===t.id?'#1a1a1a':'#6b7280',
-            borderBottom: expenseTab===t.id?'2.5px solid #7c3aed':undefined,
-            boxShadow: expenseTab===t.id?'inset 2px 2px 5px rgba(0,0,0,0.08),inset -1px -1px 3px rgba(255,255,255,0.8)':'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)',
-          }}>{t.label}</button>
+            background: expenseTab===tab.id?'linear-gradient(145deg,#f0f0f0,#e4e4e4)':'linear-gradient(145deg,#ffffff,#f5f5f5)',
+            border: expenseTab===tab.id?'1.5px solid #d1d5db':'1.5px solid #e8e8e8',
+            color: expenseTab===tab.id?'#1a1a1a':'#6b7280',
+            borderBottom: expenseTab===tab.id?'2.5px solid #7c3aed':undefined,
+            boxShadow: expenseTab===tab.id?'inset 2px 2px 5px rgba(0,0,0,0.08),inset -1px -1px 3px rgba(255,255,255,0.8)':'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)',
+          }}>{tab.label}</button>
         ))}
       </div>
 
@@ -504,7 +506,7 @@ export default function Expense(props) {
             <SectionHdr title="Add Expense" accent="#7c3aed" />
             <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:12 }}>
               <div style={{ flex:'1 1 130px' }}>
-                <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:7, textTransform:'uppercase', letterSpacing:'0.1em' }}>Category</label>
+                <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:7, textTransform:'uppercase', letterSpacing:'0.1em' }}>{t.category||'Category'}</label>
                 <select value={customCategory} onChange={e=>setCustomCategory(e.target.value)} style={selectSt}>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select>
               </div>
               <div style={{ flex:'1 1 110px' }}>
@@ -521,7 +523,7 @@ export default function Expense(props) {
               <input type="file" accept="image/*" capture="environment" ref={fileInputRef} style={{ display:'none' }} onChange={handleImageCapture} />
               <button onClick={handleVoiceInput} disabled={isListening} style={{ padding:'11px 15px', borderRadius:13, fontSize:18, background: isListening?'linear-gradient(145deg,#ede9fe,#ddd6fe)':'linear-gradient(145deg,#faf5ff,#ede9fe)', border:`1.5px solid ${isListening?'#7c3aed':'#ddd6fe'}`, cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>🎤</button>
               <button onClick={handleAdd} style={{ flex:1, padding:'12px', borderRadius:13, border:'none', cursor:'pointer', fontWeight:700, fontSize:14, color:'#fff', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow:'3px 3px 10px rgba(124,58,237,0.25)', transition:'all 0.25s' }}>
-                {justAdded?'✓ Added!':'+ Add Expense'}
+                {justAdded?'✓ Added!':t.addExpense||'+ Add Expense'}
               </button>
             </div>
           </div>
@@ -551,7 +553,7 @@ export default function Expense(props) {
                 {sortedLogs.length===0 ? (
                   <div style={{ textAlign:'center', padding:'40px 0', color:'#9ca3af' }}>
                     <div style={{ fontSize:48, marginBottom:12, animation:'floatY 4s ease-in-out infinite' }}>💸</div>
-                    <p style={{ fontWeight:700, fontSize:14, color:'#374151' }}>No expenses yet</p>
+                    <p style={{ fontWeight:700, fontSize:14, color:'#374151' }}>{t.noExpenses||t.noExpenses||'No expenses yet'}</p>
                     <p style={{ fontSize:12, marginTop:4, color:'#9ca3af' }}>Add your first expense above!</p>
                   </div>
                 ) : sortedLogs.map((log,i) => (
@@ -640,7 +642,7 @@ export default function Expense(props) {
                 })}
               </tbody>
               <tfoot><tr>
-                <td style={{ paddingTop:14, fontWeight:800, color:'#1a1a1a', fontFamily:'Syne,sans-serif' }}>Total</td>
+                <td style={{ paddingTop:14, fontWeight:800, color:'#1a1a1a', fontFamily:'Syne,sans-serif' }}>{t.total||'Total'}</td>
                 <td style={{ paddingTop:14, textAlign:'right', fontWeight:800, fontSize:15, color:'#b8860b', fontFamily:'Syne,sans-serif' }}>{fmt(overallTotal)}</td>
                 <td colSpan={3} />
               </tr></tfoot>
@@ -669,7 +671,7 @@ export default function Expense(props) {
                     <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:8 }}>
                       <span style={{ flex:1, fontWeight:700, color:'#1a1a1a', fontSize:13, fontFamily:'Poppins,sans-serif' }}>{CAT_ICONS[cat]||'💸'} {cat}</span>
                       <input type="number" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} autoFocus onKeyDown={e=>e.key==='Enter'&&saveBudget(cat)} style={{ width:120, padding:'8px 12px', background:'linear-gradient(145deg,#e8e8e8,#fff)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.09)', border:'1.5px solid #e2e8f0', borderRadius:10, color:'#1a1a1a', fontSize:13, fontWeight:700, outline:'none', fontFamily:'Poppins,sans-serif' }} placeholder="₹ budget" />
-                      <button onClick={()=>saveBudget(cat)} style={{ background:'linear-gradient(135deg,#7c3aed,#4f46e5)', border:'none', color:'#fff', padding:'8px 14px', borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'2px 2px 6px rgba(124,58,237,0.25)', fontFamily:'Poppins,sans-serif' }}>Save</button>
+                      <button onClick={()=>saveBudget(cat)} style={{ background:'linear-gradient(135deg,#7c3aed,#4f46e5)', border:'none', color:'#fff', padding:'8px 14px', borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'2px 2px 6px rgba(124,58,237,0.25)', fontFamily:'Poppins,sans-serif' }}>{t.add||'Save'}</button>
                       <button onClick={()=>setEditingBudget(null)} style={{ background:'none', border:'none', color:'#9ca3af', cursor:'pointer', fontSize:16 }}>✕</button>
                     </div>
                   ) : (

@@ -10,10 +10,74 @@ import Login from './pages/Login'
 import { useState, useEffect, useRef } from 'react'
 import { saveUserLogs, loadUserLogs, subscribeUserLogs } from './firebase'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { LanguageProvider, useLanguage } from './context/LanguageContext'
 
-import { LanguageProvider } from './context/LanguageContext'
+/* ── Language Selector (global — shown on all pages) ── */
+const LANGUAGES = [
+  { code:'en', native:'English'  },
+  { code:'ta', native:'தமிழ்'     },
+  { code:'hi', native:'हिन्दी'     },
+  { code:'ml', native:'മലയാളം'   },
+]
 
-/* ── Animated Center Button — alternates logo ↔ ⚡ ACR MAX ─────────────────── */
+function GlobalLanguageSelector() {
+  const { language, setLanguage } = useLanguage()
+  const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState(null)
+  const btnRef = useRef(null)
+  const current = LANGUAGES.find(l => l.code === language) || LANGUAGES[0]
+
+  const toggle = () => {
+    if (!open && btnRef.current) setRect(btnRef.current.getBoundingClientRect())
+    setOpen(o => !o)
+  }
+
+  return (
+    <>
+      <button ref={btnRef} onClick={toggle}
+        style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px',
+          borderRadius:20, border:'1px solid rgba(212,175,55,0.35)',
+          background:'rgba(212,175,55,0.08)', cursor:'pointer',
+          fontSize:11, fontWeight:700, color:'#d4af37',
+          fontFamily:'Poppins,sans-serif', whiteSpace:'nowrap',
+          transition:'all 0.2s' }}>
+        🌐 {current.native}
+        <span style={{ opacity:0.6, fontSize:9 }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && rect && (
+        <>
+          <div onClick={() => setOpen(false)}
+            style={{ position:'fixed', inset:0, zIndex:2147483646 }}/>
+          <div style={{ position:'fixed', top: rect.bottom + 6, left: rect.left,
+            zIndex:2147483647, background:'#fff', borderRadius:14,
+            border:'1px solid #e5e7eb',
+            boxShadow:'0 12px 32px rgba(0,0,0,0.18)',
+            overflow:'hidden', minWidth:150 }}>
+            {LANGUAGES.map(lang => (
+              <button key={lang.code}
+                onClick={() => { setLanguage(lang.code); setOpen(false) }}
+                style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                  width:'100%', padding:'12px 16px', border:'none',
+                  borderBottom:'1px solid #f3f4f6',
+                  background: language === lang.code ? '#fffbeb' : '#fff',
+                  cursor:'pointer', fontFamily:'Poppins,sans-serif',
+                  fontSize:14, fontWeight: language === lang.code ? 700 : 400,
+                  color: language === lang.code ? '#92400e' : '#111827',
+                  textAlign:'left' }}>
+                {lang.native}
+                {language === lang.code &&
+                  <span style={{ color:'#d97706', fontWeight:700 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+/* ── Animated Center Button ── */
 function AnimatedCenterBtn({ onNavigateHome }) {
   const [showLogo, setShowLogo] = useState(true)
   const [animating, setAnimating] = useState(false)
@@ -21,10 +85,7 @@ function AnimatedCenterBtn({ onNavigateHome }) {
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimating(true)
-      setTimeout(() => {
-        setShowLogo(prev => !prev)
-        setAnimating(false)
-      }, 300)
+      setTimeout(() => { setShowLogo(prev => !prev); setAnimating(false) }, 300)
     }, 2800)
     return () => clearInterval(interval)
   }, [])
@@ -32,58 +93,30 @@ function AnimatedCenterBtn({ onNavigateHome }) {
   return (
     <>
       <style>{`
-        @keyframes goldOrbit  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes thunderIn  { 0%{opacity:0;transform:scale(0.4) rotate(-15deg)} 60%{opacity:1;transform:scale(1.12) rotate(3deg)} 100%{opacity:1;transform:scale(1) rotate(0deg)} }
-        @keyframes logoIn     { 0%{opacity:0;transform:scale(0.5)} 70%{transform:scale(1.1)} 100%{opacity:1;transform:scale(1)} }
-        @keyframes exitUp     { to{opacity:0;transform:scale(0.5) translateY(-10px)} }
-        @keyframes goldRing   { 0%,100%{box-shadow:0 0 16px rgba(212,175,55,0.5),0 0 32px rgba(212,175,55,0.2)} 50%{box-shadow:0 0 28px rgba(212,175,55,0.9),0 0 56px rgba(212,175,55,0.35)} }
-        @keyframes outerGlow  { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.1)} }
+        @keyframes goldOrbit { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes thunderIn { 0%{opacity:0;transform:scale(0.4) rotate(-15deg)} 60%{opacity:1;transform:scale(1.12) rotate(3deg)} 100%{opacity:1;transform:scale(1) rotate(0deg)} }
+        @keyframes logoIn    { 0%{opacity:0;transform:scale(0.5)} 70%{transform:scale(1.1)} 100%{opacity:1;transform:scale(1)} }
+        @keyframes exitUp    { to{opacity:0;transform:scale(0.5) translateY(-10px)} }
+        @keyframes goldRing  { 0%,100%{box-shadow:0 0 16px rgba(212,175,55,0.5),0 0 32px rgba(212,175,55,0.2)} 50%{box-shadow:0 0 28px rgba(212,175,55,0.9),0 0 56px rgba(212,175,55,0.35)} }
+        @keyframes outerGlow { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.1)} }
       `}</style>
-      <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: -36, zIndex: 60 }}>
-        {/* outer glow ring */}
-        <div style={{ position: 'absolute', inset: -8, borderRadius: '50%', background: 'radial-gradient(circle,rgba(212,175,55,0.45),transparent 70%)', animation: 'outerGlow 2.5s ease-in-out infinite', pointerEvents: 'none' }} />
-        {/* orbit ring */}
-        <div style={{ position: 'absolute', inset: -6, borderRadius: '50%', border: '1px solid rgba(212,175,55,0.4)', animation: 'goldOrbit 6s linear infinite', pointerEvents: 'none' }}>
-          <div style={{ position: 'absolute', top: -3, left: '50%', transform: 'translateX(-50%)', width: 6, height: 6, borderRadius: '50%', background: '#d4af37', boxShadow: '0 0 8px #d4af37' }} />
+      <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', top:-36, zIndex:60 }}>
+        <div style={{ position:'absolute', inset:-8, borderRadius:'50%', background:'radial-gradient(circle,rgba(212,175,55,0.45),transparent 70%)', animation:'outerGlow 2.5s ease-in-out infinite', pointerEvents:'none' }} />
+        <div style={{ position:'absolute', inset:-6, borderRadius:'50%', border:'1px solid rgba(212,175,55,0.4)', animation:'goldOrbit 6s linear infinite', pointerEvents:'none' }}>
+          <div style={{ position:'absolute', top:-3, left:'50%', transform:'translateX(-50%)', width:6, height:6, borderRadius:'50%', background:'#d4af37', boxShadow:'0 0 8px #d4af37' }} />
         </div>
-        {/* main button */}
         <button onClick={onNavigateHome}
-          style={{
-            width: 72, height: 72, borderRadius: '50%', border: '2px solid rgba(212,175,55,0.6)',
-            overflow: 'hidden', position: 'relative', cursor: 'pointer',
-            background: '#0a0c14',
-            animation: 'goldRing 2.8s ease-in-out infinite',
-            transition: 'transform 0.15s',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-          onMouseDown={e => e.currentTarget.style.transform = 'scale(0.94)'}
-          onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          {/* logo face */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            animation: animating ? 'exitUp 0.3s ease-out forwards' : (showLogo ? 'logoIn 0.4s cubic-bezier(.34,1.56,.64,1) both' : 'none'),
-            display: showLogo ? 'block' : 'none',
-          }}>
-            <img src="/logo.jpg" alt="ACR MAX" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+          style={{ width:72, height:72, borderRadius:'50%', border:'2px solid rgba(212,175,55,0.6)', overflow:'hidden', position:'relative', cursor:'pointer', background:'#0a0c14', animation:'goldRing 2.8s ease-in-out infinite', transition:'transform 0.15s', display:'flex', alignItems:'center', justifyContent:'center' }}
+          onMouseEnter={e => e.currentTarget.style.transform='scale(1.08)'}
+          onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
+          onMouseDown={e => e.currentTarget.style.transform='scale(0.94)'}
+          onMouseUp={e => e.currentTarget.style.transform='scale(1)'}>
+          <div style={{ position:'absolute', inset:0, animation: animating ? 'exitUp 0.3s ease-out forwards' : (showLogo ? 'logoIn 0.4s cubic-bezier(.34,1.56,.64,1) both' : 'none'), display: showLogo ? 'block' : 'none' }}>
+            <img src="/logo.jpg" alt="ACR MAX" style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%' }} />
           </div>
-          {/* text face */}
-          <div style={{
-            position: 'absolute', inset: 0, display: !showLogo ? 'flex' : 'none',
-            flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            animation: animating ? 'exitUp 0.3s ease-out forwards' : (!showLogo ? 'thunderIn 0.4s cubic-bezier(.34,1.56,.64,1) both' : 'none'),
-            background: 'linear-gradient(135deg,#0a0c14,#1a1200)',
-          }}>
-            <span style={{ fontSize: 22, filter: 'drop-shadow(0 0 8px #fbbf24)', lineHeight: 1 }}>⚡</span>
-            <span style={{
-              fontSize: 7, fontWeight: 800, letterSpacing: '0.14em',
-              fontFamily: 'Cinzel,Syne,sans-serif',
-              background: 'linear-gradient(135deg,#c0c0c0,#d4af37,#f4d03f)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              lineHeight: 1.2, textAlign: 'center',
-            }}>ACR MAX</span>
+          <div style={{ position:'absolute', inset:0, display: !showLogo ? 'flex' : 'none', flexDirection:'column', alignItems:'center', justifyContent:'center', animation: animating ? 'exitUp 0.3s ease-out forwards' : (!showLogo ? 'thunderIn 0.4s cubic-bezier(.34,1.56,.64,1) both' : 'none'), background:'linear-gradient(135deg,#0a0c14,#1a1200)' }}>
+            <span style={{ fontSize:22, filter:'drop-shadow(0 0 8px #fbbf24)', lineHeight:1 }}>⚡</span>
+            <span style={{ fontSize:7, fontWeight:800, letterSpacing:'0.14em', fontFamily:'Cinzel,Syne,sans-serif', background:'linear-gradient(135deg,#c0c0c0,#d4af37,#f4d03f)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', lineHeight:1.2, textAlign:'center' }}>ACR MAX</span>
           </div>
         </button>
       </div>
@@ -91,16 +124,14 @@ function AnimatedCenterBtn({ onNavigateHome }) {
   )
 }
 
+/* ── Auth Gate ── */
 function App() {
-  // ── AUTH GATE ─────────────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
 
   useEffect(() => {
     const saved = sessionStorage.getItem('acr_session')
-    if (saved) {
-      try { setCurrentUser(JSON.parse(saved)) } catch {}
-    }
+    if (saved) { try { setCurrentUser(JSON.parse(saved)) } catch {} }
     setAuthChecked(true)
   }, [])
 
@@ -108,7 +139,6 @@ function App() {
     sessionStorage.setItem('acr_session', JSON.stringify(user))
     setCurrentUser(user)
   }
-
   const handleLogout = () => {
     setCurrentUser(null)
     sessionStorage.removeItem('acr_session')
@@ -124,7 +154,7 @@ function App() {
   )
 }
 
-// ── Main App (only shown after login) ─────────────────────────────────────────
+/* ── Main App Shell ── */
 function AppShell({ currentUser, onLogout }) {
   const [activeTab, setActiveTab] = useState('home')
   const [prevTab, setPrevTab] = useState(null)
@@ -132,11 +162,8 @@ function AppShell({ currentUser, onLogout }) {
   const [cricketTab, setCricketTab] = useState('today')
   const mainContentRef = useRef(null)
 
-  // Scroll to top on every tab change
   useEffect(() => {
-    if (mainContentRef.current) {
-      mainContentRef.current.scrollTop = 0
-    }
+    if (mainContentRef.current) mainContentRef.current.scrollTop = 0
     window.scrollTo(0, 0)
   }, [activeTab])
 
@@ -146,9 +173,7 @@ function AppShell({ currentUser, onLogout }) {
   const saveTimer = useRef(null)
   const skipSave = useRef(false)
 
-  // ── STEP 1: Clear old localStorage data on login (migrate to Firestore) ──
   useEffect(() => {
-    // Remove all old localStorage expense keys for this user
     const keysToRemove = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
@@ -157,30 +182,20 @@ function AppShell({ currentUser, onLogout }) {
     keysToRemove.forEach(k => localStorage.removeItem(k))
   }, [currentUser.username])
 
-  // ── STEP 2: Subscribe to Firestore real-time updates ──
   useEffect(() => {
     skipSave.current = true
     setLogsLoaded(false)
-    
     const unsubscribe = subscribeUserLogs(currentUser.username, (cloudLogs) => {
       skipSave.current = true
       setLogs(cloudLogs)
       setLogsLoaded(true)
     })
-    
-    return () => {
-      unsubscribe()
-      clearTimeout(saveTimer.current)
-    }
+    return () => { unsubscribe(); clearTimeout(saveTimer.current) }
   }, [currentUser.username])
 
-  // ── STEP 3: Save to Firestore when user makes changes ──
   useEffect(() => {
     if (!logsLoaded) return
-    if (skipSave.current) {
-      skipSave.current = false
-      return
-    }
+    if (skipSave.current) { skipSave.current = false; return }
     clearTimeout(saveTimer.current)
     setIsSyncing(true)
     saveTimer.current = setTimeout(async () => {
@@ -195,21 +210,15 @@ function AppShell({ currentUser, onLogout }) {
   const [customAmount, setCustomAmount] = useState('')
   const [aiInsights, setAiInsights] = useState([])
   const [isThinking, setIsThinking] = useState(false)
-
   const [trackSmoking, setTrackSmoking] = useState(true)
-  useEffect(() => {
-    const saved = localStorage.getItem("acr_smoke_tracker")
-    if (saved) setTrackSmoking(JSON.parse(saved))
-  }, [])
-  useEffect(() => {
-    localStorage.setItem("acr_smoke_tracker", JSON.stringify(trackSmoking))
-  }, [trackSmoking])
+
+  useEffect(() => { const s = localStorage.getItem("acr_smoke_tracker"); if (s) setTrackSmoking(JSON.parse(s)) }, [])
+  useEffect(() => { localStorage.setItem("acr_smoke_tracker", JSON.stringify(trackSmoking)) }, [trackSmoking])
 
   const [streak, setStreak] = useState(0)
   const [lastSmokeDate, setLastSmokeDate] = useState(null)
   const [moneySaved, setMoneySaved] = useState(0)
   const [motivation, setMotivation] = useState("")
-
   const [isListening, setIsListening] = useState(false)
   const fileInputRef = useRef(null)
 
@@ -221,8 +230,7 @@ function AppShell({ currentUser, onLogout }) {
     recognition.onstart = () => setIsListening(true)
     recognition.onresult = async (event) => {
       const transcript = event.results[0][0].transcript
-      setIsListening(false)
-      setIsThinking(true)
+      setIsListening(false); setIsThinking(true)
       try {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY
         const genAI = new GoogleGenerativeAI(apiKey)
@@ -233,10 +241,7 @@ function AppShell({ currentUser, onLogout }) {
         const data = JSON.parse(parsedText)
         if (data.amount) setCustomAmount(data.amount)
         if (data.category && categories.includes(data.category)) setCustomCategory(data.category)
-      } catch (error) {
-        console.error("Voice parse error:", error)
-        alert("Couldn't parse that. Try saying: 'I spent 500 on Food'")
-      }
+      } catch (error) { console.error("Voice parse error:", error); alert("Couldn't parse that. Try saying: 'I spent 500 on Food'") }
       setIsThinking(false)
     }
     recognition.onerror = () => setIsListening(false)
@@ -245,20 +250,15 @@ function AppShell({ currentUser, onLogout }) {
   }
 
   const triggerCamera = () => fileInputRef.current.click()
-  const handleImageCapture = (e) => {
-    const file = e.target.files[0]
-    if (file) alert(`Captured: ${file.name}. (Ready to be sent to AI for receipt scanning)`)
-  }
+  const handleImageCapture = (e) => { const file = e.target.files[0]; if (file) alert(`Captured: ${file.name}.`) }
 
   const [astroProfile, setAstroProfile] = useState({ name: currentUser?.name || 'User', dob: '', time: '', location: 'Bengaluru, India' })
   const [isProfileSaved, setIsProfileSaved] = useState(false)
   const [astroInsights, setAstroInsights] = useState([])
   const [isAstroThinking, setIsAstroThinking] = useState(false)
-
   const [nasaData, setNasaData] = useState(null)
   const [issData, setIssData] = useState({ lat: 0, lng: 0, vel: 0 })
   const [issLocation, setIssLocation] = useState('Locating...')
-
   const [cricketMatches, setCricketMatches] = useState([])
   const [isCricketLive, setIsCricketLive] = useState(false)
 
@@ -266,28 +266,21 @@ function AppShell({ currentUser, onLogout }) {
   const overallTotal = logs.reduce((sum, l) => sum + l.amount, 0)
 
   const getCategoryColor = (category) => {
-    const map = {
-      'Smoke': '#EF4444', 'Liquor': '#8B5CF6',
-      'Food': '#10B981', 'Groceries': '#10B981', 'Hotel Food': '#10B981',
-      'Petrol': '#F59E0B', 'Water Bill': '#3B82F6',
-      'Electricity Bill': '#EAB308', 'CSD': '#14B8A6',
-    }
+    const map = { 'Smoke':'#EF4444','Liquor':'#8B5CF6','Food':'#10B981','Groceries':'#10B981','Hotel Food':'#10B981','Petrol':'#F59E0B','Water Bill':'#3B82F6','Electricity Bill':'#EAB308','CSD':'#14B8A6' }
     return map[category] || '#6B7280'
   }
 
   const addExpense = () => {
     if (!customAmount || customAmount <= 0) return
-    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    const newLog = { id: Date.now(), category: customCategory, amount: parseFloat(customAmount), time: currentTime, color: getCategoryColor(customCategory), note: '', tags: [] }
-    setLogs([newLog, ...logs])
+    const currentTime = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
+    setLogs([{ id:Date.now(), category:customCategory, amount:parseFloat(customAmount), time:currentTime, color:getCategoryColor(customCategory), note:'', tags:[] }, ...logs])
     setCustomAmount('')
   }
 
   const addExpenseWithMeta = (note = '', tags = []) => {
     if (!customAmount || customAmount <= 0) return
-    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    const newLog = { id: Date.now(), category: customCategory, amount: parseFloat(customAmount), time: currentTime, color: getCategoryColor(customCategory), note: note.trim(), tags }
-    setLogs([newLog, ...logs])
+    const currentTime = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
+    setLogs([{ id:Date.now(), category:customCategory, amount:parseFloat(customAmount), time:currentTime, color:getCategoryColor(customCategory), note:note.trim(), tags }, ...logs])
     setCustomAmount('')
   }
 
@@ -300,7 +293,7 @@ function AppShell({ currentUser, onLogout }) {
   })
 
   const categoryTotals = logs.reduce((acc, log) => {
-    if (!acc[log.category]) acc[log.category] = { name: log.category, total: 0, color: log.color }
+    if (!acc[log.category]) acc[log.category] = { name:log.category, total:0, color:log.color }
     acc[log.category].total += log.amount
     return acc
   }, {})
@@ -350,7 +343,7 @@ function AppShell({ currentUser, onLogout }) {
     try {
       const genAI = new GoogleGenerativeAI(apiKey)
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
-      const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
       const prompt = `You are an elite Vedic Astrologer for the ACR MAX app. The user's name is ${astroProfile.name}. They were born on ${astroProfile.dob} at ${astroProfile.time}. They are currently in ${astroProfile.location}. Today's date is ${today}. Calculate their daily astrology and give me EXACTLY 3 short, punchy parts. Part 1: Today's Lucky Color and a 1-sentence reason why. Part 2: Today's Best Time (Subha Muhurtham) for their specific location. Part 3: Today's Caution Times (Exact Rahu Kalam & Yama Gandam timings) for their specific location. Separate each part using exactly this symbol: |||. Do not use bullet points or markdown stars.`
       const result = await model.generateContent(prompt)
       const rawText = result.response.text()
@@ -364,7 +357,7 @@ function AppShell({ currentUser, onLogout }) {
       const res = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY')
       const data = await res.json()
       if (data.url) { setNasaData(data) } else {
-        setNasaData({ title: "NASA Feed Paused (Rate Limited)", explanation: "You've hit NASA's public API limit! The live feed will reset shortly.", url: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?q=80&w=2048&auto=format&fit=crop", media_type: "image" })
+        setNasaData({ title:"NASA Feed Paused (Rate Limited)", explanation:"You've hit NASA's public API limit!", url:"https://images.unsplash.com/photo-1462331940025-496dfbfc7564?q=80&w=2048&auto=format&fit=crop", media_type:"image" })
       }
     } catch (error) { console.error("NASA API Error:", error) }
   }
@@ -373,7 +366,7 @@ function AppShell({ currentUser, onLogout }) {
     try {
       const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544')
       const data = await res.json()
-      const lat = data.latitude; const lng = data.longitude
+      const lat = data.latitude, lng = data.longitude
       setIssData({ lat, lng, vel: data.velocity })
       try {
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`)
@@ -392,10 +385,10 @@ function AppShell({ currentUser, onLogout }) {
     if (!apiKey) {
       setIsCricketLive(false)
       setCricketMatches([
-        { id: '1', type: 'today', team1: 'RCB', team2: 'CSK', score1: '198/4', overs1: '20.0', score2: '162/6', overs2: '17.2', status: 'CSK need 37 runs in 16 balls', venue: 'M. Chinnaswamy Stadium, Bengaluru', isLive: true },
-        { id: '2', type: 'results', team1: 'MI', team2: 'KKR', score1: '175/8', overs1: '20.0', score2: '176/4', overs2: '19.1', status: 'KKR won by 6 wickets', venue: 'Wankhede Stadium, Mumbai', isLive: false },
-        { id: '3', type: 'upcoming', team1: 'SRH', team2: 'RR', score1: '', overs1: '', score2: '', overs2: '', status: 'Tomorrow, 7:30 PM IST', venue: 'Rajiv Gandhi Stadium', isLive: false },
-        { id: '4', type: 'upcoming', team1: 'GT', team2: 'DC', score1: '', overs1: '', score2: '', overs2: '', status: 'Friday, 7:30 PM IST', venue: 'Narendra Modi Stadium', isLive: false }
+        { id:'1', type:'today',    team1:'RCB', team2:'CSK', score1:'198/4', overs1:'20.0', score2:'162/6', overs2:'17.2', status:'CSK need 37 runs in 16 balls', venue:'M. Chinnaswamy Stadium', isLive:true },
+        { id:'2', type:'results',  team1:'MI',  team2:'KKR', score1:'175/8', overs1:'20.0', score2:'176/4', overs2:'19.1', status:'KKR won by 6 wickets', venue:'Wankhede Stadium', isLive:false },
+        { id:'3', type:'upcoming', team1:'SRH', team2:'RR',  score1:'', overs1:'', score2:'', overs2:'', status:'Tomorrow, 7:30 PM IST', venue:'Rajiv Gandhi Stadium', isLive:false },
+        { id:'4', type:'upcoming', team1:'GT',  team2:'DC',  score1:'', overs1:'', score2:'', overs2:'', status:'Friday, 7:30 PM IST', venue:'Narendra Modi Stadium', isLive:false }
       ])
       return
     }
@@ -409,121 +402,90 @@ function AppShell({ currentUser, onLogout }) {
           const seriesName = (m.seriesInfo?.name || m.series?.name || '').toLowerCase()
           return matchName.includes('ipl') || matchName.includes('indian premier') || seriesName.includes('ipl') || seriesName.includes('indian premier')
         })
-        const formatted = iplMatches.map(m => ({
-          id: m.id, type: m.matchStarted ? (m.matchEnded ? 'results' : 'today') : 'upcoming',
-          team1: m.teamInfo?.[0]?.shortname || m.teams?.[0] || 'TBA',
-          team2: m.teamInfo?.[1]?.shortname || m.teams?.[1] || 'TBA',
-          score1: m.score?.[0] ? `${m.score[0].r}/${m.score[0].w}` : '',
-          overs1: m.score?.[0]?.o || '',
-          score2: m.score?.[1] ? `${m.score[1].r}/${m.score[1].w}` : '',
-          overs2: m.score?.[1]?.o || '',
-          status: m.status, venue: m.venue,
-          isLive: m.matchStarted && !m.matchEnded
-        }))
-        setCricketMatches(formatted)
+        setCricketMatches(iplMatches.map(m => ({
+          id:m.id, type:m.matchStarted?(m.matchEnded?'results':'today'):'upcoming',
+          team1:m.teamInfo?.[0]?.shortname||m.teams?.[0]||'TBA',
+          team2:m.teamInfo?.[1]?.shortname||m.teams?.[1]||'TBA',
+          score1:m.score?.[0]?`${m.score[0].r}/${m.score[0].w}`:'', overs1:m.score?.[0]?.o||'',
+          score2:m.score?.[1]?`${m.score[1].r}/${m.score[1].w}`:'', overs2:m.score?.[1]?.o||'',
+          status:m.status, venue:m.venue, isLive:m.matchStarted&&!m.matchEnded
+        })))
       }
     } catch (e) { console.error("Cricket API Error:", e) }
   }
 
   useEffect(() => {
     let issInterval, cricInterval
-    if (activeTab === 'space') {
-      if (!nasaData) fetchNasaData()
-      fetchIssData()
-      issInterval = setInterval(fetchIssData, 5000)
-    }
-    if (activeTab === 'cricket') {
-      fetchCricketData()
-      cricInterval = setInterval(fetchCricketData, 60000)
-    }
+    if (activeTab === 'space') { if (!nasaData) fetchNasaData(); fetchIssData(); issInterval = setInterval(fetchIssData, 5000) }
+    if (activeTab === 'cricket') { fetchCricketData(); cricInterval = setInterval(fetchCricketData, 60000) }
     return () => { clearInterval(issInterval); clearInterval(cricInterval) }
   }, [activeTab])
 
   const renderPlaceholder = (icon, title, description) => (
     <div className="text-center mt-32 text-gray-500">
       <div className="text-8xl mb-6 placeholder-icon">{icon}</div>
-      <h2 className="font-bold text-4xl mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>{title}</h2>
-      <p className="text-xl max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.3)' }}>{description}</p>
+      <h2 className="font-bold text-4xl mb-4" style={{ color:'rgba(255,255,255,0.7)' }}>{title}</h2>
+      <p className="text-xl max-w-lg mx-auto" style={{ color:'rgba(255,255,255,0.3)' }}>{description}</p>
     </div>
   )
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'home':
-        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} />
-      case 'expense':
-        return (
-          <Expense
-            logs={logs} customAmount={customAmount} setCustomAmount={setCustomAmount}
-            customCategory={customCategory} setCustomCategory={setCustomCategory}
-            categories={categories} addExpense={addExpense} addExpenseWithMeta={addExpenseWithMeta}
-            deleteExpense={deleteExpense} filteredLogs={filteredLogs}
-            searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-            filterCategory={filterCategory} setFilterCategory={setFilterCategory}
-            overallTotal={overallTotal} expenseTab={expenseTab} setExpenseTab={setExpenseTab}
-            summaryData={summaryData} aiInsights={aiInsights} generateAIAdvice={generateAIAdvice}
-            isThinking={isThinking} handleVoiceInput={handleVoiceInput} isListening={isListening}
-            triggerCamera={triggerCamera} handleImageCapture={handleImageCapture} fileInputRef={fileInputRef}
-          />
-        )
-      case 'astro':
-        return <Astro isProfileSaved={isProfileSaved} setIsProfileSaved={setIsProfileSaved} astroProfile={astroProfile} setAstroProfile={setAstroProfile} astroInsights={astroInsights} generateAstroData={generateAstroData} isAstroThinking={isAstroThinking} />
-      case 'space':
-        return <Space issData={issData} issLocation={issLocation} nasaData={nasaData} />
-      case 'cricket':
-        return <Cricket />
-      case 'market':
-        return <News />
-      case 'ledger':
-        return <Ledger currentUser={currentUser} />
-      case 'chat':
-        return renderPlaceholder('🤖', 'AI Quick Chats', 'Your personal assistant connecting your app data.')
-      case 'profile':
-        return <Profile logs={logs} setLogs={setLogs} overallTotal={overallTotal} summaryData={summaryData} currentUser={currentUser} onLogout={onLogout} />
-      default:
-        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} />
+      case 'home':    return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} />
+      case 'expense': return <Expense logs={logs} customAmount={customAmount} setCustomAmount={setCustomAmount} customCategory={customCategory} setCustomCategory={setCustomCategory} categories={categories} addExpense={addExpense} addExpenseWithMeta={addExpenseWithMeta} deleteExpense={deleteExpense} filteredLogs={filteredLogs} searchTerm={searchTerm} setSearchTerm={setSearchTerm} filterCategory={filterCategory} setFilterCategory={setFilterCategory} overallTotal={overallTotal} expenseTab={expenseTab} setExpenseTab={setExpenseTab} summaryData={summaryData} aiInsights={aiInsights} generateAIAdvice={generateAIAdvice} isThinking={isThinking} handleVoiceInput={handleVoiceInput} isListening={isListening} triggerCamera={triggerCamera} handleImageCapture={handleImageCapture} fileInputRef={fileInputRef} />
+      case 'astro':   return <Astro isProfileSaved={isProfileSaved} setIsProfileSaved={setIsProfileSaved} astroProfile={astroProfile} setAstroProfile={setAstroProfile} astroInsights={astroInsights} generateAstroData={generateAstroData} isAstroThinking={isAstroThinking} />
+      case 'space':   return <Space issData={issData} issLocation={issLocation} nasaData={nasaData} />
+      case 'cricket': return <Cricket />
+      case 'market':  return <News />
+      case 'ledger':  return <Ledger currentUser={currentUser} />
+      case 'chat':    return renderPlaceholder('🤖', 'AI Quick Chats', 'Your personal assistant connecting your app data.')
+      case 'profile': return <Profile logs={logs} setLogs={setLogs} overallTotal={overallTotal} summaryData={summaryData} currentUser={currentUser} onLogout={onLogout} />
+      default:        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} />
     }
   }
 
   const navItems = [
-    { id: 'home',    label: '🏠 Home' },
-    { id: 'expense', label: '💰 Expense Tracker' },
-    { id: 'astro',   label: '✨ Astro Insights' },
-    { id: 'cricket', label: '🏏 Cricket World' },
-    { id: 'market',  label: '📰 News Flash' },
-    { id: 'ledger',  label: '🤝 Smart Ledger' },
-    { id: 'chat',    label: '🤖 AI Quick Chats' },
-    { id: 'space',   label: '🚀 Space World' },
-    { id: 'profile', label: '👤 Profile' },
+    { id:'home',    label:'🏠 Home' },
+    { id:'expense', label:'💰 Expense Tracker' },
+    { id:'astro',   label:'✨ Astro Insights' },
+    { id:'cricket', label:'🏏 Cricket World' },
+    { id:'market',  label:'📰 News Flash' },
+    { id:'ledger',  label:'🤝 Smart Ledger' },
+    { id:'chat',    label:'🤖 AI Quick Chats' },
+    { id:'space',   label:'🚀 Space World' },
+    { id:'profile', label:'👤 Profile' },
   ]
 
   return (
     <div className="flex h-screen app-shell font-sans">
 
       {/* DESKTOP SIDEBAR */}
-      <div className="hidden md:flex w-72 sidebar p-6 flex-col z-10" style={{ flexShrink: 0 }}>
-
-        {/* Logo + brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <img src="/logo.jpg" alt="ACR MAX" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(212,175,55,0.45)', boxShadow: '0 0 12px rgba(212,175,55,0.25)', flexShrink: 0 }} />
+      <div className="hidden md:flex w-72 sidebar p-6 flex-col z-10" style={{ flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
+          <img src="/logo.jpg" alt="ACR MAX" style={{ width:38, height:38, borderRadius:'50%', objectFit:'cover', border:'1px solid rgba(212,175,55,0.45)', boxShadow:'0 0 12px rgba(212,175,55,0.25)', flexShrink:0 }} />
           <div>
-            <p style={{ fontFamily: 'Cinzel,Syne,sans-serif', fontSize: 15, fontWeight: 700, margin: 0, background: 'linear-gradient(135deg,#c0c0c0,#d4af37)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '0.1em' }}>ACR MAX</p>
-            <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(212,175,55,0.5)', margin: 0, letterSpacing: '0.18em' }}>BETA 1.0</p>
+            <p style={{ fontFamily:'Cinzel,Syne,sans-serif', fontSize:15, fontWeight:700, margin:0, background:'linear-gradient(135deg,#c0c0c0,#d4af37)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'0.1em' }}>ACR MAX</p>
+            <p style={{ fontSize:9, fontWeight:700, color:'rgba(212,175,55,0.5)', margin:0, letterSpacing:'0.18em' }}>BETA 1.0</p>
           </div>
         </div>
 
         {/* User badge */}
-        <div style={{ background: 'rgba(212,175,55,0.07)', border: '1px solid rgba(212,175,55,0.16)', borderRadius: 12, padding: '9px 12px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 9 }}>
-          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#d4af37,#b8860b)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#0a0c14', fontFamily: 'Syne,sans-serif', flexShrink: 0 }}>
+        <div style={{ background:'rgba(212,175,55,0.07)', border:'1px solid rgba(212,175,55,0.16)', borderRadius:12, padding:'9px 12px', marginBottom:12, display:'flex', alignItems:'center', gap:9 }}>
+          <div style={{ width:30, height:30, borderRadius:'50%', background:'linear-gradient(135deg,#d4af37,#b8860b)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color:'#0a0c14', fontFamily:'Syne,sans-serif', flexShrink:0 }}>
             {currentUser.name.charAt(0).toUpperCase()}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentUser.name}</p>
-            <p style={{ fontSize: 10, color: 'rgba(212,175,55,0.55)', margin: 0, fontWeight: 600 }}>{currentUser.role}</p>
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontSize:13, fontWeight:700, color:'#fff', margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{currentUser.name}</p>
+            <p style={{ fontSize:10, color:'rgba(212,175,55,0.55)', margin:0, fontWeight:600 }}>{currentUser.role}</p>
           </div>
         </div>
 
-        <nav className="flex flex-col gap-2" style={{ flex: 1 }}>
+        {/* ── Language selector in sidebar ── */}
+        <div style={{ marginBottom:16 }}>
+          <GlobalLanguageSelector />
+        </div>
+
+        <nav className="flex flex-col gap-2" style={{ flex:1 }}>
           {navItems.map(item => (
             <button key={item.id}
               className={`sidebar-btn w-full text-left px-5 py-4 text-lg transition-all ${activeTab === item.id ? 'active' : ''}`}
@@ -533,22 +495,20 @@ function AppShell({ currentUser, onLogout }) {
           ))}
         </nav>
 
-        {/* Sign out */}
         <button onClick={onLogout}
-          style={{ marginTop: 8, width: '100%', padding: '10px 14px', borderRadius: 12, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', color: '#f87171', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'DM Sans,sans-serif', textAlign: 'left' }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.14)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.07)'}>
+          style={{ marginTop:8, width:'100%', padding:'10px 14px', borderRadius:12, background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.18)', color:'#f87171', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all 0.2s', fontFamily:'DM Sans,sans-serif', textAlign:'left' }}
+          onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,0.14)'}
+          onMouseLeave={e => e.currentTarget.style.background='rgba(239,68,68,0.07)'}>
           🚪 Sign Out
         </button>
       </div>
 
       {/* MAIN CONTENT */}
-      <div ref={mainContentRef} className="flex-1 overflow-y-auto px-4 md:px-10 py-6 pb-28 main-content" style={{ maxWidth: '100%' }}>
-        {/* Sync status indicator */}
+      <div ref={mainContentRef} className="flex-1 overflow-y-auto px-4 md:px-10 py-6 pb-28 main-content" style={{ maxWidth:'100%' }}>
         {isSyncing && (
-          <div style={{ position: 'fixed', top: 12, right: 16, zIndex: 999, background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.35)', borderRadius: 20, padding: '5px 14px', display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(8px)' }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', animation: 'glowPulse 1s infinite' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#34d399' }}>Syncing…</span>
+          <div style={{ position:'fixed', top:12, right:16, zIndex:999, background:'rgba(52,211,153,0.15)', border:'1px solid rgba(52,211,153,0.35)', borderRadius:20, padding:'5px 14px', display:'flex', alignItems:'center', gap:6, backdropFilter:'blur(8px)' }}>
+            <div style={{ width:6, height:6, borderRadius:'50%', background:'#34d399', animation:'glowPulse 1s infinite' }} />
+            <span style={{ fontSize:11, fontWeight:700, color:'#34d399' }}>Syncing…</span>
           </div>
         )}
         <div className="transition-all duration-500 ease-in-out max-w-5xl mx-auto">
@@ -559,14 +519,19 @@ function AppShell({ currentUser, onLogout }) {
       {/* MOBILE BOTTOM NAV */}
       <div className="fixed bottom-0 left-0 w-full z-50">
         <div className="mobile-nav px-1 py-2 flex justify-between items-center">
-          <button onClick={() => setActiveTab('home')} className={`mobile-nav-btn flex flex-col items-center text-xs ${activeTab === 'home' ? 'active' : ''}`} style={{flex:1}}>🏠<span style={{fontSize:9}}>Home</span></button>
-          <button onClick={() => setActiveTab('expense')} className={`mobile-nav-btn flex flex-col items-center text-xs ${activeTab === 'expense' ? 'active' : ''}`} style={{flex:1}}>💳<span style={{fontSize:9}}>Expenses</span></button>
+          <button onClick={() => setActiveTab('home')} className={`mobile-nav-btn flex flex-col items-center text-xs ${activeTab==='home'?'active':''}`} style={{flex:1}}>🏠<span style={{fontSize:9}}>Home</span></button>
+          <button onClick={() => setActiveTab('expense')} className={`mobile-nav-btn flex flex-col items-center text-xs ${activeTab==='expense'?'active':''}`} style={{flex:1}}>💳<span style={{fontSize:9}}>Expenses</span></button>
+
+          {/* ── Language selector in mobile nav ── */}
+          <div style={{ flex:'0 0 auto', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 6px' }}>
+            <GlobalLanguageSelector />
+          </div>
+
           <div style={{flex:'0 0 64px'}} />
-          <button onClick={() => setActiveTab('ledger')} className={`mobile-nav-btn flex flex-col items-center text-xs ${activeTab === 'ledger' ? 'active' : ''}`} style={{flex:1}}>🤝<span style={{fontSize:9}}>Ledger</span></button>
+          <button onClick={() => setActiveTab('ledger')} className={`mobile-nav-btn flex flex-col items-center text-xs ${activeTab==='ledger'?'active':''}`} style={{flex:1}}>🤝<span style={{fontSize:9}}>Ledger</span></button>
           <button onClick={onLogout} className="mobile-nav-btn flex flex-col items-center text-xs" style={{flex:1,color:'#f87171'}}>🚪<span style={{fontSize:9}}>Logout</span></button>
         </div>
 
-        {/* ANIMATED CENTER BUTTON */}
         <AnimatedCenterBtn onNavigateHome={() => { setPrevTab(activeTab); setActiveTab('home') }} />
       </div>
     </div>

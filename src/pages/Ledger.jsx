@@ -1,3 +1,4 @@
+import { useLanguage } from '../context/LanguageContext'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { db } from '../firebase'
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
@@ -84,6 +85,7 @@ function StatusBadge({ entry }) {
 
 /* ── Entry Card — neumorphic silver ── */
 function EntryCard({ entry, onSettle, onDelete, onEdit }) {
+  const { t } = useLanguage()
   const [expanded, setExpanded] = useState(false)
   const isLent   = entry.type === 'lent'
   const accent   = isLent ? '#16a34a' : '#dc2626'
@@ -114,7 +116,7 @@ function EntryCard({ entry, onSettle, onDelete, onEdit }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
             <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, color: '#1a1a1a', fontSize: 14 }}>{entry.person}</span>
             <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, background: accentBg, color: accent, border: `1px solid ${isLent ? '#bbf7d0' : '#fca5a5'}` }}>
-              {isLent ? '↑ LENT' : '↓ BORROWED'}
+              {isLent ? t.lent?.toUpperCase()||'LENT' : t.borrowed?.toUpperCase()||'BORROWED'}
             </span>
             <StatusBadge entry={entry} />
           </div>
@@ -207,8 +209,8 @@ function EntryModal({ editing, onSave, onClose }) {
     fontFamily: 'Poppins,sans-serif', fontWeight: 500,
     transition: 'box-shadow 0.2s',
   }
-  const Lbl = ({ t }) => (
-    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 7, fontFamily: 'Poppins,sans-serif' }}>{t}</label>
+  const Lbl = ({ label }) => (
+    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 7, fontFamily: 'Poppins,sans-serif' }}>{label}</label>
   )
 
   return (
@@ -241,27 +243,27 @@ function EntryModal({ editing, onSave, onClose }) {
 
         {/* Type toggle */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, background: 'linear-gradient(145deg,#e0e0e0,#f5f5f5)', borderRadius: 14, padding: 4, boxShadow: 'inset 2px 2px 5px rgba(0,0,0,0.1), inset -1px -1px 3px rgba(255,255,255,0.8)' }}>
-          {[['lent','↑ I Lent Money','#16a34a','#dcfce7','#bbf7d0'], ['borrowed','↓ I Borrowed','#dc2626','#fee2e2','#fca5a5']].map(([t, label, col, bg, br]) => (
-            <button key={t} onClick={() => set('type', t)} style={{
-              flex: 1, padding: '11px', borderRadius: 11, border: form.type === t ? `1.5px solid ${br}` : '1.5px solid transparent',
+          {[['lent',t.lent ? '↑ '+t.lent : '↑ I Lent Money','#16a34a','#dcfce7','#bbf7d0'], ['borrowed',t.borrowed ? '↓ '+t.borrowed : '↓ I Borrowed','#dc2626','#fee2e2','#fca5a5']].map(([typ, label, col, bg, br]) => (
+            <button key={t} onClick={() => set('type', typ)} style={{
+              flex: 1, padding: '11px', borderRadius: 11, border: form.type === typ ? `1.5px solid ${br}` : '1.5px solid transparent',
               cursor: 'pointer', fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13,
               transition: 'all 0.2s',
-              background: form.type === t ? `linear-gradient(135deg,${bg},#fff)` : 'transparent',
-              color: form.type === t ? col : '#9ca3af',
-              boxShadow: form.type === t ? '2px 2px 6px rgba(0,0,0,0.1), -1px -1px 3px rgba(255,255,255,0.9)' : 'none',
+              background: form.type === typ ? `linear-gradient(135deg,${bg},#fff)` : 'transparent',
+              color: form.type === typ ? col : '#9ca3af',
+              boxShadow: form.type === typ ? '2px 2px 6px rgba(0,0,0,0.1), -1px -1px 3px rgba(255,255,255,0.9)' : 'none',
             }}>{label}</button>
           ))}
         </div>
 
-        <div style={{ marginBottom: 14 }}><Lbl t="Person Name" /><input value={form.person} onChange={e => set('person', e.target.value)} placeholder="e.g. Rahul Kumar" style={inputSt} /></div>
+        <div style={{ marginBottom: 14 }}><Lbl label="Person Name" /><input value={form.person} onChange={e => set('person', e.target.value)} placeholder="e.g. Rahul Kumar" style={inputSt} /></div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-          <div style={{ flex: 1 }}><Lbl t="Amount (₹)" /><input type="number" value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="0" style={inputSt} /></div>
-          <div style={{ flex: 1 }}><Lbl t="Category" /><select value={form.category} onChange={e => set('category', e.target.value)} style={{ ...inputSt, cursor: 'pointer' }}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+          <div style={{ flex: 1 }}><Lbl label="Amount (₹)" /><input type="number" value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="0" style={inputSt} /></div>
+          <div style={{ flex: 1 }}><Lbl label="Category" /><select value={form.category} onChange={e => set('category', e.target.value)} style={{ ...inputSt, cursor: 'pointer' }}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <Lbl t="Phone (WhatsApp reminder)" />
+          <Lbl label="Phone (WhatsApp reminder)" />
           <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#9ca3af', pointerEvents: 'none' }}>📱</span>
             <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="9876543210 (optional)" style={{ ...inputSt, paddingLeft: 38 }} />
@@ -269,14 +271,14 @@ function EntryModal({ editing, onSave, onClose }) {
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-          <div style={{ flex: 1 }}><Lbl t="Date" /><input type="date" value={form.date} onChange={e => set('date', e.target.value)} style={{ ...inputSt, colorScheme: 'light' }} /></div>
-          <div style={{ flex: 1 }}><Lbl t="Due Date (optional)" /><input type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} style={{ ...inputSt, colorScheme: 'light' }} /></div>
+          <div style={{ flex: 1 }}><Lbl label="Date" /><input type="date" value={form.date} onChange={e => set('date', e.target.value)} style={{ ...inputSt, colorScheme: 'light' }} /></div>
+          <div style={{ flex: 1 }}><Lbl label="Due Date (optional)" /><input type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} style={{ ...inputSt, colorScheme: 'light' }} /></div>
         </div>
 
-        <div style={{ marginBottom: 18 }}><Lbl t="Note (optional)" /><input value={form.note} onChange={e => set('note', e.target.value)} placeholder="e.g. for rent, emergency, trip..." style={inputSt} /></div>
+        <div style={{ marginBottom: 18 }}><Lbl label="Note (optional)" /><input value={form.note} onChange={e => set('note', e.target.value)} placeholder="e.g. for rent, emergency, trip..." style={inputSt} /></div>
 
         <div style={{ marginBottom: 20 }}>
-          <Lbl t="Avatar Color" />
+          <Lbl label="Avatar Color" />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {COLORS.map(c => (
               <button key={c} onClick={() => set('color', c)} style={{ width: 30, height: 30, borderRadius: '50%', background: c, cursor: 'pointer', transition: 'all 0.2s', border: form.color === c ? '3px solid #1a1a1a' : '2px solid rgba(255,255,255,0.8)', boxShadow: form.color === c ? `3px 3px 8px rgba(0,0,0,0.2), -1px -1px 3px rgba(255,255,255,0.8)` : '2px 2px 5px rgba(0,0,0,0.1)', transform: form.color === c ? 'scale(1.2)' : 'scale(1)' }} />
@@ -293,7 +295,7 @@ function EntryModal({ editing, onSave, onClose }) {
           boxShadow: form.type === 'lent' ? '4px 4px 14px rgba(22,163,74,0.3),-2px -2px 6px rgba(255,255,255,0.7)' : '4px 4px 14px rgba(220,38,38,0.3),-2px -2px 6px rgba(255,255,255,0.7)',
           transition: 'all 0.2s',
         }}>
-          {editing ? '💾 Save Changes' : (form.type === 'lent' ? '↑ Record Lent Amount' : '↓ Record Borrowed Amount')}
+          {editing ? t.saveChanges||'💾 Save Changes' : (form.type === 'lent' ? t.lent ? '↑ Record '+t.lent : '↑ Record Lent Amount' : t.borrowed ? '↓ Record '+t.borrowed : '↓ Record Borrowed Amount')}
         </button>
       </div>
     </div>
@@ -304,6 +306,7 @@ function EntryModal({ editing, onSave, onClose }) {
    MAIN LEDGER
 ═══════════════════════════════════════════ */
 export default function Ledger({ currentUser }) {
+  const { t } = useLanguage()
   const { entries, setEntries, loaded } = useLedger(currentUser?.username)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing]     = useState(null)
@@ -405,7 +408,7 @@ export default function Ledger({ currentUser }) {
         {[
           { label:'Will Receive', value:fmt(totalLent),   color:'#16a34a', accent:'#bbf7d0' },
           { label:'Will Pay',     value:fmt(totalBorrowed),color:'#dc2626', accent:'#fca5a5' },
-          { label:'Net Balance',  value:(netBalance>=0?'+':'')+fmt(Math.abs(netBalance)), color:netBalance>=0?'#16a34a':'#dc2626', accent: netBalance>=0?'#bbf7d0':'#fca5a5' },
+          { label:t.netBalance||'Net Balance',  value:(netBalance>=0?'+':'')+fmt(Math.abs(netBalance)), color:netBalance>=0?'#16a34a':'#dc2626', accent: netBalance>=0?'#bbf7d0':'#fca5a5' },
         ].map((s,i) => (
           <div key={i} style={{
             padding:'14px 10px',
@@ -491,7 +494,7 @@ export default function Ledger({ currentUser }) {
         <div style={{ textAlign:'center', padding:'52px 20px', color:'#9ca3af', animation:'slideUp 0.4s ease-out both' }}>
           <div style={{ fontSize:52, marginBottom:14, animation:'floatY 4s ease-in-out infinite' }}>🤝</div>
           <p style={{ fontWeight:700, fontSize:16, marginBottom:6, color:'#374151', fontFamily:'Poppins,sans-serif' }}>
-            {filter==='settled'?'No settled entries yet':filter==='overdue'?'No overdue entries! 🎉':'No entries yet'}
+            {filter==='settled'?'No settled entries yet':filter==='overdue'?'No overdue entries! 🎉':t.noLedger||'No entries yet'}
           </p>
           <p style={{ fontSize:13, color:'#9ca3af', marginBottom:20, fontFamily:'Poppins,sans-serif' }}>
             {filter==='all'?'Tap "＋ New Entry" to start tracking':'Try a different filter'}

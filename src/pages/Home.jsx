@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
 import { SkillMachineModal, SkillMachineCard } from './SkillMachine'
@@ -402,16 +402,16 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
               { label:t.total, value:overallTotal, entries:logs.length, fmt:true },
               { label:t.avgEntry, value:avgPerEntry, entries:null, fmt:true },
             ].map((s,i) => (
-              <>
-                {i>0 && <div key={`d${i}`} style={{ background:'rgba(0,0,0,0.06)' }} />}
-                <div key={i} style={{ padding:'8px 4px', textAlign:'center' }}>
+              <React.Fragment key={i}>
+                {i>0 && <div style={{ background:'rgba(0,0,0,0.06)' }} />}
+                <div style={{ padding:'8px 4px', textAlign:'center' }}>
                   <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
                   <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:14, color:'#b8860b', margin:0, lineHeight:1 }}>
                     {s.fmt ? <CountUp value={s.value} /> : s.value}
                   </p>
                   {s.entries !== null && <p style={{ fontSize:8, color:'#6b7280', margin:'2px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} {t.entries}</p>}
                 </div>
-              </>
+              </React.Fragment>
             ))}
           </div>
 
