@@ -245,6 +245,9 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       .qa-card:hover { transform:translateY(-3px) !important; }
       .qa-card:active { transform:scale(0.95) !important; }
       .act-row:hover { background:linear-gradient(145deg,#f9f9f9,#f0f0f0) !important; }
+      .widget-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:16px; margin-bottom:8px; align-items:stretch; }
+      .widget-slot { min-width:0; display:flex; }
+      .widget-slot > button { width:100%; height:100%; }
     `}</style>
 
     <div className="home-root" style={{ maxWidth:760, margin:'0 auto', paddingBottom:24, background:'transparent', minHeight:'100vh', width:'100%' }}>
@@ -252,23 +255,23 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           1. TOP HEADER
       ══════════════════════════════════ */}
-      <div style={{ padding:'10px 8px 0', animation:'fadeIn 0.4s ease-out both' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+      <div style={{ padding:'8px 12px 0', animation:'fadeIn 0.4s ease-out both' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'nowrap', marginBottom:10 }}>
           {/* Logo + brand */}
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <div style={{ position:'relative' }}>
-              <img src="/logo.jpg" alt="ACR MAX" style={{ width:42, height:42, borderRadius:'50%', objectFit:'cover', border:`2.5px solid ${themeAccent}`, boxShadow:`3px 3px 10px ${themeAccent}30, -2px -2px 6px rgba(255,255,255,0.9)` }} />
-              <div style={{ position:'absolute', bottom:1, right:1, width:10, height:10, borderRadius:'50%', background:'#22c55e', border:'2px solid #fff', boxShadow:'0 0 4px rgba(34,197,94,0.5)' }} />
+          <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, flex:'1 1 auto', flexWrap:'nowrap' }}>
+            <div style={{ position:'relative', flexShrink:0 }}>
+              <img src="/logo.jpg" alt="ACR MAX" style={{ width:36, height:36, borderRadius:'50%', objectFit:'cover', border:`2px solid ${themeAccent}`, boxShadow:`3px 3px 10px ${themeAccent}30, -2px -2px 6px rgba(255,255,255,0.9)` }} />
+              <div style={{ position:'absolute', bottom:1, right:1, width:9, height:9, borderRadius:'50%', background:'#22c55e', border:'2px solid #fff', boxShadow:'0 0 4px rgba(34,197,94,0.5)' }} />
             </div>
-            <div>
-              <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:17, color:'#1a1a1a', margin:0, letterSpacing:'0.04em' }}>ACR MAX</p>
-              <p style={{ fontSize:9, color:themeAccent, margin:0, fontWeight:700, letterSpacing:'0.12em' }}>BETA 1.0</p>
+            <div style={{ minWidth:0, whiteSpace:'nowrap' }}>
+              <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, color:'#1a1a1a', margin:0, letterSpacing:'0.03em', lineHeight:1.05, whiteSpace:'nowrap' }}>ACR MAX</p>
+              <p style={{ fontSize:8, color:themeAccent, margin:0, fontWeight:700, letterSpacing:'0.1em', whiteSpace:'nowrap' }}>BETA 1.0</p>
             </div>
           </div>
           {/* Greeting + clock */}
-          <div style={{ textAlign:'right' }}>
-            <p style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', margin:'0 0 1px' }}>{greeting.emoji} {greeting.text}</p>
-            <p style={{ fontSize:12, color:'#6b7280', margin:0, fontWeight:600, fontFamily:'monospace !important' }}>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', justifyContent:'center', textAlign:'right', flexShrink:0, whiteSpace:'nowrap' }}>
+            <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 1px', lineHeight:1.1, whiteSpace:'nowrap' }}>{greeting.emoji} {greeting.text}</p>
+            <p style={{ fontSize:11, color:'#6b7280', margin:0, fontWeight:600, lineHeight:1.1, fontFamily:'monospace !important', whiteSpace:'nowrap' }}>
               {time.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}
             </p>
           </div>
@@ -295,8 +298,15 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           <div style={{ position:'absolute', top:-10, right:-10, width:100, height:100, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.8),transparent 65%)', pointerEvents:'none' }} />
 
           {/* Welcome + name */}
-          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
-          <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:19, color:'#1a1a1a', margin:'0 0 7px', lineHeight:1.1 }}>{displayName} 👋</p>
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:7 }}>
+            <div style={{ minWidth:0 }}>
+              <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
+              <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:19, color:'#1a1a1a', margin:0, lineHeight:1.1 }}>{displayName} 👋</p>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', flexShrink:0, fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:'#b45309', whiteSpace:'nowrap' }}>
+              🪙 {coins === null ? '…' : coins.toLocaleString()}
+            </div>
+          </div>
 
           {/* Key insight badges */}
           <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
@@ -334,65 +344,20 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             ))}
           </div>
 
-          {/* 💰 COIN WALLET BANNER */}
-          <div style={{ marginTop:8, borderRadius:12, overflow:'hidden', border:'1px solid rgba(245,166,35,0.3)', boxShadow:'0 3px 12px rgba(245,166,35,0.15)', animation:'quoteIn 0.5s ease-out 0.4s both', position:'relative' }}>
-            {/* Gold gradient background */}
-            <div style={{ background:'linear-gradient(135deg,#fffbeb,#fff3d0,#fef9ec)', padding:'10px 12px' }}>
-              {/* Shine effect */}
-              <div style={{ position:'absolute', top:0, right:0, width:80, height:80, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.6),transparent 65%)', pointerEvents:'none' }} />
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  {/* Animated coin icon */}
-                  <div style={{ width:36, height:36, borderRadius:11, background:'linear-gradient(135deg,#F5A623,#E8941A)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:'0 4px 12px rgba(245,166,35,0.4)', animation: coinAnim?'coinPop 0.5s cubic-bezier(.34,1.56,.64,1)':'none', flexShrink:0 }}
-                    onAnimationEnd={()=>setCoinAnim(false)}>
-                    💰
-                  </div>
-                  <div>
-                    <p style={{ fontSize:9, fontWeight:700, color:'#92400e', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 1px', fontFamily:'Poppins,sans-serif' }}>Your Balance</p>
-                    <div style={{ display:'flex', alignItems:'baseline', gap:4 }}>
-                      <p style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:20, color:'#b45309', margin:0, lineHeight:1 }}>
-                        {coins === null ? '…' : coins.toLocaleString()}
-                      </p>
-                      <p style={{ fontSize:11, fontWeight:700, color:'#d97706', margin:0, fontFamily:'Poppins,sans-serif' }}>coins</p>
-                    </div>
-                  </div>
-                </div>
-                {/* Stats column */}
-                <div style={{ textAlign:'right' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:5, justifyContent:'flex-end', marginBottom:4 }}>
-                    <span style={{ fontSize:13 }}>🔥</span>
-                    <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:13, color:'#ea580c', margin:0 }}>{streak}d streak</p>
-                  </div>
-                  <p style={{ fontSize:10, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600 }}>🎯 {predictions} predictions</p>
-                </div>
-              </div>
-
-              {/* Motivational tag */}
-              <div style={{ marginTop:7, padding:'6px 10px', background:'rgba(245,166,35,0.15)', borderRadius:10, border:'1px solid rgba(245,166,35,0.3)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <p style={{ fontSize:11, fontWeight:600, color:'#92400e', margin:0, fontFamily:'Poppins,sans-serif', lineHeight:1.4 }}>
-                  {coins === null ? '…' : coins >= 200
-                    ? '🚀 High roller! Keep predicting to grow!'
-                    : coins >= 100
-                    ? '🎯 Predict IPL matches to win more coins!'
-                    : '⚡ Almost there! Predict & win to grow your balance'}
-                </p>
-                <button onClick={() => setIplOpen(true)} style={{ flexShrink:0, marginLeft:8, padding:'5px 12px', borderRadius:20, border:'none', background:'linear-gradient(135deg,#F5A623,#E8941A)', color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:10, cursor:'pointer', whiteSpace:'nowrap', boxShadow:'0 2px 8px rgba(245,166,35,0.4)' }}>
-                  Predict →
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* ══════════════════════════════════
           3. SMART WIDGETS ROW
       ══════════════════════════════════ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:8, animation:'slideUp 0.4s ease-out 0.1s both' }}>
+      <div className="widget-grid" style={{ animation:'slideUp 0.4s ease-out 0.1s both' }}>
         {/* Mystery Box card */}
-        <SkillMachineCard userId={currentUser?.username} onClick={()=>setSkillOpen(true)} />
+        <div className="widget-slot">
+          <SkillMachineCard userId={currentUser?.username} onClick={()=>setSkillOpen(true)} />
+        </div>
 
         {/* Surprises card — same size as SkillMachineCard */}
+        <div className="widget-slot">
         <button onClick={()=>setSurprisesOpen(true)} style={{ width:'100%',border:'none',padding:0,background:'none',cursor:'pointer',textAlign:'left' }}>
           <div style={{ padding:'10px 12px',height:'100%',
             background:'linear-gradient(135deg,rgba(124,58,237,0.08),rgba(109,40,217,0.06))',
@@ -411,6 +376,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             </div>
           </div>
         </button>
+        </div>
       </div>
 
       {/* ── AI Tip ── */}
@@ -421,25 +387,6 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           <p style={{ fontSize:12, fontWeight:600, color:'#374151', margin:0, fontFamily:'Poppins,sans-serif', lineHeight:1.45 }}>{todayTip}</p>
         </div>
       </div>
-
-      {/* ── Prediction Stats Strip ── */}
-      {currentUser?.username && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:6, marginBottom:10, animation:'slideUp 0.4s ease-out 0.08s both' }}>
-          {[
-            { label:'Balance', value: coins===null?'…':(coins||500).toLocaleString(), icon:'💰', color:'#b45309' },
-            { label:'Streak', value: `${streak||0}d`, icon:'🔥', color:'#ea580c' },
-            { label:'Predicts', value: predictions||0, icon:'🎯', color:'#0891b2' },
-            { label:'Accuracy', value: '—', icon:'📊', color:'#059669' },
-            { label:'Skills', value: '3/3', icon:'⚡', color:'#7c3aed' },
-          ].map((s,i)=>(
-            <div key={i} style={{ padding:'7px 4px', background:'linear-gradient(145deg,#fafafa,#efefef)', borderRadius:12, border:'1px solid rgba(255,255,255,0.9)', boxShadow:'2px 2px 6px rgba(0,0,0,0.07),-1px -1px 4px rgba(255,255,255,0.9)', textAlign:'center' }}>
-              <p style={{ fontSize:14, margin:'0 0 1px' }}>{s.icon}</p>
-              <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:11, color:s.color, margin:'0 0 1px', lineHeight:1 }}>{s.value}</p>
-              <p style={{ fontSize:7, color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{s.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* ══════════════════════════════════
           4. QUICK ACTIONS — interactive cards
