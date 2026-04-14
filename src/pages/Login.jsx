@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   loginUser, registerUser, getUserByUsername,
   updatePassword, usernameExists, ensureAdminExists
@@ -16,104 +16,7 @@ const HINT_QUESTIONS = [
 
 /* ── Silver Milky Galaxy Canvas ── */
 function GalaxyField() {
-  const canvasRef = useRef(null)
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    let raf
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
-    resize()
-    window.addEventListener('resize', resize)
-
-    // Stars — silver/white/gold tones
-    const stars = Array.from({ length: 200 }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      r: Math.random() * 1.8 + 0.2,
-      speed: Math.random() * 0.12 + 0.02,
-      opacity: Math.random() * 0.8 + 0.1,
-      twinkle: Math.random() * 0.04 + 0.01,
-      phase: Math.random() * Math.PI * 2,
-      color: ['255,255,255', '220,210,200', '212,175,55', '200,200,210', '235,235,235'][Math.floor(Math.random() * 5)],
-    }))
-
-    // Nebula clouds
-    const nebulae = Array.from({ length: 5 }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      r: Math.random() * 200 + 100,
-      opacity: Math.random() * 0.06 + 0.02,
-      hue: Math.random() > 0.5 ? '200,200,220' : '212,175,55',
-    }))
-
-    // Shooting stars
-    let shooters = []
-    const spawnShooter = () => {
-      if (Math.random() < 0.003) {
-        shooters.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height * 0.5,
-          len: Math.random() * 80 + 40,
-          speed: Math.random() * 6 + 4,
-          opacity: 1,
-          angle: Math.PI / 4,
-        })
-      }
-    }
-
-    let t = 0
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      t++
-
-      // Nebula clouds
-      nebulae.forEach(n => {
-        const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r)
-        grad.addColorStop(0, `rgba(${n.hue},${n.opacity})`)
-        grad.addColorStop(1, 'rgba(0,0,0,0)')
-        ctx.fillStyle = grad
-        ctx.beginPath()
-        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2)
-        ctx.fill()
-      })
-
-      // Stars
-      stars.forEach(s => {
-        const tw = s.opacity * (0.5 + 0.5 * Math.sin(t * s.twinkle + s.phase))
-        ctx.beginPath()
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(${s.color},${tw})`
-        ctx.fill()
-        s.y -= s.speed * 0.3
-        if (s.y < -2) { s.y = canvas.height + 2; s.x = Math.random() * canvas.width }
-      })
-
-      // Shooting stars
-      spawnShooter()
-      shooters = shooters.filter(sh => sh.opacity > 0.01)
-      shooters.forEach(sh => {
-        ctx.save()
-        ctx.globalAlpha = sh.opacity
-        const grd = ctx.createLinearGradient(sh.x, sh.y, sh.x - sh.len, sh.y - sh.len * 0.5)
-        grd.addColorStop(0, 'rgba(255,255,220,0.9)')
-        grd.addColorStop(1, 'rgba(212,175,55,0)')
-        ctx.strokeStyle = grd
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.moveTo(sh.x, sh.y)
-        ctx.lineTo(sh.x - sh.len, sh.y - sh.len * 0.5)
-        ctx.stroke()
-        ctx.restore()
-        sh.x += sh.speed; sh.y += sh.speed * 0.5; sh.opacity -= 0.018
-      })
-
-      raf = requestAnimationFrame(draw)
-    }
-    draw()
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize) }
-  }, [])
-  return <canvas ref={canvasRef} style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none' }} />
+  return null
 }
 
 /* ── Disclaimer Modal ── */
@@ -125,19 +28,19 @@ function DisclaimerModal({ onClose }) {
       <div style={{ width:'100%', maxWidth:480, maxHeight:'88vh', background:'linear-gradient(135deg,rgba(10,16,44,0.98),rgba(4,8,22,0.98))', border:'1px solid rgba(212,175,55,0.28)', borderRadius:20, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ padding:'14px 18px 10px', borderBottom:'1px solid rgba(255,255,255,0.05)', flexShrink:0, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, color:'#d4af37', fontSize:14, margin:0 }}>📋 Beta Disclaimer & Legal Notice</p>
-          <button onClick={onClose} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.35)', fontSize:18, cursor:'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'#9ca3af', fontSize:18, cursor:'pointer' }}>✕</button>
         </div>
         {!read && <p style={{ fontSize:10, color:'rgba(212,175,55,0.45)', padding:'6px 18px 0', fontWeight:600 }}>📜 Scroll to bottom to acknowledge</p>}
         <div onScroll={e=>{const el=e.target;if(el.scrollTop+el.clientHeight>=el.scrollHeight-10)setRead(true)}} style={{ flex:1, overflowY:'auto', padding:'12px 18px' }}>
           {[["Beta Software Notice","ACR MAX is currently in Beta 1.0. Features may be incomplete or unstable."],["Data Privacy","All data is encrypted and stored on Google Firebase. We do not sell or share your personal data."],["Security","Industry-standard AES-256 encryption. We are not responsible for unauthorised access due to weak passwords."],["Intellectual Property","All content, design, and code © 2026 Aswin C R. Unauthorised reproduction strictly prohibited."],["Limitation of Liability","ACR MAX is a personal finance tool. We are not liable for financial decisions made based on app data."],["Usage Agreement","By using ACR MAX you agree to these terms and our Privacy Policy."]].map(([t,d],i)=>(
             <div key={i} style={{ marginBottom:14 }}>
               <p style={{ fontWeight:700, color:'#d4af37', fontSize:11, marginBottom:4 }}>{i+1}. {t}</p>
-              <p style={{ fontSize:11, color:'rgba(255,255,255,0.5)', lineHeight:1.65, margin:0 }}>{d}</p>
+              <p style={{ fontSize:11, color:'#d1d5db', lineHeight:1.65, margin:0 }}>{d}</p>
             </div>
           ))}
         </div>
         <div style={{ padding:'10px 18px', borderTop:'1px solid rgba(255,255,255,0.05)', flexShrink:0, display:'flex', gap:8 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'10px', borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.35)', fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif', fontSize:12 }}>Close</button>
+          <button onClick={onClose} style={{ flex:1, padding:'10px', borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', color:'#d1d5db', fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif', fontSize:12 }}>Close</button>
           <button onClick={onClose} disabled={!read} className={read?'login-btn':''} style={{ flex:2, padding:'10px', borderRadius:10, border:'none', background:read?undefined:'rgba(212,175,55,0.1)', color:read?'#0a0c14':'rgba(212,175,55,0.3)', fontWeight:800, cursor:read?'pointer':'not-allowed', fontFamily:'Syne,sans-serif', fontSize:12 }}>{read?'✓ Acknowledged':'📜 Scroll first'}</button>
         </div>
       </div>
@@ -148,13 +51,13 @@ function DisclaimerModal({ onClose }) {
 /* ── Shared input style ── */
 const iSt = (f, e) => ({
   width:'100%', padding:'11px 14px',
-  background: f ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.07)',
-  border: f ? '1.5px solid rgba(212,175,55,0.7)' : e ? '1.5px solid rgba(239,68,68,0.5)' : '1.5px solid rgba(255,255,255,0.12)',
-  borderRadius:12, color:'#f0f0f0', fontSize:14,
+  background: '#ffffff',
+  border: f ? '1.5px solid rgba(212,175,55,0.7)' : e ? '1.5px solid rgba(239,68,68,0.5)' : '1.5px solid #d1d5db',
+  borderRadius:12, color:'#1f2937', fontSize:14,
   fontFamily:'Poppins,sans-serif', fontWeight:500, outline:'none',
   transition:'all 0.25s', boxShadow: f ? '0 0 0 3px rgba(212,175,55,0.08)' : 'none',
 })
-const Lbl = ({ t }) => <label style={{ display:'block', fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.35)', textTransform:'uppercase', letterSpacing:'0.14em', marginBottom:5 }}>{t}</label>
+const Lbl = ({ t }) => <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.14em', marginBottom:5 }}>{t}</label>
 
 /* ── LOGIN FORM ── */
 function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
@@ -203,13 +106,13 @@ function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
         </div>
       </div>
 
-      <p style={{ fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:16, color:'#f0f0f0', marginBottom:2 }}>Welcome back</p>
-      <p style={{ fontSize:11, color:'rgba(255,255,255,0.38)', marginBottom:16 }}>Sign in with your authorized credentials</p>
+      <p style={{ fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:16, color:'#111827', marginBottom:2 }}>Welcome back</p>
+      <p style={{ fontSize:11, color:'#6b7280', marginBottom:16 }}>Sign in with your authorized credentials</p>
 
       <div style={{ marginBottom:10 }}>
         <Lbl t="Username" />
         <div style={{ position:'relative' }}>
-          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:13, color: f==='u'?'#d4af37':'rgba(255,255,255,0.2)', transition:'color 0.25s' }}>👤</span>
+          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:13, color: f==='u'?'#d4af37':'#9ca3af', transition:'color 0.25s' }}>👤</span>
           <input value={username} onChange={e=>{setUsername(e.target.value);setError('')}} onFocus={()=>setF('u')} onBlur={()=>setF(null)} onKeyDown={e=>e.key==='Enter'&&doLogin()} placeholder="Enter username" autoComplete="username" style={{...iSt(f==='u',error),paddingLeft:38}} />
         </div>
       </div>
@@ -217,9 +120,9 @@ function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
       <div style={{ marginBottom:14 }}>
         <Lbl t="Password" />
         <div style={{ position:'relative' }}>
-          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:13, color: f==='p'?'#d4af37':'rgba(255,255,255,0.2)', transition:'color 0.25s' }}>🔒</span>
+          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:13, color: f==='p'?'#d4af37':'#9ca3af', transition:'color 0.25s' }}>🔒</span>
           <input type={showPass?'text':'password'} value={password} onChange={e=>{setPassword(e.target.value);setError('')}} onFocus={()=>setF('p')} onBlur={()=>setF(null)} onKeyDown={e=>e.key==='Enter'&&doLogin()} placeholder="Enter password" autoComplete="current-password" style={{...iSt(f==='p',error),paddingLeft:38,paddingRight:42}} />
-          <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:11, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:14, color:'rgba(255,255,255,0.25)' }}>{showPass?'🙈':'👁'}</button>
+          <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:11, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:14, color:'#6b7280' }}>{showPass?'🙈':'👁'}</button>
         </div>
         <div style={{ textAlign:'right', marginTop:4 }}>
           <button onClick={onGoForgot} style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'rgba(212,175,55,0.75)', fontFamily:'Poppins,sans-serif', fontWeight:600 }}>Forgot password?</button>
@@ -227,13 +130,13 @@ function LoginForm({ onLogin, onGoSignup, onGoForgot }) {
       </div>
 
       {error && <div style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.28)', borderRadius:10, padding:'8px 12px', marginBottom:10, display:'flex', alignItems:'center', gap:7, animation:'errorShake 0.4s ease-out' }}><span>⚠️</span><p style={{ fontSize:11, color:'#fca5a5', fontWeight:600, margin:0 }}>{error}</p></div>}
-      {success && <div style={{ background:'rgba(52,211,153,0.09)', border:'1px solid rgba(52,211,153,0.28)', borderRadius:10, padding:'8px 12px', marginBottom:10, display:'flex', alignItems:'center', gap:7 }}><span>✅</span><p style={{ fontSize:11, color:'#6ee7b7', fontWeight:600, margin:0 }}>Access granted! Loading…</p></div>}
+      {success && <div style={{ background:'rgba(52,211,153,0.09)', border:'1px solid rgba(52,211,153,0.28)', borderRadius:10, padding:'8px 12px', marginBottom:10, display:'flex', alignItems:'center', gap:7 }}><span>✅</span><p style={{ fontSize:11, color:'#047857', fontWeight:600, margin:0 }}>Access granted! Loading…</p></div>}
 
       <button onClick={doLogin} disabled={loading||success} className="login-btn" style={{ width:'100%', padding:'13px', border:'none', borderRadius:13, fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:15, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:12 }}>
         {loading ? <><div style={{ width:15, height:15, border:'2px solid rgba(0,0,0,0.2)', borderTop:'2px solid #0a0c14', borderRadius:'50%', animation:'spinLoad 0.7s linear infinite' }} />Authenticating…</> : success ? '✓ Access Granted' : '🔐 Sign In to ACR MAX'}
       </button>
       <div style={{ textAlign:'center' }}>
-        <span style={{ fontSize:12, color:'rgba(255,255,255,0.35)' }}>New here? </span>
+        <span style={{ fontSize:12, color:'#6b7280' }}>New here? </span>
         <button onClick={onGoSignup} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d4af37', fontWeight:700, fontFamily:'Poppins,sans-serif', textDecoration:'underline' }}>Create Account</button>
       </div>
     </div>
@@ -265,7 +168,7 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
         <img src="/logo.jpg" alt="" style={{ width:42, height:42, borderRadius:'50%', border:'2px solid rgba(212,175,55,0.5)', flexShrink:0 }} />
         <div>
           <h1 style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:17, margin:'0 0 1px', background:'linear-gradient(135deg,#e0e0e0,#d4af37)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>ACR MAX</h1>
-          <p style={{ fontSize:10, fontWeight:700, color:'rgba(212,175,55,0.8)', margin:0 }}>Create Account · Step {step}/3</p>
+          <p style={{ fontSize:10, fontWeight:700, color:'#6b7280', margin:0 }}>Create Account · Step {step}/3</p>
         </div>
       </div>
 
@@ -273,8 +176,8 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
       <div style={{ display:'flex', gap:3, marginBottom:16 }}>
         {steps.map((st,i)=>(
           <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-            <div style={{ width:22, height:22, borderRadius:'50%', background:i+1<=step?'linear-gradient(135deg,#d4af37,#f4d03f)':'rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:800, color:i+1<=step?'#0a0c14':'rgba(255,255,255,0.25)', transition:'all 0.3s' }}>{i+1<step?'✓':i+1}</div>
-            <p style={{ fontSize:7, color:i+1<=step?'#d4af37':'rgba(255,255,255,0.2)', margin:0, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase' }}>{st}</p>
+            <div style={{ width:22, height:22, borderRadius:'50%', background:i+1<=step?'linear-gradient(135deg,#d4af37,#f4d03f)':'#e5e7eb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:800, color:i+1<=step?'#0a0c14':'#6b7280', transition:'all 0.3s' }}>{i+1<step?'✓':i+1}</div>
+            <p style={{ fontSize:7, color:i+1<=step?'#b45309':'#9ca3af', margin:0, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase' }}>{st}</p>
           </div>
         ))}
       </div>
@@ -288,9 +191,9 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
 
       {step===2&&(<div style={{animation:'fadeInUp 0.3s ease-out both'}}>
         <div style={{marginBottom:9}}><Lbl t="Username"/><input value={form.username} onChange={e=>s('username',e.target.value)} placeholder="Unique (min 3 chars)" style={iSt(false,errors.username)}/>{errors.username&&<p style={{fontSize:9,color:'#f87171',marginTop:2}}>{errors.username}</p>}</div>
-        <div style={{marginBottom:9}}><Lbl t="Password"/><div style={{position:'relative'}}><input type={showP?'text':'password'} value={form.password} onChange={e=>s('password',e.target.value)} placeholder="Min 6 characters" style={{...iSt(false,errors.password),paddingRight:38}}/><button onClick={()=>setShowP(x=>!x)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.25)'}}>{showP?'🙈':'👁'}</button></div>{errors.password&&<p style={{fontSize:9,color:'#f87171',marginTop:2}}>{errors.password}</p>}{form.password&&<div style={{display:'flex',gap:3,marginTop:4}}>{[1,2,3,4].map(i=><div key={i} style={{flex:1,height:3,borderRadius:3,background:form.password.length>=i*3?(form.password.length>=10?'#34d399':form.password.length>=7?'#fbbf24':'#f87171'):'rgba(255,255,255,0.07)',transition:'background 0.3s'}}/>)}</div>}</div>
-        <div style={{marginBottom:14}}><Lbl t="Confirm Password"/><div style={{position:'relative'}}><input type={showC?'text':'password'} value={form.confirm} onChange={e=>s('confirm',e.target.value)} placeholder="Re-enter" style={{...iSt(false,errors.confirm),paddingRight:38}}/><button onClick={()=>setShowC(x=>!x)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.25)'}}>{showC?'🙈':'👁'}</button></div>{errors.confirm&&<p style={{fontSize:9,color:'#f87171',marginTop:2}}>{errors.confirm}</p>}</div>
-        <div style={{display:'flex',gap:8}}><button onClick={()=>setStep(1)} style={{flex:1,padding:'11px',borderRadius:12,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.45)',fontWeight:700,cursor:'pointer',fontSize:12,fontFamily:'Poppins,sans-serif'}}>← Back</button><button onClick={next} disabled={loading} className="login-btn" style={{flex:2,padding:'11px',border:'none',borderRadius:12,fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Checking…':'Continue →'}</button></div>
+        <div style={{marginBottom:9}}><Lbl t="Password"/><div style={{position:'relative'}}><input type={showP?'text':'password'} value={form.password} onChange={e=>s('password',e.target.value)} placeholder="Min 6 characters" style={{...iSt(false,errors.password),paddingRight:38}}/><button onClick={()=>setShowP(x=>!x)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#6b7280'}}>{showP?'🙈':'👁'}</button></div>{errors.password&&<p style={{fontSize:9,color:'#f87171',marginTop:2}}>{errors.password}</p>}{form.password&&<div style={{display:'flex',gap:3,marginTop:4}}>{[1,2,3,4].map(i=><div key={i} style={{flex:1,height:3,borderRadius:3,background:form.password.length>=i*3?(form.password.length>=10?'#34d399':form.password.length>=7?'#fbbf24':'#f87171'):'#e5e7eb',transition:'background 0.3s'}}/>)}</div>}</div>
+        <div style={{marginBottom:14}}><Lbl t="Confirm Password"/><div style={{position:'relative'}}><input type={showC?'text':'password'} value={form.confirm} onChange={e=>s('confirm',e.target.value)} placeholder="Re-enter" style={{...iSt(false,errors.confirm),paddingRight:38}}/><button onClick={()=>setShowC(x=>!x)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#6b7280'}}>{showC?'🙈':'👁'}</button></div>{errors.confirm&&<p style={{fontSize:9,color:'#f87171',marginTop:2}}>{errors.confirm}</p>}</div>
+        <div style={{display:'flex',gap:8}}><button onClick={()=>setStep(1)} style={{flex:1,padding:'11px',borderRadius:12,background:'#ffffff',border:'1px solid #d1d5db',color:'#4b5563',fontWeight:700,cursor:'pointer',fontSize:12,fontFamily:'Poppins,sans-serif'}}>← Back</button><button onClick={next} disabled={loading} className="login-btn" style={{flex:2,padding:'11px',border:'none',borderRadius:12,fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Checking…':'Continue →'}</button></div>
       </div>)}
 
       {step===3&&(<div style={{animation:'fadeInUp 0.3s ease-out both'}}>
@@ -299,13 +202,13 @@ function SignupForm({ onGoLogin, onSignupSuccess }) {
         <div style={{marginBottom:14,padding:'10px 12px',background:'rgba(212,175,55,0.07)',border:'1px solid rgba(212,175,55,0.2)',borderRadius:10}}>
           <label style={{display:'flex',alignItems:'flex-start',gap:9,cursor:'pointer'}}>
             <input type="checkbox" checked={agreedBeta} onChange={e=>setAgreedBeta(e.target.checked)} style={{marginTop:2,width:14,height:14,cursor:'pointer',accentColor:'#d4af37'}}/>
-            <span style={{fontSize:10,color:'rgba(212,175,55,0.75)',lineHeight:1.55,fontFamily:'Poppins,sans-serif'}}>I agree to the <strong style={{color:'#d4af37'}}>Beta Terms & Disclaimer</strong>. ACR MAX is beta software. Data may be reset.</span>
+            <span style={{fontSize:10,color:'#6b7280',lineHeight:1.55,fontFamily:'Poppins,sans-serif'}}>I agree to the <strong style={{color:'#d4af37'}}>Beta Terms & Disclaimer</strong>. ACR MAX is beta software. Data may be reset.</span>
           </label>
         </div>
-        {success&&<div style={{background:'rgba(52,211,153,0.09)',border:'1px solid rgba(52,211,153,0.25)',borderRadius:10,padding:'8px 12px',marginBottom:10,display:'flex',alignItems:'center',gap:7}}><span>✅</span><p style={{fontSize:11,color:'#6ee7b7',fontWeight:600,margin:0}}>Account created! Signing in…</p></div>}
-        <div style={{display:'flex',gap:8}}><button onClick={()=>setStep(2)} style={{flex:1,padding:'11px',borderRadius:12,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.45)',fontWeight:700,cursor:'pointer',fontSize:12,fontFamily:'Poppins,sans-serif'}}>← Back</button><button onClick={submit} disabled={loading||!agreedBeta} className={agreedBeta?'login-btn':''} style={{flex:2,padding:'11px',border:'none',borderRadius:12,fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:13,cursor:agreedBeta?'pointer':'not-allowed',background:agreedBeta?undefined:'rgba(212,175,55,0.1)',color:agreedBeta?'#0a0c14':'rgba(212,175,55,0.3)'}}>{loading?'Creating…':'✓ Create Account'}</button></div>
+        {success&&<div style={{background:'rgba(52,211,153,0.09)',border:'1px solid rgba(52,211,153,0.25)',borderRadius:10,padding:'8px 12px',marginBottom:10,display:'flex',alignItems:'center',gap:7}}><span>✅</span><p style={{fontSize:11,color:'#047857',fontWeight:600,margin:0}}>Account created! Signing in…</p></div>}
+        <div style={{display:'flex',gap:8}}><button onClick={()=>setStep(2)} style={{flex:1,padding:'11px',borderRadius:12,background:'#ffffff',border:'1px solid #d1d5db',color:'#4b5563',fontWeight:700,cursor:'pointer',fontSize:12,fontFamily:'Poppins,sans-serif'}}>← Back</button><button onClick={submit} disabled={loading||!agreedBeta} className={agreedBeta?'login-btn':''} style={{flex:2,padding:'11px',border:'none',borderRadius:12,fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:13,cursor:agreedBeta?'pointer':'not-allowed',background:agreedBeta?undefined:'rgba(212,175,55,0.1)',color:agreedBeta?'#0a0c14':'rgba(212,175,55,0.3)'}}>{loading?'Creating…':'✓ Create Account'}</button></div>
       </div>)}
-      <div style={{textAlign:'center',marginTop:12}}><button onClick={onGoLogin} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'rgba(255,255,255,0.3)',fontFamily:'Poppins,sans-serif'}}>← Back to Sign In</button></div>
+      <div style={{textAlign:'center',marginTop:12}}><button onClick={onGoLogin} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#6b7280',fontFamily:'Poppins,sans-serif'}}>← Back to Sign In</button></div>
     </div>
   )
 }
@@ -329,7 +232,7 @@ function ForgotForm({ onGoLogin }) {
     <div style={{animation:'fadeInUp 0.4s ease-out both'}}>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
         <img src="/logo.jpg" alt="" style={{width:36,height:36,borderRadius:'50%',border:'2px solid rgba(212,175,55,0.4)',flexShrink:0}}/>
-        <div><h1 style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:15,margin:0,color:'#f0f0f0'}}>Account Recovery</h1><p style={{fontSize:9,color:'rgba(255,255,255,0.3)',margin:0}}>Restore access to ACR MAX</p></div>
+        <div><h1 style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:15,margin:0,color:'#111827'}}>Account Recovery</h1><p style={{fontSize:9,color:'#6b7280',margin:0}}>Restore access to ACR MAX</p></div>
       </div>
       {step===1&&(<>
         <Lbl t="Username"/><input value={username} onChange={e=>{setUsername(e.target.value);setError('')}} onFocus={()=>setF('u')} onBlur={()=>setF(null)} placeholder="Your username" style={{...iSt(f==='u',error),marginBottom:10}}/>
@@ -337,7 +240,7 @@ function ForgotForm({ onGoLogin }) {
         <button onClick={lookupUser} disabled={loading} className="login-btn" style={{width:'100%',padding:'12px',border:'none',borderRadius:12,fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:13,cursor:'pointer',marginBottom:10}}>{loading?'Looking up…':'Find Account →'}</button>
       </>)}
       {step===2&&(<>
-        <div style={{background:'rgba(212,175,55,0.07)',border:'1px solid rgba(212,175,55,0.2)',borderRadius:10,padding:'10px 13px',marginBottom:12}}><p style={{fontSize:10,color:'rgba(212,175,55,0.7)',fontWeight:600,margin:'0 0 3px'}}>Security Question</p><p style={{fontSize:12,color:'rgba(255,255,255,0.7)',margin:0,lineHeight:1.5}}>{hint}</p></div>
+        <div style={{background:'rgba(212,175,55,0.07)',border:'1px solid rgba(212,175,55,0.2)',borderRadius:10,padding:'10px 13px',marginBottom:12}}><p style={{fontSize:10,color:'#b45309',fontWeight:600,margin:'0 0 3px'}}>Security Question</p><p style={{fontSize:12,color:'#374151',margin:0,lineHeight:1.5}}>{hint}</p></div>
         <Lbl t="Your Answer"/><input value={answer} onChange={e=>{setAnswer(e.target.value);setError('')}} placeholder="Enter answer" style={{...iSt(false,error),marginBottom:10}}/>
         {error&&<p style={{fontSize:10,color:'#f87171',marginBottom:8}}>{error}</p>}
         <button onClick={verifyAnswer} disabled={loading} className="login-btn" style={{width:'100%',padding:'12px',border:'none',borderRadius:12,fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Verifying…':'Verify →'}</button>
@@ -347,8 +250,8 @@ function ForgotForm({ onGoLogin }) {
         {error&&<p style={{fontSize:10,color:'#f87171',marginBottom:8}}>{error}</p>}
         <button onClick={resetPassword} disabled={loading} className="login-btn" style={{width:'100%',padding:'12px',border:'none',borderRadius:12,fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Resetting…':'Reset Password ✓'}</button>
       </>)}
-      {step===4&&(<div style={{textAlign:'center',padding:'12px 0'}}><div style={{fontSize:40,marginBottom:10}}>✅</div><p style={{fontFamily:'Syne,sans-serif',fontWeight:800,color:'#34d399',fontSize:14,margin:'0 0 5px'}}>Password Reset!</p><p style={{fontSize:11,color:'rgba(255,255,255,0.4)',margin:0}}>You can now sign in.</p></div>)}
-      <div style={{textAlign:'center',marginTop:12}}><button onClick={onGoLogin} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'rgba(255,255,255,0.3)',fontFamily:'Poppins,sans-serif'}}>← Back to Sign In</button></div>
+      {step===4&&(<div style={{textAlign:'center',padding:'12px 0'}}><div style={{fontSize:40,marginBottom:10}}>✅</div><p style={{fontFamily:'Syne,sans-serif',fontWeight:800,color:'#34d399',fontSize:14,margin:'0 0 5px'}}>Password Reset!</p><p style={{fontSize:11,color:'#6b7280',margin:0}}>You can now sign in.</p></div>)}
+      <div style={{textAlign:'center',marginTop:12}}><button onClick={onGoLogin} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#6b7280',fontFamily:'Poppins,sans-serif'}}>← Back to Sign In</button></div>
     </div>
   )
 }
@@ -370,7 +273,7 @@ export default function Login({ onLogin }) {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Syne:wght@700;800&family=Cinzel:wght@600;700&display=swap');
       *{box-sizing:border-box;margin:0;padding:0;}
-      html,body{height:100%;margin:0;padding:0;background:#04060f!important;overflow:hidden;}
+      html,body{height:100%;margin:0;padding:0;background:linear-gradient(180deg,#F8FAFC 0%,#EEF2F7 100%)!important;overflow:hidden;}
       #root{min-height:100vh;background:transparent!important;}
       @keyframes fadeInUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
       @keyframes scaleIn{from{opacity:0;transform:scale(0.93)}to{opacity:1;transform:scale(1)}}
@@ -378,8 +281,8 @@ export default function Login({ onLogin }) {
       @keyframes orbitSilver{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
       @keyframes spinLoad{to{transform:rotate(360deg)}}
       @keyframes errorShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-      input::placeholder{color:rgba(255,255,255,0.2)!important;}
-      select option{background:#0d0b2e!important;color:#fff!important;}
+      input::placeholder{color:#9ca3af!important;}
+      select option{background:#ffffff!important;color:#1f2937!important;}
       .login-btn{background:linear-gradient(135deg,#c9a227,#e8c230)!important;transition:all 0.2s;border:none;color:#0a0c14!important;font-weight:800;}
       .login-btn:hover:not(:disabled){filter:brightness(1.08);}
       .login-btn:active:not(:disabled){transform:scale(0.97);}
@@ -391,9 +294,9 @@ export default function Login({ onLogin }) {
     {/* Galaxy background */}
     <GalaxyField />
 
-    {/* Milky way band */}
+    {/* Soft background glow */}
     <div style={{ position:'fixed', inset:0, zIndex:1, pointerEvents:'none',
-      background:'radial-gradient(ellipse 120% 40% at 60% 50%, rgba(180,160,140,0.04) 0%, transparent 70%)',
+      background:'radial-gradient(ellipse 120% 40% at 60% 50%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 70%)',
     }} />
 
     {/* Main wrapper — scrollable for signup */}
@@ -412,15 +315,15 @@ export default function Login({ onLogin }) {
             {view==='forgot' && <ForgotForm  onGoLogin={()=>setView('login')} />}
 
             <div style={{ textAlign:'center', marginTop:10 }}>
-              <button onClick={()=>setShowDisclaimer(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'rgba(212,175,55,0.38)', fontWeight:600, textDecoration:'underline', fontFamily:'Poppins,sans-serif' }}>📋 Beta Disclaimer & Legal Notice</button>
+              <button onClick={()=>setShowDisclaimer(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'#6b7280', fontWeight:600, textDecoration:'underline', fontFamily:'Poppins,sans-serif' }}>📋 Beta Disclaimer & Legal Notice</button>
             </div>
           </div>
 
           {/* Security badges — compact */}
-          <div style={{ padding:'10px 16px 14px', borderTop:'1px solid rgba(255,255,255,0.05)', background:'rgba(0,0,0,0.1)' }}>
+          <div style={{ padding:'10px 16px 14px', borderTop:'1px solid rgba(209,213,219,0.7)', background:'rgba(255,255,255,0.55)' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginBottom:9 }}>
               <div style={{ height:1, flex:1, background:'rgba(212,175,55,0.12)' }} />
-              <p style={{ fontSize:8, fontWeight:800, color:'rgba(212,175,55,0.5)', textTransform:'uppercase', letterSpacing:'0.14em', margin:0, whiteSpace:'nowrap' }}>🔐 Security</p>
+              <p style={{ fontSize:8, fontWeight:800, color:'#b45309', textTransform:'uppercase', letterSpacing:'0.14em', margin:0, whiteSpace:'nowrap' }}>🔐 Security</p>
               <div style={{ height:1, flex:1, background:'rgba(212,175,55,0.12)' }} />
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:5, marginBottom:8 }}>
@@ -432,10 +335,10 @@ export default function Login({ onLogin }) {
                 {icon:'🚫',label:'Zero Ads',sub:'No Data'},
                 {icon:'👁️',label:'Privacy',sub:'No Track'},
               ].map((b,i)=>(
-                <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'7px 3px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:9 }}>
+                <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'7px 3px', background:'rgba(255,255,255,0.8)', border:'1px solid #e5e7eb', borderRadius:9 }}>
                   <span style={{ fontSize:15 }}>{b.icon}</span>
-                  <p style={{ fontSize:8, fontWeight:700, color:'rgba(255,255,255,0.6)', margin:0, textAlign:'center' }}>{b.label}</p>
-                  <p style={{ fontSize:6, color:'rgba(255,255,255,0.3)', margin:0 }}>{b.sub}</p>
+                  <p style={{ fontSize:8, fontWeight:700, color:'#374151', margin:0, textAlign:'center' }}>{b.label}</p>
+                  <p style={{ fontSize:6, color:'#9ca3af', margin:0 }}>{b.sub}</p>
                 </div>
               ))}
             </div>
@@ -445,9 +348,9 @@ export default function Login({ onLogin }) {
               <div style={{ width:30, height:30, borderRadius:'50%', background:'linear-gradient(135deg,#d4af37,#b8860b)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color:'#fff', flexShrink:0, fontFamily:'Syne,sans-serif' }}>A</div>
               <div>
                 <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:12, color:'#d4af37', margin:0 }}>Aswin C R</p>
-                <p style={{ fontSize:8, color:'rgba(255,255,255,0.3)', margin:0 }}>Founder · Full Stack Developer · UI/UX Designer</p>
+                <p style={{ fontSize:8, color:'#6b7280', margin:0 }}>Founder · Full Stack Developer · UI/UX Designer</p>
               </div>
-              <p style={{ fontSize:8, color:'rgba(255,255,255,0.15)', margin:'0 0 0 auto', fontFamily:'Poppins,sans-serif', whiteSpace:'nowrap' }}>© 2026</p>
+              <p style={{ fontSize:8, color:'#9ca3af', margin:'0 0 0 auto', fontFamily:'Poppins,sans-serif', whiteSpace:'nowrap' }}>© 2026</p>
             </div>
           </div>
         </div>
