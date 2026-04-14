@@ -49,7 +49,7 @@ function NeuCard({ children, style = {}, accent, onClick }) {
         boxShadow: pressed
           ? 'inset 2px 2px 6px rgba(0,0,0,0.1), inset -1px -1px 4px rgba(255,255,255,0.8)'
           : '5px 5px 14px rgba(0,0,0,0.08), -3px -3px 8px rgba(255,255,255,0.9), inset 0 1px 0 rgba(255,255,255,0.8)',
-        padding: 14, marginBottom: 10,
+        padding: 14, marginBottom: 14,
         transition: 'box-shadow 0.15s',
         cursor: onClick ? 'pointer' : 'default',
         ...style,
@@ -62,7 +62,7 @@ function NeuCard({ children, style = {}, accent, onClick }) {
 /* ── Section header ── */
 function SectionHeader({ title, right, accent = '#7c3aed' }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <div style={{ width:3, height:16, borderRadius:2, background:`linear-gradient(to bottom,${accent},${accent}50)` }} />
         <p style={{ fontSize:12, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.12em', margin:0, fontFamily:'Poppins,sans-serif' }}>{title}</p>
@@ -247,13 +247,13 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       .act-row:hover { background:linear-gradient(145deg,#f9f9f9,#f0f0f0) !important; }
     `}</style>
 
-    <div className="home-root" style={{ maxWidth:520, margin:'0 auto', paddingBottom:16, background:'transparent', minHeight:'100vh' }}>
+    <div className="home-root" style={{ maxWidth:760, margin:'0 auto', paddingBottom:24, background:'transparent', minHeight:'100vh', width:'100%' }}>
 
       {/* ══════════════════════════════════
           1. TOP HEADER
       ══════════════════════════════════ */}
-      <div style={{ padding:'8px 10px 0', animation:'fadeIn 0.4s ease-out both' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+      <div style={{ padding:'10px 8px 0', animation:'fadeIn 0.4s ease-out both' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
           {/* Logo + brand */}
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <div style={{ position:'relative' }}>
@@ -275,13 +275,13 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
       </div>
 
-      <div style={{ padding:'0 10px' }}>
+      <div style={{ padding:'0 8px' }}>
 
       {/* ══════════════════════════════════
           2. WELCOME + DASHBOARD CARD
       ══════════════════════════════════ */}
       <div style={{
-        borderRadius:20, marginBottom:10, overflow:'hidden',
+        borderRadius:20, marginBottom:14, overflow:'hidden',
         background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 45%,#f2f2f2 100%)',
         border:'1.5px solid rgba(255,255,255,0.95)',
         boxShadow:'6px 6px 18px rgba(0,0,0,0.09),-4px -4px 12px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.9)',

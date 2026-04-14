@@ -365,7 +365,7 @@ export default function Ledger({ currentUser }) {
       @media(max-width:640px){ .ledger-desk-add{display:none!important;} }
     `}</style>
 
-    <div className="ledger-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:100, background:'transparent' }}>
+    <div className="ledger-root" style={{ maxWidth:1040, margin:'0 auto', padding:'0 8px 100px', background:'transparent', width:'100%' }}>
 
       {/* ── FLOATING ADD BUTTON ── */}
       <div style={{ position:'fixed', bottom:90, right:18, zIndex:300 }}>
@@ -383,7 +383,7 @@ export default function Ledger({ currentUser }) {
       </div>
 
       {/* ── HEADER ── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, animation:'slideUp 0.4s ease-out both' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, animation:'slideUp 0.4s ease-out both' }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <img src="/logo.jpg" alt="ACR MAX" style={{ width:42, height:42, borderRadius:'50%', objectFit:'cover', border:'2px solid #e2e8f0', boxShadow:'3px 3px 8px rgba(0,0,0,0.1), -2px -2px 5px rgba(255,255,255,0.9)', flexShrink:0 }} />
           <div>
@@ -401,7 +401,7 @@ export default function Ledger({ currentUser }) {
       </div>
 
       {/* ── BALANCE STRIP — neumorphic cards ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:16, animation:'slideUp 0.4s ease-out 0.05s both' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:20, animation:'slideUp 0.4s ease-out 0.05s both' }}>
         {[
           { label:'Will Receive', value:fmt(totalLent),   color:'#16a34a', accent:'#bbf7d0' },
           { label:'Will Pay',     value:fmt(totalBorrowed),color:'#dc2626', accent:'#fca5a5' },
@@ -424,7 +424,7 @@ export default function Ledger({ currentUser }) {
 
       {/* ── ALERTS ── */}
       {(overdue.length > 0 || dueToday.length > 0) && (
-        <div style={{ borderRadius:14, padding:'12px 16px', marginBottom:12, background:'linear-gradient(145deg,#fff1f2,#fee2e2)', border:'1.5px solid #fca5a5', boxShadow:'3px 3px 8px rgba(220,38,38,0.1), -2px -2px 5px rgba(255,255,255,0.9)', animation:'slideUp 0.4s ease-out 0.1s both' }}>
+        <div style={{ borderRadius:14, padding:'12px 16px', marginBottom:16, background:'linear-gradient(145deg,#fff1f2,#fee2e2)', border:'1.5px solid #fca5a5', boxShadow:'3px 3px 8px rgba(220,38,38,0.1), -2px -2px 5px rgba(255,255,255,0.9)', animation:'slideUp 0.4s ease-out 0.1s both' }}>
           {overdue.length > 0 && (
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:dueToday.length?6:0 }}>
               <span style={{ fontSize:15 }}>🚨</span>
@@ -441,14 +441,14 @@ export default function Ledger({ currentUser }) {
       )}
 
       {dueSoon.length > 0 && (
-        <div style={{ borderRadius:14, padding:'10px 14px', marginBottom:12, background:'linear-gradient(145deg,#fffbeb,#fef9c3)', border:'1.5px solid #fde68a', boxShadow:'3px 3px 8px rgba(0,0,0,0.07), -2px -2px 5px rgba(255,255,255,0.9)', display:'flex', alignItems:'center', gap:8, animation:'slideUp 0.4s ease-out 0.15s both' }}>
+        <div style={{ borderRadius:14, padding:'10px 14px', marginBottom:16, background:'linear-gradient(145deg,#fffbeb,#fef9c3)', border:'1.5px solid #fde68a', boxShadow:'3px 3px 8px rgba(0,0,0,0.07), -2px -2px 5px rgba(255,255,255,0.9)', display:'flex', alignItems:'center', gap:8, animation:'slideUp 0.4s ease-out 0.15s both' }}>
           <span style={{ fontSize:15 }}>⏰</span>
           <p style={{ fontSize:12, color:'#ca8a04', fontWeight:600, margin:0, fontFamily:'Poppins,sans-serif' }}>{dueSoon.length} due within 7 days — {dueSoon.map(e=>`${e.person} (${DAYS_LEFT(e.dueDate)}d)`).join(', ')}</p>
         </div>
       )}
 
       {/* ── FILTER TABS ── */}
-      <div style={{ display:'flex', gap:7, marginBottom:14, overflowX:'auto', paddingBottom:4, scrollbarWidth:'none', animation:'slideUp 0.4s ease-out 0.2s both' }}>
+      <div style={{ display:'flex', gap:8, marginBottom:18, overflowX:'auto', paddingBottom:4, scrollbarWidth:'none', animation:'slideUp 0.4s ease-out 0.2s both' }}>
         {FILTERS.map(f => (
           <button key={f.id} className="ledger-filter-btn" onClick={() => setFilter(f.id)} style={{
             padding:'9px 15px', borderRadius:20, fontWeight:700, fontSize:12,
@@ -468,7 +468,7 @@ export default function Ledger({ currentUser }) {
       </div>
 
       {/* ── SEARCH + SORT ── */}
-      <div style={{ display:'flex', gap:10, marginBottom:16, animation:'slideUp 0.4s ease-out 0.25s both' }}>
+      <div style={{ display:'flex', gap:12, marginBottom:20, animation:'slideUp 0.4s ease-out 0.25s both' }}>
         <div style={{ position:'relative', flex:1 }}>
           <span style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', fontSize:13, color:'#9ca3af', pointerEvents:'none' }}>🔍</span>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search person or note…"
@@ -505,7 +505,7 @@ export default function Ledger({ currentUser }) {
           )}
         </div>
       ) : (
-        <div>
+        <div style={{ paddingTop: 2 }}>
           {visible.map((entry,i) => (
             <div key={entry.id} style={{ animationDelay:`${i*40}ms` }}>
               <EntryCard entry={entry} onSettle={handleSettle} onDelete={handleDelete} onEdit={handleEdit} />
