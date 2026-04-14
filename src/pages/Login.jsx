@@ -20,8 +20,13 @@ function GalaxyField() {
 }
 
 /* ── Disclaimer Modal ── */
-function DisclaimerModal({ onClose }) {
-  const [read, setRead] = useState(false)
+function DisclaimerModal({ onClose, onAgree }) {
+  const [hasAccepted, setHasAccepted] = useState(false)
+
+  useEffect(() => {
+    setHasAccepted(false)
+  }, [])
+
   return (
     <div style={{ position:'fixed', inset:0, zIndex:300, background:'rgba(0,0,0,0.88)', backdropFilter:'blur(14px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
@@ -30,8 +35,7 @@ function DisclaimerModal({ onClose }) {
           <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, color:'#d4af37', fontSize:14, margin:0 }}>📋 Beta Disclaimer & Legal Notice</p>
           <button onClick={onClose} style={{ background:'none', border:'none', color:'#9ca3af', fontSize:18, cursor:'pointer' }}>✕</button>
         </div>
-        {!read && <p style={{ fontSize:10, color:'rgba(212,175,55,0.45)', padding:'6px 18px 0', fontWeight:600 }}>📜 Scroll to bottom to acknowledge</p>}
-        <div onScroll={e=>{const el=e.target;if(el.scrollTop+el.clientHeight>=el.scrollHeight-10)setRead(true)}} style={{ flex:1, overflowY:'auto', padding:'12px 18px' }}>
+        <div style={{ flex:1, maxHeight:'60vh', overflowY:'auto', padding:'12px 18px' }}>
           {[["Beta Software Notice","ACR MAX is currently in Beta 1.0. Features may be incomplete or unstable."],["Data Privacy","All data is encrypted and stored on Google Firebase. We do not sell or share your personal data."],["Security","Industry-standard AES-256 encryption. We are not responsible for unauthorised access due to weak passwords."],["Intellectual Property","All content, design, and code © 2026 Aswin C R. Unauthorised reproduction strictly prohibited."],["Limitation of Liability","ACR MAX is a personal finance tool. We are not liable for financial decisions made based on app data."],["Usage Agreement","By using ACR MAX you agree to these terms and our Privacy Policy."]].map(([t,d],i)=>(
             <div key={i} style={{ marginBottom:14 }}>
               <p style={{ fontWeight:700, color:'#d4af37', fontSize:11, marginBottom:4 }}>{i+1}. {t}</p>
@@ -39,9 +43,20 @@ function DisclaimerModal({ onClose }) {
             </div>
           ))}
         </div>
+        <label style={{ display:'flex', alignItems:'center', gap:8, padding:'0 18px 12px', fontFamily:'Poppins,sans-serif', cursor:'pointer' }}>
+          <input
+            type="checkbox"
+            checked={hasAccepted}
+            onChange={(e) => setHasAccepted(e.target.checked)}
+            style={{ accentColor:'#d4af37', cursor:'pointer' }}
+          />
+          <span style={{ fontSize:12, color:'#d1d5db', lineHeight:1.5 }}>
+            I have read and agree to the Beta Disclaimer & Legal Notice
+          </span>
+        </label>
         <div style={{ padding:'10px 18px', borderTop:'1px solid rgba(255,255,255,0.05)', flexShrink:0, display:'flex', gap:8 }}>
           <button onClick={onClose} style={{ flex:1, padding:'10px', borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', color:'#d1d5db', fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif', fontSize:12 }}>Close</button>
-          <button onClick={onClose} disabled={!read} className={read?'login-btn':''} style={{ flex:2, padding:'10px', borderRadius:10, border:'none', background:read?undefined:'rgba(212,175,55,0.1)', color:read?'#0a0c14':'rgba(212,175,55,0.3)', fontWeight:800, cursor:read?'pointer':'not-allowed', fontFamily:'Syne,sans-serif', fontSize:12 }}>{read?'✓ Acknowledged':'📜 Scroll first'}</button>
+          <button onClick={onAgree} disabled={!hasAccepted} className={hasAccepted?'login-btn':''} style={{ flex:2, padding:'10px', borderRadius:10, border:'none', background:hasAccepted?undefined:'rgba(212,175,55,0.1)', color:hasAccepted?'#0a0c14':'rgba(212,175,55,0.3)', opacity:hasAccepted?1:0.5, cursor:hasAccepted?'pointer':'not-allowed', fontFamily:'Syne,sans-serif', fontSize:12, transform:hasAccepted?'scale(1)':'none' }}>Agree</button>
         </div>
       </div>
     </div>
@@ -262,11 +277,25 @@ function ForgotForm({ onGoLogin }) {
 export default function Login({ onLogin }) {
   const [view, setView] = useState('login')
   const [showDisclaimer, setShowDisclaimer] = useState(false)
+  const [pendingCreateAction, setPendingCreateAction] = useState(false)
 
   useEffect(() => { ensureAdminExists() }, [])
 
   const handleLogin = (user) => onLogin(user)
   const handleSignup = (user) => onLogin(user)
+  const openCreateDisclaimer = () => {
+    setPendingCreateAction(true)
+    setShowDisclaimer(true)
+  }
+  const closeDisclaimer = () => {
+    setShowDisclaimer(false)
+    setPendingCreateAction(false)
+  }
+  const handleDisclaimerAgree = () => {
+    setShowDisclaimer(false)
+    if (pendingCreateAction) setView('signup')
+    setPendingCreateAction(false)
+  }
 
   return (
     <>
@@ -310,7 +339,7 @@ export default function Login({ onLogin }) {
           <div style={{ height:2, background:'linear-gradient(90deg,transparent,#d4af37,#f4d03f,#d4af37,transparent)' }} />
 
           <div style={{ padding: view==='signup'?'16px 20px 12px':'20px 22px 16px' }}>
-            {view==='login'  && <LoginForm  onLogin={handleLogin} onGoSignup={()=>setView('signup')} onGoForgot={()=>setView('forgot')} />}
+            {view==='login'  && <LoginForm  onLogin={handleLogin} onGoSignup={openCreateDisclaimer} onGoForgot={()=>setView('forgot')} />}
             {view==='signup' && <SignupForm  onGoLogin={()=>setView('login')} onSignupSuccess={handleSignup} />}
             {view==='forgot' && <ForgotForm  onGoLogin={()=>setView('login')} />}
 
@@ -357,7 +386,7 @@ export default function Login({ onLogin }) {
       </div>
     </div>
 
-    {showDisclaimer && <DisclaimerModal onClose={()=>setShowDisclaimer(false)} />}
+    {showDisclaimer && <DisclaimerModal onClose={closeDisclaimer} onAgree={handleDisclaimerAgree} />}
     </>
   )
 }

@@ -7,6 +7,7 @@ import Profile from './pages/Profile'
 import News from './pages/News'
 import Ledger from './pages/Ledger'
 import Login from './pages/Login'
+import Coins from './pages/coins'
 import { useState, useEffect, useRef } from 'react'
 import { saveUserLogs, loadUserLogs, subscribeUserLogs } from './firebase'
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -123,6 +124,8 @@ function App() {
 function AppShell({ currentUser, onLogout }) {
   const [activeTab, setActiveTab] = useState('home')
   const [prevTab, setPrevTab] = useState(null)
+  const [coins, setCoins] = useState(500)
+  const [coinLogs, setCoinLogs] = useState([])
   const [expenseTab, setExpenseTab] = useState('daily')
   const [cricketTab, setCricketTab] = useState('today')
   const mainContentRef = useRef(null)
@@ -445,7 +448,7 @@ function AppShell({ currentUser, onLogout }) {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} />
+        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} onCoinsChange={setCoins} coinLogs={coinLogs} setCoinLogs={setCoinLogs} />
       case 'expense':
         return (
           <Expense
@@ -471,12 +474,14 @@ function AppShell({ currentUser, onLogout }) {
         return <News />
       case 'ledger':
         return <Ledger currentUser={currentUser} />
+      case 'coins':
+        return <Coins coins={coins} coinLogs={coinLogs} setActiveTab={setActiveTab} />
       case 'chat':
         return renderPlaceholder('🤖', 'AI Quick Chats', 'Your personal assistant connecting your app data.')
       case 'profile':
         return <Profile logs={logs} setLogs={setLogs} overallTotal={overallTotal} summaryData={summaryData} currentUser={currentUser} onLogout={onLogout} />
       default:
-        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} />
+        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} onCoinsChange={setCoins} coinLogs={coinLogs} setCoinLogs={setCoinLogs} />
     }
   }
 
