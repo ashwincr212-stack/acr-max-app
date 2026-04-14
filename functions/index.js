@@ -717,3 +717,12 @@ exports.refreshIPL = onRequest(
     res.status(hasError ? 207 : 200).json({ ok: !hasError, type, results, time: new Date().toISOString() });
   }
 );
+
+// ── Panchang (Daily Astro Feature) ─────────────────────────────
+const {
+  fetchDailyPanchang,
+  manualFetchPanchang,
+} = require("./panchangFunction");
+
+exports.fetchDailyPanchang = fetchDailyPanchang;
+exports.manualFetchPanchang = manualFetchPanchang;
