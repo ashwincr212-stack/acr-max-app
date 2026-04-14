@@ -266,6 +266,107 @@ function normalizeMatch(m) {
    CORE FUNCTIONS
 ══════════════════════════════════════════════════════ */
 
+
+/* ══════════════════════════════════════════════════════
+   PREDICTION RESOLUTION
+   Called after match fetch — resolves pending predictions
+   for completed matches, updates wallets atomically
+══════════════════════════════════════════════════════ */
+async function resolvePredictions(completedMatches) {
+  if (!completedMatches || completedMatches.length === 0) return;
+
+  for (const match of completedMatches) {
+    // Only process truly completed matches with a known result
+    if (match.status !== "completed") continue;
+
+    const matchId = match.id;
+
+    // Extract winner from result string e.g. "Mumbai Indians won by 6 wickets"
+    // or from team names compared to result field
+    let winner = null;
+    if (match.result) {
+      // Try: "TeamName won by ..."
+      const winMatch = match.result.match(/^(.+?)\s+won\s+by/i);
+      if (winMatch) {
+        winner = normalizeTeamName(winMatch[1].trim());
+      }
+    }
+    // Fallback: if result says "tied" or no winner extractable, skip
+    if (!winner) {
+      console.log(`[Predictions] No winner extractable for match ${matchId}, result: "${match.result}" — skipping`);
+      continue;
+    }
+
+    console.log("Resolving match:", matchId);
+    console.log("Winner:", winner);
+
+    // Query pending predictions for this match
+    let predictions;
+    try {
+      const snap = await db.collection("ipl_predictions")
+        .where("matchId", "==", matchId)
+        .where("status", "==", "pending")
+        .get();
+
+      predictions = snap.docs;
+    } catch(e) {
+      console.error(`[Predictions] Query failed for match ${matchId}:`, e.message);
+      continue;
+    }
+
+    console.log("Predictions found:", predictions.length);
+    if (predictions.length === 0) continue;
+
+    // Process each prediction using batched writes (max 500 per batch)
+    const BATCH_SIZE = 450;
+    let batch = db.batch();
+    let batchCount = 0;
+
+    for (const predDoc of predictions) {
+      const pred = predDoc.data();
+      const isWin = normalizeTeamName(pred.predictedWinner) === winner;
+      const coinsWon = isWin ? (pred.coinsWagered || 0) * 2 : 0;
+
+      // Update prediction document
+      batch.update(predDoc.ref, {
+        status:   isWin ? "won" : "lost",
+        coinsWon: coinsWon,
+      });
+
+      // Update user wallet
+      const walletRef = db.collection("ipl_wallets").doc(pred.userId);
+      if (isWin) {
+        batch.update(walletRef, {
+          coins: FieldValue.increment(coinsWon),
+          wins:  FieldValue.increment(1),
+        });
+      } else {
+        batch.update(walletRef, {
+          losses: FieldValue.increment(1),
+        });
+      }
+
+      batchCount++;
+      // Commit and start new batch if approaching limit
+      if (batchCount >= BATCH_SIZE) {
+        try { await batch.commit(); } catch(e) { console.error("[Predictions] Batch commit error:", e.message); }
+        batch = db.batch();
+        batchCount = 0;
+      }
+    }
+
+    // Commit remaining writes
+    if (batchCount > 0) {
+      try {
+        await batch.commit();
+        console.log(`[Predictions] Resolved ${predictions.length} predictions for match ${matchId} | winner: ${winner}`);
+      } catch(e) {
+        console.error(`[Predictions] Final batch commit error for match ${matchId}:`, e.message);
+      }
+    }
+  }
+}
+
 async function runFetchMatches() {
   console.log("[IPL] runFetchMatches — fetching from Sportmonks");
   if (!SPORTMONKS_TOKEN.value()) throw new Error("SPORTMONKS_API_TOKEN not set");
@@ -384,6 +485,14 @@ async function runFetchMatches() {
 
   const summary = { today: today.length, upcoming: upcoming.length, results: results.length };
   console.log("[IPL] Matches saved:", summary);
+
+  // Resolve pending predictions for completed matches
+  try {
+    await resolvePredictions(results);
+  } catch(e) {
+    console.error("[Predictions] Resolution error (non-fatal):", e.message);
+  }
+
   return summary;
 }
 
