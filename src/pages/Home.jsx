@@ -356,7 +356,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       <div className="widget-grid" style={{ animation:'slideUp 0.4s ease-out 0.1s both' }}>
         {/* Mystery Box card */}
         <div className="widget-slot">
-          <SkillMachineCard userId={currentUser?.username} onClick={()=>setSkillOpen(true)} />
+          <SkillMachineCard userId={currentUser?.username} onOpen={()=>setSkillOpen(true)} />
         </div>
 
         {/* Surprises card — same size as SkillMachineCard */}
