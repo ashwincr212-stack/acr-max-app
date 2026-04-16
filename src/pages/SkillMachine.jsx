@@ -354,7 +354,7 @@ function ChoiceDisplay({ options, answer, onAnswer, disabled, color }) {
   return (
     <div style={{ display:'grid', gridTemplateColumns: options.length===2?'1fr 1fr':'1fr 1fr', gap:10, width:'100%' }}>
       {options.map((opt,i)=>(
-        <button key={i} onClick={()=>handleTap(opt,i)} disabled={disabled||selected!==null}
+        <button key={i} className="sm-pressable" onClick={()=>handleTap(opt,i)} disabled={disabled||selected!==null}
           style={{
             padding:'18px 8px', borderRadius:16, border:'2.5px solid',
             borderColor: selected===null ? `${color}40` : selected===i ? (String(opt)===String(answer)?'#22c55e':'#ef4444') : (String(opt)===String(answer)&&selected!==null?'#22c55e':'rgba(255,255,255,0.08)'),
@@ -421,7 +421,7 @@ function GridDisplay({ puzzle, onAnswer, disabled }) {
         const isTapped = tapped&&tapped[0]===r&&tapped[1]===c
         const isAnswer = Array.isArray(answer)&&answer[0]===r&&answer[1]===c
         return (
-          <button key={`${r}-${c}`} onClick={()=>handleTap(r,c)} disabled={disabled||!!tapped}
+          <button key={`${r}-${c}`} className="sm-pressable" onClick={()=>handleTap(r,c)} disabled={disabled||!!tapped}
             style={{
               height:60, borderRadius:12, border:'2px solid',
               borderColor: isTapped?(isAnswer?'#22c55e':'#ef4444'):isCell?'rgba(245,158,11,0.6)':'rgba(255,255,255,0.08)',
@@ -441,7 +441,7 @@ function ReactionDisplay({ puzzle, onAnswer, disabled }) {
   return (
     <div style={{ display:'grid', gridTemplateColumns:`repeat(${Math.ceil(Math.sqrt(options.length))},1fr)`, gap:10, width:'100%', maxWidth:280, margin:'0 auto' }}>
       {options.map((item,i)=>(
-        <button key={i} onClick={()=>{if(disabled||tapped!==null)return;setTapped(i);onAnswer(String(i)===String(answer),i)}}
+        <button key={i} className="sm-pressable" onClick={()=>{if(disabled||tapped!==null)return;setTapped(i);onAnswer(String(i)===String(answer),i)}}
           disabled={disabled||tapped!==null}
           style={{
             height:64, borderRadius:16, fontSize:28,
@@ -516,7 +516,7 @@ function GridTapDisplay({ puzzle, onAnswer, disabled }) {
           const isFlashing=phase==='showing'&&flashIdx<seq.length&&seq[flashIdx]===i
           const isInUserSeq=userSeq.includes(i)
           return (
-            <button key={i} onClick={()=>handleTap(i)} disabled={phase!=='recall'||disabled}
+            <button key={i} className="sm-pressable" onClick={()=>handleTap(i)} disabled={phase!=='recall'||disabled}
               style={{
                 height:55,borderRadius:12,border:'2px solid',
                 borderColor:isFlashing?'#f97316':isInUserSeq?'#22c55e':'rgba(255,255,255,0.1)',
@@ -552,7 +552,7 @@ function RotateDisplay({ puzzle, onAnswer, disabled }) {
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
         {options.map((opt,i)=>(
-          <button key={i} onClick={()=>{if(disabled||selected!==null)return;setSelected(i);onAnswer(i===answer,i)}}
+          <button key={i} className="sm-pressable" onClick={()=>{if(disabled||selected!==null)return;setSelected(i);onAnswer(i===answer,i)}}
             disabled={disabled||selected!==null}
             style={{
               padding:'10px',borderRadius:14,border:'2px solid',
@@ -582,11 +582,12 @@ function PuzzleDisplay({ puzzle, onAnswer, disabled }) {
 }
 
 /* ──────────────── TIMER BAR ──────────────── */
-function TimerBar({ durationMs, onExpire, key:k }) {
+function TimerBar({ durationMs, onExpire, active = true, key:k }) {
   const [pct, setPct] = useState(100)
   const startRef = useRef(Date.now())
   const rafRef = useRef(null)
   useEffect(()=>{
+    if(!active) return
     startRef.current = Date.now()
     const tick=()=>{
       const elapsed=Date.now()-startRef.current
@@ -597,11 +598,11 @@ function TimerBar({ durationMs, onExpire, key:k }) {
     }
     rafRef.current=requestAnimationFrame(tick)
     return()=>cancelAnimationFrame(rafRef.current)
-  },[durationMs,onExpire])
+  },[durationMs,onExpire,active])
   const barColor = pct>60?'#22c55e':pct>30?'#f59e0b':'#ef4444'
   return (
-    <div style={{height:5,background:'rgba(255,255,255,0.08)',borderRadius:4,overflow:'hidden',marginBottom:0}}>
-      <div style={{height:'100%',width:`${pct}%`,background:barColor,borderRadius:4,transition:'background 0.3s',boxShadow:`0 0 8px ${barColor}60`}}/>
+    <div style={{height:5,background:'rgba(255,255,255,0.08)',borderRadius:4,overflow:'hidden',marginBottom:0,boxShadow:'0 0 12px rgba(99,102,241,0.18)'}}>
+      <div style={{height:'100%',width:`${pct}%`,background:barColor,borderRadius:4,transition:'width 0.16s linear, background 0.3s',boxShadow:`0 0 10px ${barColor}80`}}/>
     </div>
   )
 }
@@ -614,19 +615,28 @@ function formatAnswer(answer) {
 }
 
 function FeedbackOverlay({ correct, coins, streak, nearMiss, extraMsg, correctAnswer, onDone }) {
-  useEffect(()=>{const tid=setTimeout(onDone,850);return()=>clearTimeout(tid)},[onDone])
+  const tone = correct ? '#22c55e' : nearMiss ? '#fbbf24' : '#ef4444'
+  const bg = correct ? 'rgba(34,197,94,0.18)' : nearMiss ? 'rgba(245,158,11,0.18)' : 'rgba(239,68,68,0.18)'
+  const message = correct ? 'Correct! 🔥' : nearMiss ? 'Almost! 🔥' : 'Wrong!'
   return (
     <div style={{
       position:'absolute', inset:0, borderRadius:24, zIndex:10,
-      background: correct?'rgba(34,197,94,0.15)':nearMiss?'rgba(245,158,11,0.15)':'rgba(239,68,68,0.15)',
-      border:`2px solid ${correct?'#22c55e':nearMiss?'#fbbf24':'#ef4444'}`,
+      background:bg,
+      border:`2px solid ${tone}`,
       display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-      animation: correct?'smPop 0.4s ease-out':'smShake 0.35s ease-out',
+      padding:20,
+      boxShadow:`0 18px 60px ${tone}30, inset 0 1px 0 rgba(255,255,255,0.1)`,
+      animation:'smFeedbackIn 0.28s ease-out both',
     }}>
       <div style={{fontSize:52, marginBottom:4}}>{correct?'✅':nearMiss?'⚠️':'❌'}</div>
       {correct&&<p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:28,color:'#34D399',margin:0}}>+{coins} 💰</p>}
       {correct&&streak>=3&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:14,color:'#fbbf24',margin:'4px 0 0'}}>🔥 x{streak} Streak!</p>}
-      {!correct&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:nearMiss?'#fbbf24':'#f87171',margin:0}}>Wrong! Correct: {correctAnswer}</p>}
+      {correct&&<p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:26,color:tone,margin:'0 0 6px',textAlign:'center'}}>{message}</p>}
+      {!correct&&<p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:26,color:tone,margin:'0 0 6px',textAlign:'center'}}>{message}</p>}
+      {!correct&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:16,color:'#fff',margin:'2px 0 0',textAlign:'center',lineHeight:1.45}}>Wrong! Correct Answer: <span style={{color:tone}}>{correctAnswer}</span></p>}
+      <button className="sm-pressable" onClick={onDone} style={{marginTop:20,padding:'12px 22px',borderRadius:14,border:`1.5px solid ${tone}`,background:`linear-gradient(135deg,${tone},${tone}cc)`,color:'#fff',fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:15,cursor:'pointer',boxShadow:`0 8px 26px ${tone}45`,transition:'transform 0.16s ease, box-shadow 0.16s ease'}}>
+        Next
+      </button>
       {extraMsg&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:13,color:'#a5b4fc',margin:'4px 0 0'}}>{extraMsg}</p>}
       {nearMiss&&!correct&&coins>0&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:13,color:'#34D399',margin:'4px 0 0'}}>+{coins} 💰 Pity</p>}
     </div>
@@ -692,6 +702,8 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
   const responseTimes = useRef([])
   const sessionStartRef = useRef(null)
   const timerRef = useRef(null)
+  const answeredRef = useRef(false)
+  const continuingRef = useRef(false)
 
   const TODAY = () => new Date().toISOString().slice(0,10)
 
@@ -727,6 +739,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     if(isOpen){
       setPhase('loading'); setHistory([]); setPuzzleIdx(0); setStreak(0)
       setBestStreak(0); setSessionCoins(0); setCorrect(0); responseTimes.current=[]
+      answeredRef.current = false; continuingRef.current = false
       setPuzzle(null); setNextPuzzle(null); setFeedback(null)
       loadWallet()
     }
@@ -738,6 +751,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
       const p = generatePuzzle(1, [], 0)
       const np = generatePuzzle(1, [p], 1)
       setPuzzle(p); setNextPuzzle(np)
+      answeredRef.current = false; continuingRef.current = false
       sessionStartRef.current = Date.now()
       if(!dailyDone&&dailyBonus>0) setPhase('bonus')
       else setPhase('playing')
@@ -747,6 +761,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
 
   /* ─── CLAIM BONUS ─── */
   const claimBonus = async () => {
+    answeredRef.current = false; continuingRef.current = false
     setPhase('playing')
     setSessionCoins(s=>s+dailyBonus)
     setTotalCoins(t=>t+dailyBonus)
@@ -762,7 +777,9 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
 
   /* ─── ANSWER HANDLER ─── */
   const handleAnswer = useCallback((isCorrect, userAnswer) => {
-    if(phase!=='playing') return
+    if(phase!=='playing'||answeredRef.current) return
+    answeredRef.current = true
+    continuingRef.current = false
     setPhase('feedback')
     const responseMs = Date.now() - (sessionStartRef.current||Date.now())
     responseTimes.current.push(responseMs)
@@ -828,6 +845,8 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
 
   /* ─── NEXT PUZZLE ─── */
   const advanceToNext = useCallback(()=>{
+    if(continuingRef.current) return
+    continuingRef.current = true
     if(puzzleIdx>=5){
       setPhase('done')
       if(userId){
@@ -855,6 +874,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     const freshPuzzle = generatePuzzle(difficulty, newHistory.slice(-5), puzzleIdx)
     const freshNextPuzzle = generatePuzzle(difficulty, [...newHistory.slice(-4), freshPuzzle], puzzleIdx + 1)
     setFeedback(null)
+    answeredRef.current = false; continuingRef.current = false
     setHistory(newHistory)
     setPuzzle(freshPuzzle)
     setNextPuzzle(freshNextPuzzle)
@@ -867,6 +887,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
   const playAgain = () => {
     setHistory([]); setPuzzleIdx(0); setStreak(0); setBestStreak(0)
     setSessionCoins(0); setCorrect(0); responseTimes.current=[]
+    answeredRef.current = false; continuingRef.current = false
     setDifficulty(1) // Reset difficulty for the new loop
     const p=generatePuzzle(1, [], 0)
     const np=generatePuzzle(1, [p], 1)
@@ -896,6 +917,9 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
       @keyframes smPulse {0%,100%{opacity:1}50%{opacity:0.5}}
       @keyframes smGlow  {0%,100%{box-shadow:0 0 20px rgba(99,102,241,0.3)}50%{box-shadow:0 0 50px rgba(99,102,241,0.7)}}
       @keyframes smStreakPop {0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+      @keyframes smFeedbackIn {from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+      .sm-pressable:active { transform:scale(0.96) !important; }
+      .sm-pressable:hover { box-shadow:0 10px 30px rgba(99,102,241,0.32) !important; }
     `}</style>
 
     {/* Backdrop */}
@@ -941,8 +965,8 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
             <span style={{fontSize:10,color:'rgba(255,255,255,0.3)',fontFamily:'Poppins,sans-serif'}}>{Math.min(puzzleIdx+1,SESSION_LENGTH)}/{SESSION_LENGTH}</span>
             <span style={{fontSize:10,color:'rgba(255,255,255,0.3)',fontFamily:'Poppins,sans-serif'}}>D:{difficulty} · {Math.round(accuracy*100)}%</span>
           </div>
-          <div style={{height:3,background:'rgba(255,255,255,0.06)',borderRadius:3,overflow:'hidden'}}>
-            <div style={{height:'100%',width:`${(Math.min(puzzleIdx,SESSION_LENGTH)/SESSION_LENGTH)*100}%`,background:'linear-gradient(90deg,#6366f1,#8b5cf6)',borderRadius:3,transition:'width 0.3s ease'}}/>
+          <div style={{height:3,background:'rgba(255,255,255,0.06)',borderRadius:3,overflow:'hidden',boxShadow:'0 0 12px rgba(99,102,241,0.16)'}}>
+            <div style={{height:'100%',width:`${(Math.min(puzzleIdx,SESSION_LENGTH)/SESSION_LENGTH)*100}%`,background:'linear-gradient(90deg,#6366f1,#8b5cf6)',borderRadius:3,transition:'width 0.3s ease',boxShadow:'0 0 12px rgba(139,92,246,0.55)'}}/>
           </div>
         </div>
       )}
@@ -976,15 +1000,15 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
 
         {/* PLAYING */}
         {(phase==='playing'||phase==='feedback')&&puzzle&&(
-          <div style={{flex:1,display:'flex',flexDirection:'column',animation:'smSlide 0.2s ease-out'}}>
+          <div style={{flex:1,display:'flex',flexDirection:'column',animation:'smSlide 0.24s ease-out'}}>
 
             {/* Timer */}
             <div style={{marginBottom:12}}>
-              <TimerBar key={timerKey} durationMs={timeLimit} onExpire={handleTimeExpire}/>
+              <TimerBar key={timerKey} durationMs={timeLimit} onExpire={handleTimeExpire} active={phase==='playing'}/>
             </div>
 
             {/* Puzzle card */}
-            <div style={{position:'relative',background:'rgba(255,255,255,0.04)',border:`1.5px solid ${puzzle.engineColor}30`,borderRadius:24,padding:'18px 16px',flex:1,display:'flex',flexDirection:'column',gap:16}}>
+            <div style={{position:'relative',background:'rgba(255,255,255,0.04)',border:`1.5px solid ${puzzle.engineColor}30`,borderRadius:24,padding:'18px 16px',flex:1,display:'flex',flexDirection:'column',gap:16,boxShadow:`0 18px 45px rgba(0,0,0,0.24), 0 0 22px ${puzzle.engineColor}18`,animation:'smSlide 0.28s ease-out both',transition:'box-shadow 0.25s ease, transform 0.2s ease'}}>
               {/* Feedback overlay */}
               {phase==='feedback'&&feedback&&(
                 <FeedbackOverlay 
