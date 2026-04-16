@@ -3,7 +3,7 @@ import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
 import { SkillMachineModal } from './SkillMachine'
 import { db } from '../firebase'
-import { doc, collection, query, orderBy, limit, onSnapshot, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore'
 
 /* ── Greeting ── */
 function useGreeting() {
@@ -115,17 +115,13 @@ function ProgressBar({ pct, color, height = 7 }) {
 /* ════════════════════════════════════════════
    MAIN HOME COMPONENT
 ════════════════════════════════════════════ */
-export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], overallTotal = 0, currentUser, onLogout, onCoinsChange, coinLogs, setCoinLogs }) {
+export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], overallTotal = 0, currentUser, onLogout, coins = 0, coinLogs, setCoinLogs }) {
   const greeting = useGreeting()
   const [time, setTime]           = useState(new Date())
   const [clickedBtn, setClickedBtn] = useState(null)
   const [surprisesOpen, setSurprisesOpen] = useState(false)
   const [iplOpen, setIplOpen] = useState(false)
   const [skillOpen, setSkillOpen] = useState(false)
-  const [coins, setCoins] = useState(null)
-  const [streak, setStreak] = useState(0)
-  const [predictions, setPredictions] = useState(0)
-  const [coinAnim, setCoinAnim] = useState(false)
   const [leaderboard, setLeaderboard] = useState([])
 
   useEffect(() => {
@@ -133,32 +129,10 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
     return () => clearInterval(t)
   }, [])
 
-  // Wallet real-time listener
-  useEffect(() => {
-    const userId = currentUser?.username
-    if (!userId) { setCoins(500); onCoinsChange?.(500); return }
-    const ref = doc(db, 'ipl_wallets', userId)
-    // Create wallet if not exists
-    getDoc(ref).then(snap => {
-      if (!snap.exists()) setDoc(ref, { coins:500, streak:0, predictions:0, wins:0, lastLogin:null, createdAt:serverTimestamp() })
-    }).catch(()=>{})
-    // Real-time listener
-    const unsub = onSnapshot(ref, snap => {
-      if (snap.exists()) {
-        const d = snap.data()
-        setCoins(prev => { if (prev !== null && d.coins > prev) setCoinAnim(true); return d.coins })
-        onCoinsChange?.(d.coins ?? 500)
-        setStreak(d.streak || 0)
-        setPredictions(d.predictions || 0)
-      } else { setCoins(500); onCoinsChange?.(500) }
-    }, () => { setCoins(500); onCoinsChange?.(500) })
-    return () => unsub()
-  }, [currentUser, onCoinsChange])
-
   // Leaderboard — top 5 by coins
   useEffect(() => {
     try {
-      const q = query(collection(db, 'ipl_wallets'), orderBy('coins','desc'), limit(5))
+      const q = query(collection(db, 'acr_users'), orderBy('coins','desc'), limit(5))
       const unsub = onSnapshot(q, snap => {
         setLeaderboard(snap.docs.map((d,i) => ({
           rank: i+1,
@@ -342,7 +316,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             <div onClick={() => setActiveTab('coins')} style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', flexShrink:0, fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:'#b45309', whiteSpace:'nowrap', cursor:'pointer', transition:'transform 0.2s, opacity 0.2s' }}
               onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
-              🪙 {coins === null ? '…' : coins.toLocaleString()}
+              🪙 {Number(coins || 0).toLocaleString()}
             </div>
           </div>
 
@@ -698,10 +672,9 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
       )}
       {/* Mystery Box Modal */}
-      <SkillMachineModal userId={currentUser?.username} isOpen={skillOpen} onClose={()=>setSkillOpen(false)}
+      <SkillMachineModal userId={currentUser?.username} isOpen={skillOpen} onClose={()=>setSkillOpen(false)} coins={coins}
         onReward={(r)=>{
           if(r?.coins>0) {
-            setCoins(c=>(c||500)+r.coins)
             setCoinLogs?.(prev => [
               ...prev,
               {
@@ -713,7 +686,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           }
         }} />
       {/* Surprises Modal */}
-      <SurprisesModal isOpen={surprisesOpen} onClose={()=>setSurprisesOpen(false)} currentUser={currentUser} />
+      <SurprisesModal isOpen={surprisesOpen} onClose={()=>setSurprisesOpen(false)} currentUser={currentUser} coins={coins} />
     </div>
     </>
   )

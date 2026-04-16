@@ -9,7 +9,8 @@ import Ledger from './pages/Ledger'
 import Login from './pages/Login'
 import Coins from './pages/coins'
 import { useState, useEffect, useRef } from 'react'
-import { saveUserLogs, loadUserLogs, subscribeUserLogs } from './firebase'
+import { saveUserLogs, loadUserLogs, subscribeUserLogs, db } from './firebase'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 
@@ -124,11 +125,33 @@ function App() {
 function AppShell({ currentUser, onLogout }) {
   const [activeTab, setActiveTab] = useState('home')
   const [prevTab, setPrevTab] = useState(null)
-  const [coins, setCoins] = useState(500)
+  const [coins, setCoins] = useState(0)
   const [coinLogs, setCoinLogs] = useState([])
   const [expenseTab, setExpenseTab] = useState('daily')
   const [cricketTab, setCricketTab] = useState('today')
   const mainContentRef = useRef(null)
+
+  useEffect(() => {
+    if (!currentUser?.username) return
+
+    const ref = doc(db, 'acr_users', currentUser.username.toLowerCase())
+
+    const unsubscribe = onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        console.log('FIRESTORE COINS:', data.coins)
+        setCoins(data.coins || 0)
+      } else {
+        setCoins(0)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [currentUser.username])
+
+  useEffect(() => {
+    console.log('GLOBAL COINS:', coins)
+  }, [coins])
 
   // Scroll to top on every tab change
   useEffect(() => {
@@ -448,7 +471,7 @@ function AppShell({ currentUser, onLogout }) {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} onCoinsChange={setCoins} coinLogs={coinLogs} setCoinLogs={setCoinLogs} />
+        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} coins={coins} coinLogs={coinLogs} setCoinLogs={setCoinLogs} />
       case 'expense':
         return (
           <Expense
@@ -481,7 +504,7 @@ function AppShell({ currentUser, onLogout }) {
       case 'profile':
         return <Profile logs={logs} setLogs={setLogs} overallTotal={overallTotal} summaryData={summaryData} currentUser={currentUser} onLogout={onLogout} />
       default:
-        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} onCoinsChange={setCoins} coinLogs={coinLogs} setCoinLogs={setCoinLogs} />
+        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} coins={coins} coinLogs={coinLogs} setCoinLogs={setCoinLogs} />
     }
   }
 

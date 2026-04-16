@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { db } from '../firebase'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, increment, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 
 /* ═══════════════════════════════════════════════════════════════════
    ACR MAX — SKILL MACHINE v3  (PREMIUM GAME ENGINE)
@@ -676,7 +676,7 @@ function SessionComplete({ coins, streak, accuracy, bestStreak, onClose, onPlayA
 /* ══════════════════════════════════════════════════════════════════
    MAIN MODAL — GameEngineRunner
 ══════════════════════════════════════════════════════════════════ */
-export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
+export function SkillMachineModal({ userId, isOpen, onClose, onReward, coins: syncedCoins = 0 }) {
   /* ─── Session state ─── */
   const [phase, setPhase]           = useState('loading')   // loading|ready|playing|feedback|done
   const [puzzle, setPuzzle]         = useState(null)
@@ -693,7 +693,6 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
   const [timerKey, setTimerKey]     = useState(0)
 
   /* ─── Firebase / wallet ─── */
-  const [totalCoins, setTotalCoins] = useState(0)
   const [difficulty, setDifficulty] = useState(1)
   const [dailyDone, setDailyDone]   = useState(false)
   const [dailyBonus, setDailyBonus] = useState(0)
@@ -704,6 +703,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
   const timerRef = useRef(null)
   const answeredRef = useRef(false)
   const continuingRef = useRef(false)
+  const totalCoins = Number(syncedCoins || 0)
 
   const TODAY = () => new Date().toISOString().slice(0,10)
 
@@ -712,9 +712,8 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     if(!userId){setLoading(false);return}
     setLoading(true)
     try {
-      const snap = await getDoc(doc(db,'ipl_wallets',userId))
+      const snap = await getDoc(doc(db,'acr_users',userId.toLowerCase()))
       const d = snap.exists()?snap.data():{}
-      setTotalCoins(d.coins||500)
       const sm = d.skillMachine||{}
       const lastDaily = sm.lastDailyReward||''
       const lastWeekly = sm.lastWeeklyReward||''
@@ -764,19 +763,17 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     answeredRef.current = false; continuingRef.current = false
     setPhase('playing')
     setSessionCoins(s=>s+dailyBonus)
-    setTotalCoins(t=>t+dailyBonus)
     if(userId) {
       try {
-        const ref=doc(db,'ipl_wallets',userId)
-        const snap=await getDoc(ref); const d=snap.exists()?snap.data():{}
-        await setDoc(ref,{coins:(d.coins||500)+dailyBonus,'skillMachine.lastDailyReward':TODAY()},{merge:true})
+        const ref=doc(db,'acr_users',userId.toLowerCase())
+        await updateDoc(ref,{coins:increment(dailyBonus),'skillMachine.lastDailyReward':TODAY()})
       } catch(e){console.error('bonus write:',e)}
     }
     onReward?.({coins:dailyBonus,bonus:true})
   }
 
   /* ─── ANSWER HANDLER ─── */
-  const handleAnswer = useCallback((isCorrect, userAnswer) => {
+  const handleAnswer = useCallback(async (isCorrect, userAnswer) => {
     if(phase!=='playing'||answeredRef.current) return
     answeredRef.current = true
     continuingRef.current = false
@@ -831,7 +828,16 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     const newPuzzleIdx = puzzleIdx+1
 
     setStreak(newStreak); setBestStreak(newBestStreak)
-    if(coins > 0){setSessionCoins(s=>s+coins);setTotalCoins(t=>t+coins)}
+    if(coins > 0){
+      setSessionCoins(s=>s+coins)
+      if(userId) {
+        try {
+          await updateDoc(doc(db,'acr_users',userId.toLowerCase()), { coins: increment(coins) })
+        } catch(e) {
+          console.error('SM coin write:', e)
+        }
+      }
+    }
     setCorrect(newCorrect); setPuzzleIdx(newPuzzleIdx)
     
     setFeedback({ correct:isCorrect, coins, nearMiss: isNear, extraMsg, correctAnswer: !isCorrect && puzzle ? formatAnswer(puzzle.answer) : null })
@@ -839,7 +845,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     // Adaptive difficulty update
     const acc = newCorrect/newPuzzleIdx
     setDifficulty(d => calcDifficulty(d, acc, avgMs, newStreak))
-  },[phase,streak,bestStreak,difficulty,correct,puzzleIdx,puzzle])
+  },[phase,streak,bestStreak,difficulty,correct,puzzleIdx,puzzle,userId])
 
   const handleTimeExpire = useCallback(()=>handleAnswer(false, null),[handleAnswer])
 
@@ -853,12 +859,11 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
         const times = responseTimes.current
         const avgMs = times.length?times.reduce((a,b)=>a+b,0)/times.length:4000
         const acc = correct/SESSION_LENGTH
-        const ref=doc(db,'ipl_wallets',userId)
+        const ref=doc(db,'acr_users',userId.toLowerCase())
         getDoc(ref).then(snap=>{
           const d=snap.exists()?snap.data():{}
           const sm=d.skillMachine||{}
           setDoc(ref,{
-            coins: totalCoins,
             'skillMachine.gamesPlayed': (sm.gamesPlayed||0)+1,
             'skillMachine.avgAccuracy': ((sm.avgAccuracy||0.5)*0.7 + acc*0.3),
             'skillMachine.avgResponseTime': ((sm.avgResponseTime||4000)*0.7 + avgMs*0.3),
@@ -881,7 +886,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     setPhase('playing')
     setTimerKey(k=>k+1)
     sessionStartRef.current = Date.now()
-  },[puzzleIdx,history,puzzle,difficulty,userId,correct,totalCoins,bestStreak])
+  },[puzzleIdx,history,puzzle,difficulty,userId,correct,bestStreak])
 
   /* ─── PLAY AGAIN ─── */
   const playAgain = () => {
