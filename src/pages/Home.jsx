@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
-import { SkillMachineModal, SkillMachineCard } from './SkillMachine'
+import { SkillMachineModal } from './SkillMachine'
 import { db } from '../firebase'
 import { doc, collection, query, orderBy, limit, onSnapshot, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore'
 
@@ -73,6 +73,33 @@ function SectionHeader({ title, right, accent = '#7c3aed' }) {
 }
 
 /* ── Progress bar ── */
+function HomeSkillCard({ onOpen }) {
+  return (
+    <button className="home-skill-card" onClick={onOpen}
+      style={{
+        width:'100%', padding:'10px 12px', borderRadius:14, border:'1.5px solid rgba(99,102,241,0.4)',
+        background:'linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1),rgba(6,9,15,0.9))',
+        boxShadow:'4px 4px 12px rgba(99,102,241,0.12),-3px -3px 8px rgba(255,255,255,0.02)',
+        cursor:'pointer', textAlign:'left', transition:'all 0.2s', position:'relative', overflow:'hidden',
+      }}
+      onMouseEnter={e=>e.currentTarget.style.transform='scale(1.02)'}
+      onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,minWidth:0}}>
+          <span style={{fontSize:20,flexShrink:0}}>⚡</span>
+          <div style={{minWidth:0}}>
+            <p style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:13,color:'#fff',margin:0,whiteSpace:'nowrap'}}>Skill</p>
+            <p style={{fontSize:9,color:'rgba(165,180,252,0.7)',margin:0,fontFamily:'Poppins,sans-serif',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>10 engines · Puzzles</p>
+          </div>
+        </div>
+        <div style={{padding:'5px 10px',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',borderRadius:14,boxShadow:'0 4px 14px rgba(99,102,241,0.4)',flexShrink:0}}>
+          <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:11,color:'#fff'}}>Play</span>
+        </div>
+      </div>
+    </button>
+  )
+}
+
 function ProgressBar({ pct, color, height = 7 }) {
   const [w, setW] = useState(0)
   useEffect(() => { const t = setTimeout(() => setW(pct), 300); return () => clearTimeout(t) }, [pct])
@@ -249,6 +276,14 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       .widget-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:16px; margin-bottom:8px; align-items:stretch; }
       .widget-slot { min-width:0; display:flex; }
       .widget-slot > button { width:100%; height:100%; }
+      @media (max-width:640px) {
+        .home-root { width:100vw !important; max-width:none !important; margin-left:calc(50% - 50vw) !important; margin-right:calc(50% - 50vw) !important; }
+        .home-top { padding-left:6px !important; padding-right:6px !important; }
+        .home-content { padding-left:4px !important; padding-right:4px !important; }
+        .home-welcome, .home-root > .home-content > div { width:100% !important; }
+        .widget-grid { gap:8px !important; margin-top:10px !important; margin-bottom:8px !important; }
+        .home-skill-card, .home-surprises-card { min-height:58px !important; padding:8px 10px !important; }
+      }
     `}</style>
 
     <div className="home-root" style={{ maxWidth:760, margin:'0 auto', paddingBottom:24, background:'transparent', minHeight:'100vh', width:'100%' }}>
@@ -256,7 +291,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           1. TOP HEADER
       ══════════════════════════════════ */}
-      <div style={{ padding:'8px 12px 0', animation:'fadeIn 0.4s ease-out both' }}>
+      <div className="home-top" style={{ padding:'8px 12px 0', animation:'fadeIn 0.4s ease-out both' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'nowrap', marginBottom:10 }}>
           {/* Logo + brand */}
           <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, flex:'1 1 auto', flexWrap:'nowrap' }}>
@@ -279,12 +314,12 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         </div>
       </div>
 
-      <div style={{ padding:'0 8px' }}>
+      <div className="home-content" style={{ padding:'0 8px' }}>
 
       {/* ══════════════════════════════════
           2. WELCOME + DASHBOARD CARD
       ══════════════════════════════════ */}
-      <div style={{
+      <div className="home-welcome" style={{
         borderRadius:20, marginBottom:14, overflow:'hidden',
         background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 45%,#f2f2f2 100%)',
         border:'1.5px solid rgba(255,255,255,0.95)',
@@ -330,15 +365,15 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           {/* Stats bar — neumorphic inset */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1px 1fr 1px 1fr', background:'linear-gradient(145deg,#e4e4e4,#f5f5f5)', borderRadius:14, overflow:'hidden', boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.09),inset -2px -2px 5px rgba(255,255,255,0.9)', border:'1px solid #e2e8f0' }}>
             {[
-              { label:'Today', value:todayTotal, entries:todayLogs.length, fmt:true },
+              { label:'Today', value:todayTotal, entries:todayLogs.length, fmt:true, featured:true },
               { label:'Total', value:overallTotal, entries:logs.length, fmt:true },
-              { label:'Avg/Entry', value:avgPerEntry, entries:null, fmt:true },
+              { label:'Total Avg Entry', value:avgPerEntry, entries:null, fmt:true, featured:true },
             ].map((s,i) => (
               <>
                 {i>0 && <div key={`d${i}`} style={{ background:'rgba(0,0,0,0.06)' }} />}
                 <div key={i} style={{ padding:'8px 4px', textAlign:'center' }}>
-                  <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
-                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:14, color:'#b8860b', margin:0, lineHeight:1 }}>
+                  <p style={{ fontSize:s.featured?10:9, fontWeight:800, color:s.featured?'#6b7280':'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif', lineHeight:1.15 }}>{s.label}</p>
+                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:s.featured?17:14, color:'#b8860b', margin:0, lineHeight:1 }}>
                     {s.fmt ? <CountUp value={s.value} /> : s.value}
                   </p>
                   {s.entries !== null && <p style={{ fontSize:8, color:'#6b7280', margin:'2px 0 0', fontFamily:'Poppins,sans-serif' }}>{s.entries} entries</p>}
@@ -356,13 +391,13 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       <div className="widget-grid" style={{ animation:'slideUp 0.4s ease-out 0.1s both' }}>
         {/* Mystery Box card */}
         <div className="widget-slot">
-          <SkillMachineCard userId={currentUser?.username} onOpen={()=>setSkillOpen(true)} />
+          <HomeSkillCard onOpen={()=>setSkillOpen(true)} />
         </div>
 
-        {/* Surprises card — same size as SkillMachineCard */}
+        {/* Surprises card */}
         <div className="widget-slot">
         <button onClick={()=>setSurprisesOpen(true)} style={{ width:'100%',border:'none',padding:0,background:'none',cursor:'pointer',textAlign:'left' }}>
-          <div style={{ padding:'10px 12px',height:'100%',
+          <div className="home-surprises-card" style={{ padding:'10px 12px',height:'100%',
             background:'linear-gradient(135deg,rgba(124,58,237,0.08),rgba(109,40,217,0.06))',
             borderRadius:14, border:'1px solid rgba(124,58,237,0.25)',
             boxShadow:'0 3px 16px rgba(124,58,237,0.12),inset 0 1px 0 rgba(255,255,255,0.6)',
@@ -370,7 +405,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             onMouseEnter={e=>e.currentTarget.style.transform='translateY(-2px)'}
             onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
             <div style={{ position:'absolute',top:-8,right:-8,width:50,height:50,borderRadius:'50%',background:'rgba(167,139,250,0.15)',pointerEvents:'none' }}/>
-            <div style={{ display:'flex',alignItems:'center',gap:9 }}>
+            <div style={{ display:'flex',alignItems:'center',gap:8 }}>
               <div style={{ width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#7C3AED,#6D28D9)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,boxShadow:'0 3px 10px rgba(124,58,237,0.4)',animation:'giftFloat 3s ease-in-out infinite' }}>🎁</div>
               <div style={{ flex:1,minWidth:0 }}>
                 <p style={{ fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:12,color:'#4C1D95',margin:'0 0 1px',whiteSpace:'nowrap' }}>Surprises</p>
