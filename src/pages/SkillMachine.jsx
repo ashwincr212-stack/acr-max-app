@@ -16,7 +16,7 @@ const STREAK_MULTI   = { 3:1.5, 5:2, 10:3 }
 const JACKPOT_AT     = 10
 const DAILY_BONUS    = [20, 30, 50]
 const WEEKLY_BONUS   = 100
-const SESSION_LENGTH = 12   // puzzles per session
+const SESSION_LENGTH = 5   // puzzles per session
 const R = () => Math.random()
 const RI = (min,max) => Math.floor(R()*(max-min+1))+min
 const PICK = arr => arr[RI(0,arr.length-1)]
@@ -323,7 +323,7 @@ function calcTimeLimit(difficulty, avgMs = 5000) {
   else if (difficulty <= 6) base = 6000
   else base = 5000
   base += Math.max(-500, Math.min(800, (avgMs - 4000) * 0.15))
-  return Math.max(3500, base)
+  return Math.max(3500, base + 3000)
 }
 
 /* ─── REWARD CALCULATOR ─── */
@@ -607,7 +607,13 @@ function TimerBar({ durationMs, onExpire, key:k }) {
 }
 
 /* ──────────────── FEEDBACK OVERLAY ──────────────── */
-function FeedbackOverlay({ correct, coins, streak, nearMiss, extraMsg, onDone }) {
+function formatAnswer(answer) {
+  if (Array.isArray(answer)) return answer.map(item => typeof item === 'object' ? JSON.stringify(item) : item).join(', ')
+  if (answer && typeof answer === 'object') return JSON.stringify(answer)
+  return String(answer)
+}
+
+function FeedbackOverlay({ correct, coins, streak, nearMiss, extraMsg, correctAnswer, onDone }) {
   useEffect(()=>{const tid=setTimeout(onDone,850);return()=>clearTimeout(tid)},[onDone])
   return (
     <div style={{
@@ -620,7 +626,7 @@ function FeedbackOverlay({ correct, coins, streak, nearMiss, extraMsg, onDone })
       <div style={{fontSize:52, marginBottom:4}}>{correct?'✅':nearMiss?'⚠️':'❌'}</div>
       {correct&&<p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:28,color:'#34D399',margin:0}}>+{coins} 💰</p>}
       {correct&&streak>=3&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:14,color:'#fbbf24',margin:'4px 0 0'}}>🔥 x{streak} Streak!</p>}
-      {!correct&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:nearMiss?'#fbbf24':'#f87171',margin:0}}>{nearMiss ? 'Almost!' : 'Wrong!'}</p>}
+      {!correct&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:nearMiss?'#fbbf24':'#f87171',margin:0}}>Wrong! Correct: {correctAnswer}</p>}
       {extraMsg&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:13,color:'#a5b4fc',margin:'4px 0 0'}}>{extraMsg}</p>}
       {nearMiss&&!correct&&coins>0&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:13,color:'#34D399',margin:'4px 0 0'}}>+{coins} 💰 Pity</p>}
     </div>
@@ -721,6 +727,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     if(isOpen){
       setPhase('loading'); setHistory([]); setPuzzleIdx(0); setStreak(0)
       setBestStreak(0); setSessionCoins(0); setCorrect(0); responseTimes.current=[]
+      setPuzzle(null); setNextPuzzle(null); setFeedback(null)
       loadWallet()
     }
   },[isOpen, loadWallet])
@@ -810,7 +817,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
     if(coins > 0){setSessionCoins(s=>s+coins);setTotalCoins(t=>t+coins)}
     setCorrect(newCorrect); setPuzzleIdx(newPuzzleIdx)
     
-    setFeedback({ correct:isCorrect, coins, nearMiss: isNear, extraMsg })
+    setFeedback({ correct:isCorrect, coins, nearMiss: isNear, extraMsg, correctAnswer: !isCorrect && puzzle ? formatAnswer(puzzle.answer) : null })
 
     // Adaptive difficulty update
     const acc = newCorrect/newPuzzleIdx
@@ -821,7 +828,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
 
   /* ─── NEXT PUZZLE ─── */
   const advanceToNext = useCallback(()=>{
-    if(puzzleIdx>=SESSION_LENGTH){
+    if(puzzleIdx>=5){
       setPhase('done')
       if(userId){
         const times = responseTimes.current
@@ -844,16 +851,17 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
       }
       return
     }
-    // Use preloaded puzzle
     const newHistory = [...history, puzzle]
-    setHistory(newHistory)
-    setPuzzle(nextPuzzle)
-    setNextPuzzle(generatePuzzle(difficulty, newHistory.slice(-5), puzzleIdx + 1))
+    const freshPuzzle = generatePuzzle(difficulty, newHistory.slice(-5), puzzleIdx)
+    const freshNextPuzzle = generatePuzzle(difficulty, [...newHistory.slice(-4), freshPuzzle], puzzleIdx + 1)
     setFeedback(null)
+    setHistory(newHistory)
+    setPuzzle(freshPuzzle)
+    setNextPuzzle(freshNextPuzzle)
     setPhase('playing')
     setTimerKey(k=>k+1)
     sessionStartRef.current = Date.now()
-  },[puzzleIdx,history,puzzle,nextPuzzle,difficulty,userId,correct,totalCoins,bestStreak])
+  },[puzzleIdx,history,puzzle,difficulty,userId,correct,totalCoins,bestStreak])
 
   /* ─── PLAY AGAIN ─── */
   const playAgain = () => {
@@ -985,6 +993,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
                   streak={streak} 
                   nearMiss={feedback.nearMiss}
                   extraMsg={feedback.extraMsg}
+                  correctAnswer={feedback.correctAnswer}
                   onDone={advanceToNext}
                 />
               )}
@@ -1007,7 +1016,7 @@ export function SkillMachineModal({ userId, isOpen, onClose, onReward }) {
 
               {/* Puzzle display */}
               <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center'}}>
-                <PuzzleDisplay puzzle={puzzle} onAnswer={handleAnswer} disabled={phase!=='playing'}/>
+                <PuzzleDisplay key={puzzle.id} puzzle={puzzle} onAnswer={handleAnswer} disabled={phase!=='playing'}/>
               </div>
             </div>
           </div>
