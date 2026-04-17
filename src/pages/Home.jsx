@@ -52,10 +52,10 @@ function formatSurpriseCountdown(ms) {
 }
 
 /* ── Neumorphic card wrapper ── */
-function NeuCard({ children, style = {}, accent, onClick }) {
+function NeuCard({ children, style = {}, accent, onClick, className = '' }) {
   const [pressed, setPressed] = useState(false)
   return (
-    <div onClick={onClick}
+    <div className={`home-premium-surface ${className}`} onClick={onClick}
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       onTouchStart={() => setPressed(true)}
@@ -80,7 +80,7 @@ function NeuCard({ children, style = {}, accent, onClick }) {
 /* ── Section header ── */
 function SectionHeader({ title, right, accent = '#7c3aed' }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+    <div className="home-section-header" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <div style={{ width:3, height:16, borderRadius:2, background:`linear-gradient(to bottom,${accent},${accent}50)` }} />
         <p style={{ fontSize:12, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.12em', margin:0, fontFamily:'Poppins,sans-serif' }}>{title}</p>
@@ -93,7 +93,7 @@ function SectionHeader({ title, right, accent = '#7c3aed' }) {
 /* ── Progress bar ── */
 function HomeSkillCard({ onOpen }) {
   return (
-    <button className="home-skill-card" onClick={onOpen}
+    <button className="home-skill-card home-feature-card" onClick={onOpen}
       style={{
         width:'100%', padding:'10px 12px', borderRadius:14, border:'1.5px solid rgba(99,102,241,0.4)',
         background:'linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1),rgba(6,9,15,0.9))',
@@ -311,16 +311,19 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       }
     `}</style>
 
-    <div className="home-root" style={{ maxWidth:760, margin:'0 auto', paddingBottom:24, background:'transparent', minHeight:'100vh', width:'100%' }}>
+    <div className="home-root home-premium-root" style={{ maxWidth:760, margin:'0 auto', paddingBottom:24, background:'transparent', minHeight:'100vh', width:'100%' }}>
+      <div className="home-ambient home-ambient-one" />
+      <div className="home-ambient home-ambient-two" />
+      <div className="home-ambient home-ambient-three" />
 
       {/* ══════════════════════════════════
           1. TOP HEADER
       ══════════════════════════════════ */}
-      <div className="home-top" style={{ padding:'8px 12px 0', animation:'fadeIn 0.4s ease-out both' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'nowrap', marginBottom:10 }}>
+      <div className="home-top home-top-compact" style={{ padding:'8px 12px 0', animation:'fadeIn 0.4s ease-out both' }}>
+        <div className="home-header-bar" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'nowrap', marginBottom:10 }}>
           {/* Logo + brand */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, flex:'1 1 auto', flexWrap:'nowrap' }}>
-            <div style={{ position:'relative', flexShrink:0 }}>
+          <div className="home-brand-lockup" style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, flex:'1 1 auto', flexWrap:'nowrap' }}>
+            <div className="home-logo-orbit" style={{ position:'relative', flexShrink:0 }}>
               <img src="/logo.jpg" alt="ACR MAX" style={{ width:36, height:36, borderRadius:'50%', objectFit:'cover', border:`2px solid ${themeAccent}`, boxShadow:`3px 3px 10px ${themeAccent}30, -2px -2px 6px rgba(255,255,255,0.9)` }} />
               <div style={{ position:'absolute', bottom:1, right:1, width:9, height:9, borderRadius:'50%', background:'#22c55e', border:'2px solid #fff', boxShadow:'0 0 4px rgba(34,197,94,0.5)' }} />
             </div>
@@ -330,7 +333,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             </div>
           </div>
           {/* Greeting + clock */}
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', justifyContent:'center', textAlign:'right', flexShrink:0, whiteSpace:'nowrap' }}>
+          <div className="home-clock-block" style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', justifyContent:'center', textAlign:'right', flexShrink:0, whiteSpace:'nowrap' }}>
             <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 1px', lineHeight:1.1, whiteSpace:'nowrap' }}>{greeting.emoji} {greeting.text}</p>
             <p style={{ fontSize:11, color:'#6b7280', margin:0, fontWeight:600, lineHeight:1.1, fontFamily:'monospace !important', whiteSpace:'nowrap' }}>
               {time.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}
@@ -344,7 +347,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           2. WELCOME + DASHBOARD CARD
       ══════════════════════════════════ */}
-      <div className="home-welcome" style={{
+      <div className="home-welcome home-hero-premium" style={{
         borderRadius:20, marginBottom:14, overflow:'hidden',
         background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 45%,#f2f2f2 100%)',
         border:'1.5px solid rgba(255,255,255,0.95)',
@@ -352,9 +355,11 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         animation:'slideUp 0.4s ease-out 0.05s both',
         position:'relative',
       }}>
+        <div className="home-hero-orb" />
+        <div className="home-shimmer-layer" />
         {/* Accent top stripe in theme color */}
         <div style={{ height:4, background:`linear-gradient(90deg,transparent,${themeAccent},${themeAccent}80,transparent)` }} />
-        <div style={{ padding:'10px 13px 12px', position:'relative' }}>
+        <div className="home-hero-inner" style={{ padding:'10px 13px 12px', position:'relative' }}>
           {/* Decorative silver orbs */}
           <div style={{ position:'absolute', top:-10, right:-10, width:100, height:100, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.8),transparent 65%)', pointerEvents:'none' }} />
 
@@ -364,7 +369,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
               <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>Welcome back</p>
               <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:19, color:'#1a1a1a', margin:0, lineHeight:1.1 }}>{displayName} 👋</p>
             </div>
-            <div onClick={() => setActiveTab('coins')} style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', flexShrink:0, fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:'#b45309', whiteSpace:'nowrap', cursor:'pointer', transition:'transform 0.2s, opacity 0.2s' }}
+            <div className="home-coin-chip" onClick={() => setActiveTab('coins')} style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', flexShrink:0, fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:'#b45309', whiteSpace:'nowrap', cursor:'pointer', transition:'transform 0.2s, opacity 0.2s' }}
               onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
               🪙 {Number(coins || 0).toLocaleString()}
@@ -374,13 +379,13 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           {/* Key insight badges */}
           <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
             {topCat && (
-              <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+              <div className="home-insight-pill" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>
                 <span style={{ fontSize:12 }}>{catIcon(topCat[0])}</span>
                 <span style={{ fontSize:11, fontWeight:600, color:'#374151', fontFamily:'Poppins,sans-serif' }}>Top: {topCat[0]} — ₹{topCat[1].toLocaleString('en-IN')}</span>
               </div>
             )}
             {weekChange !== null && (
-              <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px', background: weekChange>0?'linear-gradient(145deg,#fff1f2,#fee2e2)':'linear-gradient(145deg,#f0fdf4,#dcfce7)', border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+              <div className="home-insight-pill" style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px', background: weekChange>0?'linear-gradient(145deg,#fff1f2,#fee2e2)':'linear-gradient(145deg,#f0fdf4,#dcfce7)', border:`1px solid ${weekChange>0?'#fca5a5':'#bbf7d0'}`, borderRadius:20, boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
                 <span style={{ fontSize:11 }}>{weekChange > 0 ? '📈' : '📉'}</span>
                 <span style={{ fontSize:11, fontWeight:700, color: weekChange>0?'#dc2626':'#16a34a', fontFamily:'Poppins,sans-serif' }}>{weekChange > 0 ? `+${weekChange}%` : `${weekChange}%`} this week</span>
               </div>
@@ -388,7 +393,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           </div>
 
           {/* Stats bar — neumorphic inset */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1px 1fr 1px 1fr', background:'linear-gradient(145deg,#e4e4e4,#f5f5f5)', borderRadius:14, overflow:'hidden', boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.09),inset -2px -2px 5px rgba(255,255,255,0.9)', border:'1px solid #e2e8f0' }}>
+          <div className="home-stat-bar" style={{ display:'grid', gridTemplateColumns:'1fr 1px 1fr 1px 1fr', background:'linear-gradient(145deg,#e4e4e4,#f5f5f5)', borderRadius:14, overflow:'hidden', boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.09),inset -2px -2px 5px rgba(255,255,255,0.9)', border:'1px solid #e2e8f0' }}>
             {[
               { label:'Today', value:todayTotal, entries:todayLogs.length, fmt:true, featured:true },
               { label:'Total', value:overallTotal, entries:logs.length, fmt:true },
@@ -396,7 +401,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
             ].map((s,i) => (
               <>
                 {i>0 && <div key={`d${i}`} style={{ background:'rgba(0,0,0,0.06)' }} />}
-                <div key={i} style={{ padding:'8px 4px', textAlign:'center' }}>
+                <div className="home-stat-tile" key={i} style={{ padding:'8px 4px', textAlign:'center' }}>
                   <p style={{ fontSize:s.featured?10:9, fontWeight:800, color:s.featured?'#6b7280':'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif', lineHeight:1.15 }}>{s.label}</p>
                   <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:900, fontSize:s.featured?17:14, color:'#b8860b', margin:0, lineHeight:1 }}>
                     {s.fmt ? <CountUp value={s.value} /> : s.value}
@@ -421,8 +426,8 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
 
         {/* Surprises card */}
         <div className="widget-slot">
-        <button onClick={()=>setSurprisesOpen(true)} style={{ width:'100%',border:'none',padding:0,background:'none',cursor:'pointer',textAlign:'left' }}>
-          <div className="home-surprises-card" style={{ padding:'10px 12px',height:'100%',
+        <button className="home-feature-shell" onClick={()=>setSurprisesOpen(true)} style={{ width:'100%',border:'none',padding:0,background:'none',cursor:'pointer',textAlign:'left' }}>
+          <div className="home-surprises-card home-feature-card" style={{ padding:'10px 12px',height:'100%',
             background:'linear-gradient(135deg,rgba(124,58,237,0.08),rgba(109,40,217,0.06))',
             borderRadius:14, border:'1px solid rgba(124,58,237,0.25)',
             boxShadow:'0 3px 16px rgba(124,58,237,0.12),inset 0 1px 0 rgba(255,255,255,0.6)',
@@ -443,7 +448,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       </div>
 
       {/* ── AI Tip ── */}
-      <div style={{ padding:'9px 13px', background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', borderRadius:13, border:'1px solid #ddd6fe', boxShadow:'2px 2px 7px rgba(124,58,237,0.07),-1px -1px 4px rgba(255,255,255,0.9)', marginBottom:10, display:'flex', alignItems:'center', gap:12, animation:'slideUp 0.4s ease-out 0.12s both' }}>
+      <div className="home-ai-tip" style={{ padding:'9px 13px', background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', borderRadius:13, border:'1px solid #ddd6fe', boxShadow:'2px 2px 7px rgba(124,58,237,0.07),-1px -1px 4px rgba(255,255,255,0.9)', marginBottom:10, display:'flex', alignItems:'center', gap:12, animation:'slideUp 0.4s ease-out 0.12s both' }}>
         <div style={{ width:30, height:30, borderRadius:9, background:'linear-gradient(135deg,#7c3aed20,#7c3aed10)', border:'1px solid #ddd6fe', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, flexShrink:0 }}>💡</div>
         <div>
           <p style={{ fontSize:9, fontWeight:800, color:'#7c3aed', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>AI Daily Tip</p>
@@ -454,7 +459,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           4. QUICK ACTIONS — interactive cards
       ══════════════════════════════════ */}
-      <NeuCard style={{ padding:'14px 12px 12px', marginBottom:12 }} accent={themeAccent}>
+      <NeuCard className="home-section-card home-quick-actions-card" style={{ padding:'14px 12px 12px', marginBottom:12 }} accent={themeAccent}>
         <SectionHeader title="Quick Actions" accent={themeAccent} />
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px 8px' }}>
           {QUICK_ACTIONS.map((a,i) => (
@@ -462,7 +467,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
               style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'11px 5px 10px', background:`linear-gradient(145deg,${a.bg},#fff)`, border:`1.5px solid ${a.border}`, borderRadius:16, cursor:'pointer', transition:'all 0.2s', animation:`slideUp 0.35s ease-out ${i*40}ms both`, boxShadow:`3px 3px 10px rgba(0,0,0,0.07),-2px -2px 6px rgba(255,255,255,0.9)`, position:'relative', overflow:'hidden', transform: clickedBtn===a.id?'scale(0.93)':'scale(1)' }}>
               {/* Ripple overlay on click */}
               {clickedBtn===a.id && <div style={{ position:'absolute', inset:0, background:`${a.accent}15`, borderRadius:16 }} />}
-              <div style={{ width:40, height:40, borderRadius:12, background: a.iplLogo ? 'linear-gradient(135deg,#002A7F,#0A1F6E)' : `linear-gradient(145deg,${a.bg},${a.border})`, border:`1.5px solid ${a.iplLogo ? '#1A56DB' : a.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:19, boxShadow: a.iplLogo ? '0 4px 12px rgba(0,42,127,0.35)' : `inset 1px 1px 3px rgba(0,0,0,0.05),inset -1px -1px 2px rgba(255,255,255,0.8)`, transition:'all 0.2s', overflow:'hidden' }}>
+              <div className="qa-icon-bubble" style={{ width:40, height:40, borderRadius:12, background: a.iplLogo ? 'linear-gradient(135deg,#002A7F,#0A1F6E)' : `linear-gradient(145deg,${a.bg},${a.border})`, border:`1.5px solid ${a.iplLogo ? '#1A56DB' : a.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:19, boxShadow: a.iplLogo ? '0 4px 12px rgba(0,42,127,0.35)' : `inset 1px 1px 3px rgba(0,0,0,0.05),inset -1px -1px 2px rgba(255,255,255,0.8)`, transition:'all 0.2s', overflow:'hidden' }}>
                 {a.iplLogo
                   ? <img src="/ipl_logo.jpeg" alt="IPL" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
                   : null}
@@ -481,7 +486,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           5. RECENT ACTIVITY FEED
       ══════════════════════════════════ */}
       {recentLogs.length > 0 && (
-        <NeuCard style={{ marginBottom:10 }} accent="#059669">
+        <NeuCard className="home-section-card home-activity-card" style={{ marginBottom:10 }} accent="#059669">
           <SectionHeader title="Recent Activity" accent="#059669"
             right={<button onClick={()=>navigate('expense')} style={{ background:'none', border:'none', fontSize:11, fontWeight:700, color:themeAccent, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>See all →</button>} />
           <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
@@ -510,7 +515,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           6. FOR YOU — personalization
       ══════════════════════════════════ */}
       {logs.length >= 3 && (
-        <NeuCard style={{ marginBottom:10 }} accent={themeAccent}>
+        <NeuCard className="home-section-card home-for-you-card" style={{ marginBottom:10 }} accent={themeAccent}>
           <SectionHeader title="For You" accent={themeAccent} />
           <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
             {/* Spending pattern insight */}
@@ -551,7 +556,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           7. LEADERBOARD
       ══════════════════════════════════ */}
       {leaderboard.length > 0 && (
-        <NeuCard style={{ marginBottom:10 }} accent="#F59E0B">
+        <NeuCard className="home-section-card home-leaderboard-card" style={{ marginBottom:10 }} accent="#F59E0B">
           <SectionHeader title="🏆 Top Predictors" accent="#F59E0B"
             right={<button onClick={()=>setIplOpen(true)} style={{ background:'none',border:'none',fontSize:11,fontWeight:700,color:'#F59E0B',cursor:'pointer',fontFamily:'Poppins,sans-serif' }}>Full table →</button>} />
           <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
@@ -589,7 +594,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           8. SECURITY CERTIFICATIONS
       ══════════════════════════════════ */}
-      <NeuCard style={{ marginBottom:10 }}>
+      <NeuCard className="home-section-card home-security-card" style={{ marginBottom:10 }}>
         <SectionHeader title="Security & Compliance" accent="#059669" />
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:9, marginBottom:13 }}>
           {[
@@ -617,7 +622,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       {/* ══════════════════════════════════
           8. ABOUT & CREDITS
       ══════════════════════════════════ */}
-      <NeuCard style={{ marginBottom:10 }} accent={themeAccent}>
+      <NeuCard className="home-section-card home-about-card" style={{ marginBottom:10 }} accent={themeAccent}>
         <SectionHeader title="About ACR MAX" accent={themeAccent} />
 
         {/* Brand */}
@@ -651,7 +656,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
         {/* Tech stack */}
         <div style={{ marginBottom:13 }}>
           <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 10px', fontFamily:'Poppins,sans-serif' }}>Powered By</p>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7 }}>
+          <div className="home-tech-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7 }}>
             {[
               {name:'React + Vite',color:'#0ea5e9',bg:'#f0f9ff',border:'#bae6fd'},
               {name:'Firebase',color:'#d97706',bg:'#fffbeb',border:'#fde68a'},
@@ -681,8 +686,8 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       </NeuCard>
 
       {/* Status bar */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'6px 0 4px', animation:'fadeIn 0.5s ease-out 0.4s both' }}>
-        <div style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e', animation:'pulseDot 2s ease-in-out infinite', boxShadow:'0 0 4px rgba(34,197,94,0.5)' }} />
+      <div className="home-sync-status" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'6px 0 4px', animation:'fadeIn 0.5s ease-out 0.4s both' }}>
+        <div className="status-dot" style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e', animation:'pulseDot 2s ease-in-out infinite', boxShadow:'0 0 4px rgba(34,197,94,0.5)' }} />
         <p style={{ fontSize:11, color:'#9ca3af', margin:0, fontWeight:500, fontFamily:'Poppins,sans-serif' }}>All systems operational · Cloud synced</p>
       </div>
 
