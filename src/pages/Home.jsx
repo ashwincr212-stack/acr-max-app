@@ -3,7 +3,7 @@ import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
 import { SkillMachineModal } from './SkillMachine'
 import { db } from '../firebase'
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore'
+import { collection, query, orderBy, limit, onSnapshot, doc } from 'firebase/firestore'
 
 /* ── Greeting ── */
 function useGreeting() {
@@ -31,6 +31,24 @@ function CountUp({ value, prefix = '₹', duration = 1000 }) {
     return () => cancelAnimationFrame(raf.current)
   }, [value])
   return <span>{prefix}{disp.toLocaleString('en-IN')}</span>
+}
+
+const SURPRISE_COOLDOWN_MS = 6 * 60 * 60 * 1000
+
+function surpriseTimestampToMs(value) {
+  if (!value) return 0
+  if (typeof value.toMillis === 'function') return value.toMillis()
+  if (typeof value.seconds === 'number') return value.seconds * 1000
+  if (typeof value === 'number') return value
+  return 0
+}
+
+function formatSurpriseCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const hours = String(Math.floor(total / 3600)).padStart(2, '0')
+  const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, '0')
+  const seconds = String(total % 60).padStart(2, '0')
+  return `${hours}:${minutes}:${seconds}`
 }
 
 /* ── Neumorphic card wrapper ── */
@@ -123,11 +141,44 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
   const [iplOpen, setIplOpen] = useState(false)
   const [skillOpen, setSkillOpen] = useState(false)
   const [leaderboard, setLeaderboard] = useState([])
+  const [surpriseUsedAt, setSurpriseUsedAt] = useState(null)
+  const [surpriseRemainingMs, setSurpriseRemainingMs] = useState(0)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
+
+  useEffect(() => {
+    if (!currentUser?.username) {
+      setSurpriseUsedAt(null)
+      setSurpriseRemainingMs(0)
+      return undefined
+    }
+
+    const ref = doc(db, 'acr_users', currentUser.username.toLowerCase())
+    const unsub = onSnapshot(ref, snap => {
+      const data = snap.exists() ? snap.data() : {}
+      setSurpriseUsedAt(data.lastSurpriseUsedAt || null)
+    }, () => {})
+
+    return () => unsub()
+  }, [currentUser?.username])
+
+  useEffect(() => {
+    const tick = () => {
+      const usedAt = surpriseTimestampToMs(surpriseUsedAt)
+      setSurpriseRemainingMs(usedAt ? Math.max(0, SURPRISE_COOLDOWN_MS - (Date.now() - usedAt)) : 0)
+    }
+    tick()
+    const t = setInterval(tick, 1000)
+    return () => clearInterval(t)
+  }, [surpriseUsedAt])
+
+  const surpriseLocked = surpriseRemainingMs > 0
+  const surpriseStatus = surpriseLocked
+    ? `Next surprise in ${formatSurpriseCountdown(surpriseRemainingMs)}`
+    : 'Fresh cards available 🎁'
 
   // Leaderboard — top 5 by coins
   useEffect(() => {
@@ -383,7 +434,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
               <div style={{ width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#7C3AED,#6D28D9)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,boxShadow:'0 3px 10px rgba(124,58,237,0.4)',animation:'giftFloat 3s ease-in-out infinite' }}>🎁</div>
               <div style={{ flex:1,minWidth:0 }}>
                 <p style={{ fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:12,color:'#4C1D95',margin:'0 0 1px',whiteSpace:'nowrap' }}>Surprises</p>
-                <p style={{ fontSize:9,color:'#7C3AED',margin:0,fontFamily:'Poppins,sans-serif',whiteSpace:'nowrap',fontWeight:600 }}>15 facts · Brain boost 🧠</p>
+                <p style={{ fontSize:9,color:surpriseLocked?'#92400e':'#7C3AED',margin:0,fontFamily:'Poppins,sans-serif',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:700 }}>{surpriseStatus}</p>
               </div>
             </div>
           </div>
