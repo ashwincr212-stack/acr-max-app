@@ -1,3 +1,4 @@
+
 import Home from './pages/Home'
 import Expense from './pages/Expense'
 import Astro from './pages/Astro'
@@ -592,6 +593,7 @@ function AppShell({ currentUser, onLogout }) {
         {/* ANIMATED CENTER BUTTON */}
         <AnimatedCenterBtn onNavigateHome={() => { setPrevTab(activeTab); setActiveTab('home') }} />
       </div>
+      
     </div>
   )
 }

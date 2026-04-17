@@ -1,0 +1,49 @@
+[
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "A river in India changes direction overnight.", "reveal": "The Brahmaputra can reverse flow temporarily during extreme floods." },
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "Your brain decides before you do.", "reveal": "Neural signals appear milliseconds before conscious choice." },
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "You check your phone without thinking.", "reveal": "It’s a dopamine loop, not a conscious decision." },
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Earth hums constantly.", "reveal": "Low-frequency vibrations come from ocean waves." },
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "There’s a lake full of skeletons in India.", "reveal": "Roopkund Lake contains hundreds of ancient human remains." },
+
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "Time moves differently across your body.", "reveal": "Gravity makes time pass slightly slower near your feet." },
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "You forget names quickly.", "reveal": "Your brain prioritizes meaning over labels." },
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Deserts can be freezing.", "reveal": "Lack of moisture makes heat escape quickly at night." },
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "India has a floating post office.", "reveal": "It operates on Dal Lake in Srinagar." },
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "You can’t tickle yourself.", "reveal": "Your brain predicts and cancels the sensation." },
+
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "You replay conversations in your head.", "reveal": "Your brain simulates better outcomes for future situations." },
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Lightning can strike the same place twice.", "reveal": "Tall objects attract repeated strikes." },
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "There’s a bridge made of living trees.", "reveal": "Root bridges in Meghalaya grow stronger over time." },
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "Water can boil and freeze at the same time.", "reveal": "At a condition called the triple point." },
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "You feel phantom phone vibrations.", "reveal": "Your brain anticipates notifications." },
+
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Rivers don’t flow straight.", "reveal": "Water erodes softer land faster, creating curves." },
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "Chennai once ran out of water.", "reveal": "In 2019, its major reservoirs went completely dry." },
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "You see the past, not the present.", "reveal": "Light takes time to reach your eyes." },
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "Music hits harder when emotional.", "reveal": "Your brain links it with memory and feeling." },
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Oceans look blue, but water isn’t.", "reveal": "It reflects the sky and absorbs red light." },
+
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "India has a disappearing road.", "reveal": "At Chandipur beach, the sea recedes kilometers daily." },
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "Your brain uses electricity.", "reveal": "It can power a small light bulb." },
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "You smile even when alone.", "reveal": "Thoughts trigger physical responses." },
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Volcanoes create land.", "reveal": "Lava cools into new terrain." },
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "There’s a magnetic hill in India.", "reveal": "Cars appear to roll uphill due to optical illusion." },
+
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "You can’t hear your own blinking.", "reveal": "Your brain suppresses internal noise." },
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "Yawning spreads quickly.", "reveal": "It’s linked to empathy." },
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Glaciers move like rivers.", "reveal": "They flow slowly under pressure." },
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "There’s a temple of rats.", "reveal": "Karni Mata Temple treats them as sacred." },
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "Your brain filters reality.", "reveal": "It removes unnecessary details constantly." },
+
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "Silence feels uncomfortable.", "reveal": "Your brain prefers constant stimulation." },
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Rain has a smell.", "reveal": "Bacteria release geosmin before rain." },
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "There’s a Sanskrit-speaking village.", "reveal": "Mattur still uses it daily." },
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "You can’t multitask.", "reveal": "Your brain switches rapidly between tasks." },
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "You hear your name in noise.", "reveal": "Your brain constantly scans for it." },
+
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Mount Everest isn’t closest to space.", "reveal": "Mount Chimborazo is, due to Earth’s shape." },
+  { "category": "india", "rarity": "rare", "coins": 30, "isActive": true, "hook": "There’s a pink lake in India.", "reveal": "Microbes turn Lonar Lake pink." },
+  { "category": "science", "rarity": "rare", "coins": 30, "isActive": true, "hook": "You forget most of your life.", "reveal": "Your brain deletes unused memories." },
+  { "category": "daily", "rarity": "common", "coins": 10, "isActive": true, "hook": "Cold water feels refreshing.", "reveal": "It activates more nerve endings." },
+  { "category": "earth", "rarity": "common", "coins": 10, "isActive": true, "hook": "Wind shapes mountains.", "reveal": "Erosion slowly reshapes landscapes." }
+]
