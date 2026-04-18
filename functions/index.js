@@ -726,3 +726,12 @@ const {
 
 exports.fetchDailyPanchang = fetchDailyPanchang;
 exports.manualFetchPanchang = manualFetchPanchang;
+
+// ── NASA (Space Feature) ─────────────────────────────
+const {
+  fetchNASAData,
+  manualFetchNASA,
+} = require("./nasaFunction");
+
+exports.fetchNASAData = fetchNASAData;
+exports.manualFetchNASA = manualFetchNASA;
