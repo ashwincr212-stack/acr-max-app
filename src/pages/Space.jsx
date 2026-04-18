@@ -229,11 +229,10 @@ function ISSTracker({ issData, issLocation }) {
   )
 }
 
-function APODSection({ data, loading }) {
+function APODSection({ data, loading, onImageSelect }) {
   const [expanded, setExpanded] = useState(false)
   const apod = data?.apod
-  console.log("APOD DATA:", data?.apod)
-  if (loading || !data?.apod) return null
+  if (loading || !apod?.image) return null
   const isVideo = apod.media_type === "video"
   const words = apod?.explanation?.split(' ')||[]
   const preview = words.slice(0,50).join(' ')+(words.length>50?'…':'')
@@ -244,6 +243,11 @@ function APODSection({ data, loading }) {
           <iframe src={apod.image} title={apod.title || 'Astronomy Picture of the Day'} allowFullScreen style={{width:'100%',height:240,border:0,borderRadius:12,display:'block'}}/>
         ) : (
           <img src={apod.image} alt={apod.title || 'Astronomy Picture of the Day'} loading="lazy" referrerPolicy="no-referrer"
+            onClick={() => onImageSelect({
+              src: apod.image,
+              title: apod.title,
+              description: apod.explanation
+            })}
             onError={(e) => {
               console.log("Image failed:", apod.image)
               e.target.style.display = "none"
@@ -272,24 +276,6 @@ function APODSection({ data, loading }) {
         )}
       </div>
     </Glass>
-  )
-}
-
-function MarsSection({ photos }) {
-  if(!photos) return <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:8}}>{[0,1,2,3].map(i=><div key={i} style={{flexShrink:0,width:180,height:160,borderRadius:16,background:'rgba(255,255,255,0.04)'}}/>)}</div>
-  if(!photos.length) return <p style={{color:'rgba(255,255,255,0.85)',textAlign:'center',padding:'24px 0'}}>No Mars photos today. Check back soon!</p>
-  return (
-    <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:8,scrollbarWidth:'none'}}>
-      {photos.map((p,i)=>(
-        <div key={p?.id || i} className="space-item-card" style={{flexShrink:0,width:150,borderRadius:16,overflow:'hidden',border:'1px solid rgba(255,100,50,0.2)',background:'rgba(255,100,50,0.06)',animation:`spaceUp 0.4s ease-out ${i*60}ms both`,transition:'transform 0.22s ease,border-color 0.22s ease,background 0.22s ease'}}>
-          {(p?.image || p?.url || p?.img_src) ? <img src={p?.image || p?.url || p?.img_src} alt={p?.camera || 'Mars photo'} loading="lazy" style={{width:'100%',height:110,objectFit:'cover',display:'block'}}/> : <div style={{width:'100%',height:110,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,0.04)',fontSize:28}}>🚀</div>}
-          <div style={{padding:'10px 12px'}}>
-            <p style={{fontSize:11,fontWeight:700,color:'#f97316',margin:'0 0 2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p?.camera || 'Mars Camera'}</p>
-            <p style={{fontSize:10,color:'rgba(255,255,255,0.9)',margin:0}}>{p?.rover || 'Rover'} · {p?.date || p?.earth_date || ''}</p>
-          </div>
-        </div>
-      ))}
-    </div>
   )
 }
 
@@ -325,7 +311,7 @@ function AsteroidsSection({ asteroids }) {
   )
 }
 
-function EarthSection({ images }) {
+function EarthSection({ images, onImageSelect }) {
   if(!images) return <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>{[0,1,2,3].map(i=><Skel key={i} h={140} r={16}/>)}</div>
   if(!images.length) return <p style={{color:'rgba(255,255,255,0.85)',textAlign:'center',padding:'24px 0'}}>Earth images loading…</p>
   return (
@@ -333,7 +319,12 @@ function EarthSection({ images }) {
       {images.map((img,i)=>(
         <div key={img?.id || i} className="space-item-card" style={{borderRadius:16,overflow:'hidden',border:'1px solid rgba(59,130,246,0.2)',animation:`spaceUp 0.4s ease-out ${i*60}ms both`,transition:'transform 0.22s ease,border-color 0.22s ease,background 0.22s ease'}}>
           {(img?.image || img?.url) ? <img src={img?.image || img?.url} alt="Earth" loading="lazy"
-            style={{width:'100%',height:100,objectFit:'cover',display:'block'}}
+            onClick={() => onImageSelect({
+              src: img?.image || img?.url,
+              title: "Earth",
+              description: img?.caption
+            })}
+            style={{width:'100%',height:100,objectFit:'cover',display:'block',cursor:'zoom-in'}}
             onError={e=>{e.target.style.display='none'}}/> : <div style={{width:'100%',height:100,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,0.04)',fontSize:26}}>🌍</div>}
           <div style={{padding:'8px 10px',background:'rgba(59,130,246,0.05)'}}>
             <p style={{fontSize:10,color:'rgba(255,255,255,0.85)',margin:0}}>{img?.date?.slice(0,10) || ''}</p>
@@ -344,16 +335,42 @@ function EarthSection({ images }) {
   )
 }
 
+function SunSection({ data, loading, onImageSelect }) {
+  const images = data?.sun || []
+
+  if (loading) return <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>{[0,1,2,3].map(i=><Skel key={i} h={140} r={16}/>)}</div>
+  if (!images.length) return <p style={{color:'rgba(255,255,255,0.85)',textAlign:'center',padding:'24px 0'}}>Sun view loading...</p>
+
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+      {images.map((item,i)=>(
+        <div key={i} className="space-item-card" style={{borderRadius:16,overflow:'hidden',border:'1px solid rgba(251,191,36,0.24)',background:'rgba(251,191,36,0.06)',animation:`spaceUp 0.4s ease-out ${i*60}ms both`,transition:'transform 0.22s ease,border-color 0.22s ease,background 0.22s ease'}}>
+          {item?.image ? <img src={item.image} alt={item?.title || 'Sun View'} loading="lazy" referrerPolicy="no-referrer"
+            onClick={() => onImageSelect({
+              src: item.image,
+              title: item.title,
+            })}
+            style={{width:'100%',height:110,objectFit:'cover',display:'block',cursor:'zoom-in'}}
+            onError={e=>{e.target.style.display='none'}}/> : <div style={{width:'100%',height:110,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,0.04)',fontSize:28}}>☀️</div>}
+          <div style={{padding:'8px 10px',background:'rgba(251,191,36,0.06)'}}>
+            <p style={{fontSize:10,color:'rgba(255,255,255,0.9)',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item?.title || 'Sun View'}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 const NASA_TABS = [
   { id:'apod',      icon:'🌌', label:'Today in Space' },
-  { id:'mars',      icon:'🚀', label:'Mars Explorer' },
+  { id:'sun',       icon:'☀️', label:'Sun View' },
   { id:'asteroids', icon:'☄️',  label:'Asteroids' },
   { id:'earth',     icon:'🌍', label:'Earth View' },
 ]
 
 const NASA_SECTION_TITLES = {
   apod: 'Astronomy Picture of the Day',
-  mars: 'Mars Photos',
+  sun: 'Sun View',
   asteroids: 'Near-Earth Asteroids',
   earth: 'Earth View',
 }
@@ -363,6 +380,7 @@ function NASAHub() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [selectedImage, setSelectedImage] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -399,6 +417,7 @@ function NASAHub() {
   }, [])
 
   return (
+    <>
     <div style={{animation:'spaceUp 0.5s ease-out 0.2s both',marginTop:10,display:'flex',flexDirection:'column',gap:12}}>
       <div style={{display:'flex',alignItems:'center',gap:10,padding:'0 2px'}}>
         <div style={{padding:8,background:'rgba(251,191,36,0.12)',borderRadius:14,border:'1px solid rgba(251,191,36,0.25)'}}>
@@ -433,10 +452,10 @@ function NASAHub() {
       {!error&&(
         <div style={{animation:'spaceFade 0.3s ease-out'}}>
           <p style={{fontFamily:'Syne,sans-serif',fontSize:13,fontWeight:800,color:'#ffffff',margin:'0 2px 10px',letterSpacing:'0.3px'}}>{NASA_SECTION_TITLES[activeTab]}</p>
-          {activeTab==='apod'&&<APODSection data={data} loading={loading}/>}
-          {activeTab==='mars'&&<MarsSection photos={loading?null:(data?.mars || [])}/>}
+          {activeTab==='apod'&&<APODSection data={data} loading={loading} onImageSelect={setSelectedImage}/>}
+          {activeTab==='sun'&&<SunSection data={data} loading={loading} onImageSelect={setSelectedImage}/>}
           {activeTab==='asteroids'&&<AsteroidsSection asteroids={loading?null:(data?.asteroids || [])}/>}
-          {activeTab==='earth'&&<EarthSection images={loading?null:(data?.earth || [])}/>}
+          {activeTab==='earth'&&<EarthSection images={loading?null:(data?.earth || [])} onImageSelect={setSelectedImage}/>}
         </div>
       )}
 
@@ -446,6 +465,20 @@ function NASAHub() {
         </p>
       )}
     </div>
+    {selectedImage && (
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',zIndex:50,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',padding:16}}>
+        <img src={selectedImage.src} alt={selectedImage.title || 'Space image'} style={{maxHeight:'70vh',maxWidth:'100%',borderRadius:12,marginBottom:16,objectFit:'contain',boxShadow:'0 20px 70px rgba(0,0,0,0.55)'}}/>
+        <h2 style={{color:'#ffffff',fontSize:18,fontWeight:800,margin:'0 0 8px',textAlign:'center',fontFamily:'Syne,sans-serif',letterSpacing:'0.3px'}}>{selectedImage.title}</h2>
+        <p style={{color:'rgba(229,231,235,0.9)',fontSize:13,maxWidth:420,textAlign:'center',lineHeight:1.65,margin:0}}>{selectedImage.description}</p>
+        <button
+          onClick={() => setSelectedImage(null)}
+          style={{marginTop:16,padding:'9px 18px',background:'#ffffff',color:'#000000',border:'none',borderRadius:999,fontWeight:800,cursor:'pointer'}}
+        >
+          Close
+        </button>
+      </div>
+    )}
+    </>
   )
 }
 
@@ -504,7 +537,7 @@ export default function Space({ issData, issLocation, nasaData }) {
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
         {[
           { id:'iss', icon:'🛰️', title:'ISS Tracker', sub:'Live location · 5s updates', color:'#6366f1', glow:'rgba(99,102,241,0.3)' },
-          { id:'hub', icon:'🚀', title:'NASA Hub',    sub:'APOD · Mars · Asteroids · Earth', color:'#f59e0b', glow:'rgba(245,158,11,0.3)' },
+          { id:'hub', icon:'🚀', title:'NASA Hub',    sub:'APOD · Sun · Asteroids · Earth', color:'#f59e0b', glow:'rgba(245,158,11,0.3)' },
         ].map(f=>(
           <button key={f.id} onClick={()=>setView(f.id)}
             style={{

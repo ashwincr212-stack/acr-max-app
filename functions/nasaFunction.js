@@ -28,6 +28,35 @@ const fetchWithRetry = async (url, retries = 3) => {
   return null;
 };
 
+const fetchEarthImages = async (apiKey) => {
+  const datesToTry = [];
+
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(Date.now() - i * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    datesToTry.push(d);
+  }
+
+  for (const date of datesToTry) {
+    const res = await fetchWithRetry(
+      `https://api.nasa.gov/EPIC/api/natural/date/${date}?api_key=${apiKey}`
+    );
+
+    if (res && res.length > 0) {
+      logger.info("Earth fallback used");
+      return res.slice(0, 12).map(e => ({
+        image: `https://epic.gsfc.nasa.gov/archive/natural/${e.date
+          .slice(0, 10)
+          .replaceAll("-", "/")}/png/${e.image}.png`,
+        caption: e.caption,
+      }));
+    }
+  }
+
+  return [];
+};
+
 exports.fetchNASAData = onSchedule(
   {
     schedule: "every 12 hours",
@@ -40,50 +69,41 @@ exports.fetchNASAData = onSchedule(
     logger.info("🚀 NASA FUNCTION v2 UPDATED");
     logger.info("[NASA] Fetch started");
 
-    // 🚀 APOD
-    const apodRes = await fetchWithRetry(
-      `https://api.nasa.gov/planetary/apod?api_key=${apiKey}`
-    );
+    const [apodRes, earthRes, sunRes, asteroidRes] = await Promise.all([
+      fetchWithRetry(`https://api.nasa.gov/planetary/apod?api_key=${apiKey}`).catch(() => null),
+      fetchEarthImages(apiKey).catch(() => []),
+      fetchWithRetry(`https://api.nasa.gov/planetary/apod?api_key=${apiKey}&count=5`).catch(() => []),
+      fetchWithRetry(`https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${apiKey}`).catch(() => null)
+    ]);
 
-    // 🚀 Mars Rover
-    const marsRes = await fetchWithRetry(
-      `https://api.nasa.gov/mars-photos/api/v1/rovers/curiosity/latest_photos?api_key=${apiKey}`
-    );
-
-    // 🌍 Earth (EPIC)
-    const earthRes = await fetchWithRetry(
-      `https://api.nasa.gov/EPIC/api/natural/images?api_key=${apiKey}`
-    );
-
-    // ☄️ Asteroids
-    const asteroidRes = await fetchWithRetry(
-      `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${apiKey}`
-    );
+    logger.info("Earth count:", earthRes?.length || 0);
+    logger.info("Sun count:", sunRes?.length || 0);
 
     // 🔥 CLEAN + STRUCTURED DATA
     const data = {
       date: today,
 
-      apod: apodRes
-  ? {
-      title: apodRes.title,
-      explanation: apodRes.explanation,
-      image: apodRes.url,
-      media_type: apodRes.media_type, // 🔥 ADD THIS
-      date: apodRes.date,
-    }
-        : null,
+      apod: apodRes && apodRes.url
+        ? {
+          title: apodRes.title,
+          explanation: apodRes.explanation,
+          image: apodRes.url,
+          media_type: apodRes.media_type,
+          date: apodRes.date,
+        }
+        : {
+          title: "Space Image",
+          explanation: "Fallback image",
+          image: "https://apod.nasa.gov/apod/image/1901/IC405_Abolfath_3952.jpg",
+          media_type: "image",
+          date: today,
+        },
 
-      mars: marsRes?.latest_photos?.slice(0, 5).map(p => ({
-        id: p.id,
-        img: p.img_src,
-        rover: p.rover?.name,
-        camera: p.camera?.name,
-      })) || [],
+      earth: earthRes || [],
 
-      earth: earthRes?.slice(0, 5).map(e => ({
-        image: `https://epic.gsfc.nasa.gov/archive/natural/${e.date.slice(0,10).replaceAll("-", "/")}/png/${e.image}.png`,
-        caption: e.caption,
+      sun: sunRes?.map(s => ({
+        image: s.url,
+        title: s.title,
       })) || [],
 
       asteroids:
@@ -95,8 +115,6 @@ exports.fetchNASAData = onSchedule(
             a.close_approach_data?.[0]?.miss_distance?.kilometers,
           velocity:
             a.close_approach_data?.[0]?.relative_velocity?.kilometers_per_hour,
-          sizeMin: Math.round(a.estimated_diameter.meters.estimated_diameter_min),
-          sizeMax: Math.round(a.estimated_diameter.meters.estimated_diameter_max),
         })) || [],
 
       updatedAt: Timestamp.now(),
