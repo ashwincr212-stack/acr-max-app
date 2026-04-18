@@ -347,7 +347,7 @@ const Stars = memo(() => {
 
 // ─── HERO ─────────────────────────────────────────────────────────────────────
 
-const Hero = memo(({ location, today, clock, status }) => {
+const Hero = memo(({ location, today, status }) => {
   const meta = LOCATION_META[location] || LOCATION_META.Chennai;
   const heroBg = status?.type === "bad"
     ? "linear-gradient(165deg,#10011a 0%,#1e0616 55%,#0a0010 100%)"
@@ -378,7 +378,6 @@ const Hero = memo(({ location, today, clock, status }) => {
 
       {/* Center */}
       <div style={H.center}>
-        <div style={H.clockDisp}>{clock.display}</div>
         <div style={H.dateLine}>{formatDateFull(today)}</div>
         <div style={H.locLine}>
           <span style={H.locEmoji}>{meta.emoji}</span>
@@ -679,7 +678,7 @@ const SunMoon = memo(({ normalized, dayProg, nowMs }) => {
           const ringPct = mins !== null && !isPast
             ? Math.min(99, Math.max(0, Math.round(nowMin / mins * 100)))
             : isPast ? 100 : 0;
-          const circ = Math.PI * 2 * 17;
+          const circ = Math.PI * 2 * 14;
 
           return (
             <div key={ev.key} style={{
@@ -689,14 +688,14 @@ const SunMoon = memo(({ normalized, dayProg, nowMs }) => {
               opacity: isPast ? 0.42 : 1,
             }}>
               <div style={C.smRing}>
-                <svg width="48" height="48" viewBox="0 0 48 48">
-                  <circle cx="24" cy="24" r="17" fill="none" stroke={`${ev.dark}60`} strokeWidth="3.5"/>
-                  <circle cx="24" cy="24" r="17" fill="none" stroke={ev.ring} strokeWidth="3.5"
+                <svg width="38" height="38" viewBox="0 0 38 38">
+                  <circle cx="19" cy="19" r="14" fill="none" stroke={`${ev.dark}60`} strokeWidth="3"/>
+                  <circle cx="19" cy="19" r="14" fill="none" stroke={ev.ring} strokeWidth="3"
                     strokeDasharray={`${circ * ringPct / 100} ${circ * (1 - ringPct / 100)}`}
-                    strokeLinecap="round" transform="rotate(-90 24 24)"
+                    strokeLinecap="round" transform="rotate(-90 19 19)"
                     style={{ transition:"stroke-dasharray 1.2s ease" }}
                   />
-                  <text x="24" y="29" textAnchor="middle" fontSize="17">{ev.icon}</text>
+                  <text x="19" y="24" textAnchor="middle" fontSize="14">{ev.icon}</text>
                 </svg>
               </div>
               <div style={C.smInfo}>
@@ -723,7 +722,7 @@ const SunMoon = memo(({ normalized, dayProg, nowMs }) => {
 const DayArc = memo(({ normalized, dayProg }) => {
   if (dayProg === null) return null;
   const phase = getDayPhase(dayProg);
-  const R = 52, cx = 80, cy = 72;
+  const R = 40, cx = 63, cy = 54;
   const ar = a => (a * Math.PI) / 180;
   const ax = a => cx + R * Math.cos(ar(a));
   const ay = a => cy + R * Math.sin(ar(a));
@@ -736,14 +735,14 @@ const DayArc = memo(({ normalized, dayProg }) => {
     <div style={C.arcCard}>
       <div style={C.arcInner}>
         <div style={{ position:"relative", flexShrink:0 }}>
-          <svg width="160" height="88" viewBox="0 0 160 88">
-            <path d={track} fill="none" stroke="rgba(255,211,42,0.08)" strokeWidth="8" strokeLinecap="round"/>
-            <path d={track} fill="none" stroke="rgba(255,211,42,0.03)" strokeWidth="18" strokeLinecap="round"/>
-            {fill && <path d={fill} fill="none" stroke="url(#ag)" strokeWidth="8" strokeLinecap="round"/>}
+          <svg width="126" height="66" viewBox="0 0 126 66">
+            <path d={track} fill="none" stroke="rgba(255,211,42,0.08)" strokeWidth="6" strokeLinecap="round"/>
+            <path d={track} fill="none" stroke="rgba(255,211,42,0.03)" strokeWidth="13" strokeLinecap="round"/>
+            {fill && <path d={fill} fill="none" stroke="url(#ag)" strokeWidth="6" strokeLinecap="round"/>}
             {dayProg > 1 && dayProg < 99 && <>
-              <circle cx={sx} cy={sy} r="13" fill="rgba(255,211,42,0.12)"/>
-              <circle cx={sx} cy={sy} r="8" fill="#ffd32a" style={{ filter:"drop-shadow(0 0 6px #ffd32a)" }}/>
-              <circle cx={sx} cy={sy} r="3.5" fill="#fff"/>
+              <circle cx={sx} cy={sy} r="10" fill="rgba(255,211,42,0.12)"/>
+              <circle cx={sx} cy={sy} r="6" fill="#ffd32a" style={{ filter:"drop-shadow(0 0 5px #ffd32a)" }}/>
+              <circle cx={sx} cy={sy} r="2.7" fill="#fff"/>
             </>}
             <defs>
               <linearGradient id="ag" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -944,7 +943,7 @@ export default function AstroPage() {
 
   return (
     <div style={R.root}>
-      <Hero location={loc} today={today} clock={clock} status={status}/>
+      <Hero location={loc} today={today} status={status}/>
 
       <div style={R.body}>
         <LocSelector location={loc} onChange={handleLoc} saving={saving}/>
@@ -988,38 +987,37 @@ select option{background:#0d0618;color:#e8e0f0}
 
 const H = {
   hero: {
-    position:"relative", overflow:"hidden", borderRadius:"0 0 26px 26px",
+    position:"relative", overflow:"hidden", borderRadius:"0 0 20px 20px",
   },
-  orb1: { position:"absolute",top:-60,left:-45,width:230,height:230,borderRadius:"50%",background:"radial-gradient(circle,rgba(138,43,226,0.22) 0%,transparent 70%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
-  orb2: { position:"absolute",top:-25,right:-60,width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,211,42,0.11) 0%,transparent 70%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },
-  orb3: { position:"absolute",bottom:30,right:18,width:120,height:120,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,107,107,0.09) 0%,transparent 70%)",animation:"orbPulse 7s ease-in-out infinite",pointerEvents:"none" },
-  topBar: { position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 16px 0" },
-  appId:  { display:"flex",alignItems:"center",gap:8 },
-  om:     { fontFamily:"'Playfair Display',serif",fontSize:22,color:"#ffd32a",textShadow:"0 0 12px rgba(255,211,42,0.65)",lineHeight:1 },
-  appName:{ fontFamily:"'Playfair Display',serif",fontSize:14,fontWeight:600,color:"rgba(255,255,255,0.88)",letterSpacing:"0.04em" },
-  appSub: { fontSize:8.5,color:"rgba(255,255,255,0.3)",letterSpacing:"0.08em",marginTop:1 },
-  livePill:{ display:"flex",alignItems:"center",gap:5,background:"rgba(46,213,115,0.09)",border:"1px solid rgba(46,213,115,0.25)",borderRadius:20,padding:"3px 9px" },
+  orb1: { position:"absolute",top:-74,left:-52,width:170,height:170,borderRadius:"50%",background:"radial-gradient(circle,rgba(138,43,226,0.18) 0%,transparent 70%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
+  orb2: { position:"absolute",top:-52,right:-62,width:150,height:150,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,211,42,0.09) 0%,transparent 70%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },
+  orb3: { position:"absolute",bottom:8,right:18,width:82,height:82,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,107,107,0.07) 0%,transparent 70%)",animation:"orbPulse 7s ease-in-out infinite",pointerEvents:"none" },
+  topBar: { position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 14px 0" },
+  appId:  { display:"flex",alignItems:"center",gap:7 },
+  om:     { fontFamily:"'Playfair Display',serif",fontSize:19,color:"#ffd32a",textShadow:"0 0 10px rgba(255,211,42,0.6)",lineHeight:1 },
+  appName:{ fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.88)",letterSpacing:"0.04em",lineHeight:1.05 },
+  appSub: { fontSize:7.5,color:"rgba(255,255,255,0.3)",letterSpacing:"0.07em",marginTop:0 },
+  livePill:{ display:"flex",alignItems:"center",gap:5,background:"rgba(46,213,115,0.09)",border:"1px solid rgba(46,213,115,0.25)",borderRadius:18,padding:"2px 8px" },
   liveDot: { display:"inline-block",width:5,height:5,borderRadius:"50%",background:"#2ed573",animation:"blink 1.3s ease-in-out infinite" },
-  liveText:{ fontSize:8.5,fontWeight:800,color:"#2ed573",letterSpacing:"0.12em" },
-  center:  { position:"relative",zIndex:2,textAlign:"center",padding:"9px 16px 9px" },
-  clockDisp:{ fontFamily:"'Sora',sans-serif",fontSize:11.5,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.14em",fontVariantNumeric:"tabular-nums",marginBottom:5 },
-  dateLine: { fontFamily:"'Playfair Display',serif",fontSize:14,color:"rgba(255,255,255,0.68)",letterSpacing:"0.02em",marginBottom:5 },
-  locLine:  { display:"flex",alignItems:"center",justifyContent:"center",gap:5 },
-  locEmoji: { fontSize:13 },
-  locName:  { fontSize:12.5,fontWeight:700,color:"rgba(255,255,255,0.86)" },
-  locTag:   { fontSize:10,color:"rgba(255,255,255,0.3)" },
-  ribbon:   { position:"relative",zIndex:2,display:"flex",alignItems:"center",gap:8,padding:"8px 16px 10px" },
+  liveText:{ fontSize:7.5,fontWeight:800,color:"#2ed573",letterSpacing:"0.11em" },
+  center:  { position:"relative",zIndex:2,textAlign:"center",padding:"5px 14px 6px" },
+  dateLine: { fontFamily:"'Playfair Display',serif",fontSize:12.5,color:"rgba(255,255,255,0.68)",letterSpacing:"0.02em",marginBottom:3,lineHeight:1.2 },
+  locLine:  { display:"flex",alignItems:"center",justifyContent:"center",gap:4 },
+  locEmoji: { fontSize:12 },
+  locName:  { fontSize:11.5,fontWeight:700,color:"rgba(255,255,255,0.86)" },
+  locTag:   { fontSize:9,color:"rgba(255,255,255,0.3)" },
+  ribbon:   { position:"relative",zIndex:2,display:"flex",alignItems:"center",gap:7,padding:"6px 14px 7px" },
   ribbonMid:{ flex:1,minWidth:0 },
-  ribbonTitle:{ display:"block",fontSize:11.5,fontWeight:800,lineHeight:1.2 },
-  ribbonMsg:  { display:"block",fontSize:10,color:"rgba(255,255,255,0.4)",marginTop:2 },
-  ribbonExtra:{ fontSize:9.5,color:"rgba(255,255,255,0.3)",fontWeight:600,whiteSpace:"nowrap",flexShrink:0 },
+  ribbonTitle:{ display:"block",fontSize:10.5,fontWeight:800,lineHeight:1.15 },
+  ribbonMsg:  { display:"block",fontSize:9,color:"rgba(255,255,255,0.4)",marginTop:1 },
+  ribbonExtra:{ fontSize:8.5,color:"rgba(255,255,255,0.3)",fontWeight:600,whiteSpace:"nowrap",flexShrink:0 },
 };
 
 // ─── CARD STYLES ──────────────────────────────────────────────────────────────
 
 const C = {
   // Location
-  locCard: { display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:16,padding:"10px 13px",marginBottom:11,animation:"slideUp 0.38s ease both" },
+  locCard: { display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"8px 12px",marginBottom:9,animation:"slideUp 0.38s ease both" },
   locL:    { display:"flex",alignItems:"center",gap:10 },
   locBox:  { width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,rgba(255,211,42,0.13),rgba(138,43,226,0.13))",display:"flex",alignItems:"center",justifyContent:"center" },
   locName: { fontSize:13.5,fontWeight:700,color:"rgba(255,255,255,0.88)" },
@@ -1030,11 +1028,11 @@ const C = {
   sel:     { appearance:"none",WebkitAppearance:"none",background:"linear-gradient(135deg,rgba(255,211,42,0.09),rgba(138,43,226,0.09))",border:"1px solid rgba(255,211,42,0.16)",borderRadius:12,padding:"7px 28px 7px 12px",fontSize:12,fontWeight:700,color:"#ffd32a",cursor:"pointer",outline:"none",fontFamily:"'Sora',sans-serif" },
   selArrow:{ position:"absolute",right:9,fontSize:11,color:"#ffd32a",pointerEvents:"none" },
   // Chips
-  chips: { display:"flex",flexWrap:"wrap",gap:6,marginBottom:11,animation:"slideUp 0.33s ease both" },
-  chip:  { fontSize:9.5,fontWeight:700,background:"rgba(255,255,255,0.055)",border:"1px solid rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.55)",borderRadius:20,padding:"3px 10px",letterSpacing:"0.04em" },
+  chips: { display:"flex",flexWrap:"wrap",gap:5,marginBottom:9,animation:"slideUp 0.33s ease both" },
+  chip:  { fontSize:9,fontWeight:700,background:"rgba(255,255,255,0.055)",border:"1px solid rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.55)",borderRadius:18,padding:"2px 9px",letterSpacing:"0.04em" },
   // Status card
-  statusCard:   { borderRadius:22,padding:"14px 14px 12px",marginBottom:12,overflow:"hidden" },
-  scTop:        { display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:11 },
+  statusCard:   { borderRadius:18,padding:"12px 12px 10px",marginBottom:9,overflow:"hidden" },
+  scTop:        { display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:9,marginBottom:9 },
   scTL:         { display:"flex",alignItems:"flex-start",gap:11 },
   scTitle:      { fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,display:"block",lineHeight:1.2 },
   scMsg:        { fontSize:11,color:"rgba(255,255,255,0.42)",display:"block",marginTop:3 },
@@ -1054,11 +1052,11 @@ const C = {
   scGuide:      { display:"flex",alignItems:"center",gap:7,marginTop:9,paddingTop:9,borderTop:"1px solid" },
   scGuideText:  { fontSize:10.5,fontStyle:"italic" },
   // Tracker
-  tracker: { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:22,padding:"13px 12px 11px",marginBottom:12,animation:"slideUp 0.48s 0.05s ease both" },
-  tHead:   { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:11,paddingBottom:8,borderBottom:"1px solid rgba(255,255,255,0.05)" },
+  tracker: { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:"11px 11px 9px",marginBottom:9,animation:"slideUp 0.48s 0.05s ease both" },
+  tHead:   { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,paddingBottom:6,borderBottom:"1px solid rgba(255,255,255,0.05)" },
   tTitle:  { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.82)" },
   tSub:    { fontSize:9.5,color:"rgba(255,255,255,0.26)" },
-  tRow:    { borderRadius:13,padding:"9px 11px",transition:"all 0.25s ease" },
+  tRow:    { borderRadius:12,padding:"8px 10px",transition:"all 0.25s ease" },
   tRowMain:{ display:"flex",justifyContent:"space-between",alignItems:"center",gap:8 },
   tL:      { display:"flex",alignItems:"center",gap:10 },
   tIcon:   { fontSize:15,lineHeight:1,flexShrink:0,fontFamily:"serif" },
@@ -1071,34 +1069,34 @@ const C = {
   tBar:    { height:3,borderRadius:99,background:"rgba(255,255,255,0.05)",marginTop:7,overflow:"hidden" },
   tBarFill:{ height:"100%",borderRadius:99,transition:"width 1s cubic-bezier(0.4,0,0.2,1)" },
   // Sun Moon
-  smCard:  { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:22,padding:"13px 12px 13px",marginBottom:12,animation:"slideUp 0.48s 0.1s ease both" },
-  smHead:  { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:11,paddingBottom:8,borderBottom:"1px solid rgba(255,255,255,0.05)" },
-  smTitle: { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.82)" },
-  smPhase: { fontSize:9.5,color:"rgba(255,255,255,0.26)",fontWeight:600,letterSpacing:"0.05em" },
-  smGrid:  { display:"grid",gridTemplateColumns:"1fr 1fr",gap:8 },
-  smCell:  { borderRadius:15,padding:"11px 11px 9px",display:"flex",flexDirection:"column",alignItems:"center",gap:6,transition:"opacity 0.3s" },
+  smCard:  { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:"9px 10px 10px",marginBottom:9,animation:"slideUp 0.48s 0.1s ease both" },
+  smHead:  { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:7,paddingBottom:5,borderBottom:"1px solid rgba(255,255,255,0.05)" },
+  smTitle: { fontFamily:"'Playfair Display',serif",fontSize:12.5,fontWeight:600,color:"rgba(255,255,255,0.82)" },
+  smPhase: { fontSize:8.5,color:"rgba(255,255,255,0.26)",fontWeight:600,letterSpacing:"0.05em" },
+  smGrid:  { display:"grid",gridTemplateColumns:"1fr 1fr",gap:6 },
+  smCell:  { borderRadius:12,padding:"7px 8px 6px",display:"flex",flexDirection:"row",alignItems:"center",gap:7,transition:"opacity 0.3s",minHeight:54 },
   smRing:  { flexShrink:0 },
-  smInfo:  { textAlign:"center",width:"100%" },
-  smLabel: { fontSize:9.5,fontWeight:700,letterSpacing:"0.06em",display:"block",marginBottom:3 },
-  smTime:  { fontSize:14,fontWeight:800,color:"rgba(255,255,255,0.88)",fontVariantNumeric:"tabular-nums" },
-  smCd:    { fontSize:9.5,fontWeight:600,marginTop:3,display:"block" },
+  smInfo:  { textAlign:"left",width:"100%",minWidth:0 },
+  smLabel: { fontSize:8.5,fontWeight:700,letterSpacing:"0.05em",display:"block",marginBottom:1,whiteSpace:"nowrap" },
+  smTime:  { fontSize:12.5,fontWeight:800,color:"rgba(255,255,255,0.88)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap" },
+  smCd:    { fontSize:8.5,fontWeight:600,marginTop:1,display:"block",whiteSpace:"nowrap" },
   // Arc
-  arcCard:    { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:22,padding:"13px 13px 11px",marginBottom:12,animation:"slideUp 0.48s 0.15s ease both" },
-  arcInner:   { display:"flex",alignItems:"center",gap:12 },
-  arcPct:     { position:"absolute",bottom:8,left:0,right:0,textAlign:"center",fontSize:17,fontWeight:800,color:"#ffd32a",fontVariantNumeric:"tabular-nums",fontFamily:"'Sora',sans-serif" },
-  arcPhase:   { fontSize:9,fontWeight:700,color:"rgba(255,211,42,0.55)",textTransform:"uppercase",letterSpacing:"0.08em",textAlign:"center",marginTop:2 },
+  arcCard:    { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:"9px 10px 8px",marginBottom:9,animation:"slideUp 0.48s 0.15s ease both" },
+  arcInner:   { display:"flex",alignItems:"center",gap:9 },
+  arcPct:     { position:"absolute",bottom:8,left:0,right:0,textAlign:"center",fontSize:14.5,fontWeight:800,color:"#ffd32a",fontVariantNumeric:"tabular-nums",fontFamily:"'Sora',sans-serif" },
+  arcPhase:   { fontSize:8,fontWeight:700,color:"rgba(255,211,42,0.55)",textTransform:"uppercase",letterSpacing:"0.08em",textAlign:"center",marginTop:0 },
   arcTimes:   { flex:1,display:"flex",flexDirection:"column",gap:0 },
-  arcTimeItem:{ display:"flex",alignItems:"center",gap:10,padding:"7px 0" },
-  arcIcon:    { fontSize:17,lineHeight:1,width:22,textAlign:"center" },
-  arcTLabel:  { fontSize:9.5,color:"rgba(255,255,255,0.32)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em" },
-  arcTVal:    { fontSize:14,fontWeight:800,color:"rgba(255,255,255,0.86)",fontVariantNumeric:"tabular-nums" },
+  arcTimeItem:{ display:"flex",alignItems:"center",gap:8,padding:"4px 0" },
+  arcIcon:    { fontSize:15,lineHeight:1,width:19,textAlign:"center" },
+  arcTLabel:  { fontSize:8.5,color:"rgba(255,255,255,0.32)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em" },
+  arcTVal:    { fontSize:12.5,fontWeight:800,color:"rgba(255,255,255,0.86)",fontVariantNumeric:"tabular-nums" },
   // Panchang
-  panCard:    { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:22,padding:"13px 12px 13px",marginBottom:12,animation:"slideUp 0.48s 0.2s ease both" },
-  panHead:    { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:11,paddingBottom:8,borderBottom:"1px solid rgba(255,255,255,0.05)" },
+  panCard:    { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:"11px 10px 11px",marginBottom:9,animation:"slideUp 0.48s 0.2s ease both" },
+  panHead:    { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,paddingBottom:6,borderBottom:"1px solid rgba(255,255,255,0.05)" },
   panTitle:   { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.82)" },
   panSub:     { fontSize:9.5,color:"rgba(255,255,255,0.26)" },
-  panGrid:    { display:"grid",gridTemplateColumns:"1fr 1fr",gap:8 },
-  panCell:    { background:"linear-gradient(145deg,rgba(138,43,226,0.1),rgba(255,211,42,0.055))",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"10px 11px",cursor:"default",transition:"all 0.2s ease",position:"relative",userSelect:"none" },
+  panGrid:    { display:"grid",gridTemplateColumns:"1fr 1fr",gap:6 },
+  panCell:    { background:"linear-gradient(145deg,rgba(138,43,226,0.1),rgba(255,211,42,0.055))",border:"1px solid rgba(255,255,255,0.07)",borderRadius:12,padding:"9px 10px",cursor:"default",transition:"all 0.2s ease",position:"relative",userSelect:"none" },
   panCellOpen:{ background:"linear-gradient(145deg,rgba(138,43,226,0.18),rgba(255,211,42,0.09))",boxShadow:"0 0 0 1px rgba(138,43,226,0.28)" },
   panTop:     { display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 },
   panLbl:     { fontSize:9,fontWeight:800,color:"rgba(138,43,226,0.85)",textTransform:"uppercase",letterSpacing:"0.09em" },
@@ -1109,7 +1107,7 @@ const C = {
   panExp:     { marginTop:8,paddingTop:7,borderTop:"1px solid rgba(255,255,255,0.07)" },
   panExpLine: { fontSize:10,color:"rgba(200,180,255,0.7)",fontWeight:500,lineHeight:1.55,marginBottom:3 },
   // Skeleton
-  skelCard:  { background:"rgba(255,255,255,0.02)",borderRadius:20,padding:"15px 14px 17px",marginBottom:12,animation:"skelIn 0.4s ease both" },
+  skelCard:  { background:"rgba(255,255,255,0.02)",borderRadius:18,padding:"13px 12px 14px",marginBottom:9,animation:"skelIn 0.4s ease both" },
   skelLine:  { borderRadius:6,background:"linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 75%)",backgroundSize:"800px 100%",animation:"shimmer 1.6s infinite linear" },
   // Error
   errCard:   { background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:22,padding:"38px 24px",textAlign:"center",animation:"slideUp 0.4s ease both" },
@@ -1122,6 +1120,6 @@ const C = {
 
 const R = {
   root:   { fontFamily:"'Sora',sans-serif",minHeight:"100vh",background:"#080510",color:"rgba(255,255,255,0.85)",overflowX:"hidden",paddingBottom:64 },
-  body:   { maxWidth:480,margin:"0 auto",padding:"12px 12px 0",position:"relative",zIndex:1 },
+  body:   { maxWidth:480,margin:"0 auto",padding:"9px 10px 0",position:"relative",zIndex:1 },
   footer: { textAlign:"center",fontSize:10,color:"rgba(255,255,255,0.18)",marginTop:10,fontStyle:"italic",letterSpacing:"0.03em" },
 };
