@@ -15,6 +15,10 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
     .filter(log => log.source === 'skill')
     .reduce((sum, log) => sum + log.amount, 0)
 
+  const predictionCoins = coinLogs
+    .filter(log => log.source === 'prediction')
+    .reduce((sum, log) => sum + log.amount, 0)
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-4">
       <div className="mx-auto max-w-2xl">
@@ -60,7 +64,7 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-600">Predictions</span>
-              <span className="font-semibold text-slate-900">0</span>
+              <span className="font-semibold text-slate-900">{predictionCoins}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-600">Surprises</span>

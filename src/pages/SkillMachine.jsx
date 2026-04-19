@@ -1,1101 +1,2754 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { db } from '../firebase'
-import { doc, getDoc, increment, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { 
+  Brain, Zap, Trophy, Flame, Coins, Clock, Sparkles,
+  Award, Star, RotateCw,
+  Check, X, Lightbulb, Gift, Crown, Rocket, ChevronRight,
+  Activity, Grid3x3, Eye, Shuffle, Hash,
+  MousePointerClick, Sigma, Puzzle, Volume2, VolumeX, Home,
+  Gem, Heart, Equal
+} from 'lucide-react';
 
-/* ═══════════════════════════════════════════════════════════════════
-   ACR MAX — SKILL MACHINE v3  (PREMIUM GAME ENGINE)
-   10 dynamic engines · Adaptive difficulty · Infinite non-repeat
-   Firebase: 1 write/session only · Fully offline gameplay
-   Coins are virtual tokens with no monetary value
-═══════════════════════════════════════════════════════════════════ */
+const BASE_REWARD = 20;
+const WRONG_PENALTY = 10;
+const EXTRA_GAMES_COST = 50;
+const EXTRA_GAMES_LIMIT = 2;
+const SESSION_LIMIT = 6;
+const COOLDOWN_MS = 2 * 60 * 60 * 1000;
+const PERFECT_SESSION_BONUS = 100;
+const LUCKY_SPIN_DURATION_MS = 2500;
+const LUCKY_SPIN_REWARDS = [5, 10, 15, 25, 50, 75, 100, 200];
 
-/* ─── CONSTANTS ─── */
-const BASE_REWARD    = 10
-const SPEED_BONUS    = 5
-const STREAK_MULTI   = { 3:1.5, 5:2, 10:3 }
-const JACKPOT_AT     = 10
-const DAILY_BONUS    = [20, 30, 50]
-const WEEKLY_BONUS   = 100
-const SESSION_LENGTH = 5   // puzzles per session
-const R = () => Math.random()
-const RI = (min,max) => Math.floor(R()*(max-min+1))+min
-const PICK = arr => arr[RI(0,arr.length-1)]
-const SHUFFLE = a => { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=RI(0,i);[b[i],b[j]]=[b[j],b[i]]} return b }
-
-/* ══════════════════════════════════════════════════════════════════
-   10 PUZZLE ENGINES — all dynamic, all offline
-══════════════════════════════════════════════════════════════════ */
-
-/* 1. QuickMath */
-const QuickMathEngine = {
-  type:'math', label:'Quick Math', icon:'🔢', color:'#6366f1',
-  generate(d) {
-    const ops = d<2?['+','-']:d<4?['+','-','×']:['×','÷','+','-']
-    const op = PICK(ops), r = d<2?12:d<4?25:50
-    let a,b,ans
-    if(op==='+'){a=RI(1,r);b=RI(1,r);ans=a+b}
-    else if(op==='-'){a=RI(r/2,r);b=RI(1,a-1);ans=a-b}
-    else if(op==='×'){a=RI(2,d<4?9:15);b=RI(2,d<4?9:12);ans=a*b}
-    else{b=RI(2,9);ans=RI(2,12);a=b*ans}
-    const wrong=new Set()
-    while(wrong.size<3){const w=ans+RI(-Math.max(5,r/4),Math.max(5,r/4));if(w>0&&w!==ans)wrong.add(w)}
-    return { question:`${a} ${op} ${b} = ?`, options:SHUFFLE([...[...wrong],ans]), answer:ans, display:'choice' }
-  }
-}
-
-/* 2. NumberLogic (series) */
-const NumberLogicEngine = {
-  type:'series', label:'Number Logic', icon:'🔁', color:'#8b5cf6',
-  generate(d) {
-    const generators = [
-      ()=>{const s=RI(1,10),step=RI(2,8+d*3);const seq=[s,s+step,s+step*2,s+step*3];return{seq,ans:s+step*4}},
-      ()=>{const s=RI(1,5),m=RI(2,3+d);const seq=[s,s*m,s*m**2,s*m**3];return{seq,ans:s*m**4}},
-      ()=>{let a=RI(1,3),b=RI(2,5),seq=[a,b];for(let i=0;i<3;i++){const n=a+b;seq.push(n);a=b;b=n}return{seq:seq.slice(0,4),ans:b}},
-      ()=>{const n=RI(2,4+d),e=2;const seq=[n**e,(n+1)**e,(n+2)**e,(n+3)**e];return{seq,ans:(n+4)**e}},
-      ()=>{const s=RI(1,6),d2=RI(1,4);const seq=[s,s+d2,s+d2*3,s+d2*6];return{seq,ans:s+d2*10}},
-    ]
-    const g = PICK(d<2?generators.slice(0,2):d<4?generators.slice(0,4):generators)()
-    const w = new Set()
-    const spread = Math.max(5,Math.floor(g.ans*0.4))
-    while(w.size<3){const x=g.ans+RI(-spread,spread);if(x>0&&x!==g.ans)w.add(x)}
-    return { question:`${g.seq.join(' → ')} → ?`, options:SHUFFLE([...[...w],g.ans]), answer:g.ans, display:'choice' }
-  }
-}
-
-/* 3. MemoryFlash */
-const MemoryFlashEngine = {
-  type:'memory', label:'Memory Flash', icon:'🧠', color:'#ec4899',
-  generate(d) {
-    const len = 3 + Math.min(d,4)
-    const nums = Array.from({length:len},()=>RI(1,9+d*5))
-    const isYes = Math.random() > 0.5
-    let target
-    if (isYes) {
-      target = PICK(nums)
-    } else {
-      target = RI(1, 9+d*5)
-      while (nums.includes(target)) target = RI(1, 9+d*5)
-    }
-    return {
-      question: nums,
-      subtext: `Was ${target} in the sequence?`,
-      options: ['Yes ✓','No ✗'],
-      answer: nums.includes(target) ? 'Yes ✓' : 'No ✗',
-      display: 'memory',
-      flashMs: Math.max(400, 1200 - d*150),
-      target,
-    }
-  }
-}
-
-/* 4. PatternGrid */
-const PatternGridEngine = {
-  type:'pattern', label:'Pattern Grid', icon:'⬛', color:'#f59e0b',
-  generate(d) {
-    const size = d < 3 ? 3 : 4
-    const patterns = [
-      // Row pattern
-      ()=>{
-        const on = []
-        const row = RI(0,size-1)
-        for(let c=0;c<size;c++) on.push([row,c])
-        const miss = PICK(on); const visible = on.filter(([r2,c2])=>!(r2===miss[0]&&c2===miss[1]))
-        return { cells:visible, missing:miss, grid:size, rule:'row' }
-      },
-      // Diagonal
-      ()=>{
-        const on = []; for(let i=0;i<size;i++) on.push([i,i])
-        const miss = PICK(on); const visible = on.filter(([r2,c2])=>!(r2===miss[0]&&c2===miss[1]))
-        return { cells:visible, missing:miss, grid:size, rule:'diagonal' }
-      },
-      // L shape
-      ()=>{
-        const r=RI(0,size-2),c=RI(0,size-2)
-        const on=[[r,c],[r+1,c],[r+1,c+1]]
-        const miss=PICK(on); const visible=on.filter(([r2,c2])=>!(r2===miss[0]&&c2===miss[1]))
-        return{cells:visible,missing:miss,grid:size,rule:'L'}
-      },
-    ]
-    const g = PICK(patterns)()
-    return {
-      question: g.cells,
-      answer: g.missing,
-      gridSize: g.grid,
-      display: 'grid',
-      subtext: 'Tap the missing cell',
-      options: null,
-    }
-  }
-}
-
-/* 5. OddOneOut */
-const OddOneOutEngine = {
-  type:'odd', label:'Odd One Out', icon:'🔍', color:'#10b981',
-  generate(d) {
-    const categories = [
-      { group:['🍎','🍊','🍋','🍇','🍓'], odd:['🏀','⚽','🎾','🏐','🎱'] },
-      { group:['🐶','🐱','🐭','🐰','🦊'], odd:['🌹','🌻','🌺','🌼','🌸'] },
-      { group:['Car','Bus','Train','Bike','Truck'], odd:['Apple','Mango','Grape','Lemon','Peach'] },
-      { group:['Circle','Square','Triangle','Pentagon','Hexagon'], odd:['Red','Blue','Green','Yellow','Purple'] },
-      { group:[2,4,6,8,10], odd:[1,3,5,7,9], type:'number', label:'even vs odd' },
-      { group:[3,6,9,12,15], odd:[4,7,11,14,17], type:'number', label:'mult3 vs not' },
-      { group:['January','March','July','August','October'], odd:['April','June','September','November','February'] },
-    ]
-    const cat = PICK(categories)
-    const numCorrect = d<3?3:2  // items from main group
-    const correctItems = SHUFFLE(cat.group).slice(0,numCorrect)
-    const oddItem = PICK(cat.odd)
-    const options = SHUFFLE([...correctItems, oddItem])
-    const rule = numCorrect===3?'Which does not belong?':'Which is different?'
-    return {
-      question: rule,
-      options: options.map(String),
-      answer: String(oddItem),
-      display: 'choice',
-      subtext: '',
-    }
-  }
-}
-
-/* 6. ReactionEngine */
-const ReactionEngine = {
-  type:'reaction', label:'Reaction', icon:'⚡', color:'#ef4444',
-  generate(d) {
-    const targets = ['🟢','🔵','🟡']
-    const distractors = ['🔴','⚫','🟣']
-    const target = PICK(targets)
-    const count = 4 + d
-    const items = []
-    const targetIdx = RI(0,count-1)
-    for(let i=0;i<count;i++){
-      items.push(i===targetIdx ? target : PICK([...distractors,...targets.filter(t=>t!==target)]))
-    }
-    return {
-      question: `Tap ${target} as fast as you can!`,
-      options: items,
-      answer: String(targetIdx),
-      display: 'reaction',
-      target,
-    }
-  }
-}
-
-/* 7. SequenceRecall */
-const SequenceRecallEngine = {
-  type:'recall', label:'Sequence Recall', icon:'📋', color:'#06b6d4',
-  generate(d) {
-    const len = 3 + Math.min(d, 4)
-    const symbols = ['🔴','🔵','🟡','🟢','🟣','⚫','🟠']
-    const seq = Array.from({length:len}, ()=>PICK(symbols))
-    const positions = Array.from({length:len},(_,i)=>i)
-    const askIdx = PICK(positions.slice(1))
-    const correct = seq[askIdx]
-    const wrong = new Set()
-    while(wrong.size<3){const w=PICK(symbols);if(w!==correct)wrong.add(w)}
-    return {
-      question: seq,
-      subtext: `What was at position ${askIdx+1}?`,
-      options: SHUFFLE([...[...wrong],correct]),
-      answer: correct,
-      display: 'recall',
-      flashMs: Math.max(300, 1000-d*80),
-      askIdx,
-    }
-  }
-}
-
-/* 8. CompareChoose */
-const CompareChooseEngine = {
-  type:'compare', label:'Compare & Choose', icon:'⚖️', color:'#a78bfa',
-  generate(d) {
-    const types = d<2?['bigger','more']:['bigger','more','faster','heavier','longer']
-    const type = PICK(types)
-    const pairs = {
-      bigger: [['🐘 Elephant','🐁 Mouse'],['🏔 Mountain','🌋 Hill'],['🌊 Ocean','🏊 Pool'],['🦁 Lion','🐈 Cat'],['🚀 Rocket','✈ Plane']],
-      more:   [['1000','100'],['75%','25%'],['3/4','1/4'],['99','9'],['2²','1²']],
-      faster: [['🚄 Bullet Train','🐌 Snail'],['⚡ Lightning','🌧 Rain'],['🐆 Cheetah','🐢 Turtle'],['✈ Plane','🚲 Bike']],
-      heavier:[['🏋️ Barbell','🪶 Feather'],['🚗 Car','🛵 Scooter'],['🪨 Rock','🍃 Leaf'],['🐋 Whale','🐟 Fish']],
-      longer: [['📏 Ruler','✏️ Pencil'],['🐍 Snake','🐛 Caterpillar'],['🦒 Giraffe','🐑 Sheep'],['🌲 Tree','🌿 Grass']],
-    }
-    const pair = PICK(pairs[type]||pairs.bigger)
-    const correct = pair[0]
-    return {
-      question: `Which is ${type}?`,
-      options: SHUFFLE(pair),
-      answer: correct,
-      display: 'choice',
-    }
-  }
-}
-
-/* 9. GridTapSequence */
-const GridTapSequenceEngine = {
-  type:'gridtap', label:'Grid Tap', icon:'🎯', color:'#f97316',
-  generate(d) {
-    const size = d<3?3:4
-    const seqLen = 2+Math.min(d,4)
-    const cells = []
-    while(cells.length<seqLen){const c=RI(0,size*size-1);if(!cells.includes(c))cells.push(c)}
-    return {
-      question: cells,
-      answer: JSON.stringify(cells),
-      display: 'gridtap',
-      gridSize: size,
-      flashMs: Math.max(400,900-d*60),
-      subtext: 'Tap cells in order shown',
-      options: null,
-    }
-  }
-}
-
-/* 10. RotateFit */
-const RotateFitEngine = {
-  type:'rotate', label:'Rotate & Fit', icon:'🔄', color:'#14b8a6',
-  generate(d) {
-    const shapes = ['▲','■','●','◆','★','⬟','⬡','⬣']
-    const colors = ['#ef4444','#3b82f6','#22c55e','#f59e0b','#8b5cf6','#ec4899']
-    const count = 3+Math.min(d,3)
-    const target = Array.from({length:count},()=>({shape:PICK(shapes),color:PICK(colors)}))
-    const rotation = PICK([0,90,180,270])
-    const wrong1 = target.map((t,i)=>i===0?{...t,shape:PICK(shapes.filter(s=>s!==t.shape))}:t)
-    const wrong2 = SHUFFLE([...target])
-    const wrong3 = target.map(t=>({...t,color:PICK(colors.filter(c=>c!==t.color))}))
-    const opts = SHUFFLE([target,wrong1,wrong2,wrong3])
-    const ansIdx = opts.indexOf(target)
-    return {
-      question: target,
-      options: opts,
-      answer: ansIdx,
-      display: 'rotate',
-      rotation,
-      subtext: `Find the original after ${rotation}° rotation`,
-    }
-  }
-}
-
-/* ─── ENGINE REGISTRY ─── */
-const ENGINES = [
-  QuickMathEngine, NumberLogicEngine, MemoryFlashEngine, PatternGridEngine,
-  OddOneOutEngine, ReactionEngine, SequenceRecallEngine, CompareChooseEngine,
-  GridTapSequenceEngine, RotateFitEngine,
-]
-
-const ENGINE_ROTATION = ['math','series','memory','pattern','odd','reaction','recall','compare','gridtap','rotate']
-
-/* ─── PUZZLE GENERATOR (anti-repeat rotation + onboarding) ─── */
-function nextEngine(history) {
-  const recent = history.slice(-3).map(h=>h.type)
-  const available = ENGINES.filter(e=>!recent.includes(e.type))
-  return available.length ? PICK(available) : PICK(ENGINES)
-}
-
-function generatePuzzle(difficulty, history=[], puzzleIdx=0) {
-  // Onboarding Phase: Force difficulty 1 for the first 5 puzzles to ease players in
-  const effectiveDiff = puzzleIdx < 5 ? 1 : Math.round(difficulty)
-  const engine = nextEngine(history)
-  const puzzle = engine.generate(effectiveDiff)
-  return { ...puzzle, engineType:engine.type, engineLabel:engine.label, engineIcon:engine.icon, engineColor:engine.color, id:`${engine.type}_${Date.now()}_${RI(0,9999)}` }
-}
-
-/* ─── DIFFICULTY ENGINE (Smoother progression) ─── */
-function calcDifficulty(current, accuracy, avgMs, streak) {
-  let target = current
-  // Adaptive thresholds
-  if(accuracy >= 0.8 && avgMs < 3000) target += 1
-  else if(accuracy >= 0.6 && avgMs < 4500) target += 0.5
-  else if(accuracy < 0.4 || avgMs > 6000) target -= 1
-  
-  if(streak >= 5) target += 0.5
-  if(streak >= 10) target += 1
-
-  // Clamp the change to avoid frustrating sudden jumps (+/- 1 max per adjustment)
-  let diff = target - current
-  diff = Math.max(-1, Math.min(1, diff))
-  
-  return Math.max(1, Math.min(9, current + diff))
-}
-
-/* ─── TIMER (Relaxed early, smooth mid, fair late) ─── */
-function calcTimeLimit(difficulty, avgMs = 5000) {
-  let base
-  if (difficulty <= 2) base = 9000
-  else if (difficulty <= 4) base = 7500
-  else if (difficulty <= 6) base = 6000
-  else base = 5000
-  base += Math.max(-500, Math.min(800, (avgMs - 4000) * 0.15))
-  return Math.max(3500, base + 3000)
-}
-
-/* ─── REWARD CALCULATOR ─── */
-function calcReward(correct, streak, responseMs, timeLimit) {
-  if(!correct) return 0
-  let coins = BASE_REWARD
-  if(responseMs < timeLimit*0.4) coins += SPEED_BONUS + 3
-  else if(responseMs < timeLimit*0.6) coins += SPEED_BONUS
-  else if(responseMs < timeLimit*0.75) coins += 2
-  const mult = Object.entries(STREAK_MULTI).reverse().find(([s])=>streak>=Number(s))
-  if(mult) coins = Math.round(coins * Number(mult[1]))
-  if(streak>=JACKPOT_AT) coins += 20
-  return coins
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   PUZZLE DISPLAY COMPONENTS
-══════════════════════════════════════════════════════════════════ */
-
-/* Choice buttons — used by most engines */
-function ChoiceDisplay({ options, answer, onAnswer, disabled, color }) {
-  const [selected, setSelected] = useState(null)
-  const handleTap = (opt, idx) => {
-    if(disabled||selected!==null) return
-    setSelected(idx)
-    onAnswer(String(opt)===String(answer), String(opt))
-  }
-  return (
-    <div style={{ display:'grid', gridTemplateColumns: options.length===2?'1fr 1fr':'1fr 1fr', gap:10, width:'100%' }}>
-      {options.map((opt,i)=>(
-        <button key={i} className="sm-pressable" onClick={()=>handleTap(opt,i)} disabled={disabled||selected!==null}
-          style={{
-            padding:'18px 8px', borderRadius:16, border:'2.5px solid',
-            borderColor: selected===null ? `${color}40` : selected===i ? (String(opt)===String(answer)?'#22c55e':'#ef4444') : (String(opt)===String(answer)&&selected!==null?'#22c55e':'rgba(255,255,255,0.08)'),
-            background: selected===null ? `${color}10` : selected===i ? (String(opt)===String(answer)?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)') : (String(opt)===String(answer)&&selected!==null?'rgba(34,197,94,0.1)':'rgba(255,255,255,0.03)'),
-            color:'#fff', fontSize:typeof opt==='number'||String(opt).length<6?22:14,
-            fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer',
-            transition:'all 0.18s', minHeight:64, display:'flex', alignItems:'center', justifyContent:'center',
-            transform: selected===i ? 'scale(0.97)' : 'scale(1)',
-          }}>
-          {opt}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/* Memory Flash display */
-function MemoryDisplay({ puzzle, onAnswer, disabled }) {
-  const [phase, setPhase] = useState('showing') // showing → recall
-  const [selected, setSelected] = useState(null)
-  useEffect(()=>{
-    const tid = setTimeout(()=>setPhase('recall'), puzzle.flashMs*(puzzle.question.length+1))
-    return()=>clearTimeout(tid)
-  },[puzzle.flashMs, puzzle.question.length])
-  if(phase==='showing') {
-    return (
-      <div style={{ textAlign:'center' }}>
-        <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap', marginBottom:16 }}>
-          {puzzle.question.map((n,i)=>(
-            <div key={i} style={{
-              width:52, height:52, borderRadius:14, background:'rgba(236,72,153,0.2)',
-              border:'2px solid rgba(236,72,153,0.5)', display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:22, fontWeight:800, color:'#f0f0f0', fontFamily:'Syne,sans-serif',
-              animation:`smFlash ${puzzle.flashMs/1000}s ease-in-out ${i*(puzzle.flashMs/1000*0.8)}s both`,
-            }}>{n}</div>
-          ))}
-        </div>
-        <p style={{ color:'rgba(255,255,255,0.4)', fontSize:13, fontFamily:'Poppins,sans-serif' }}>Memorise the sequence…</p>
-      </div>
-    )
-  }
-  return (
-    <div>
-      <p style={{ color:'#f0f0f0', fontSize:15, fontWeight:700, textAlign:'center', marginBottom:16, fontFamily:'Poppins,sans-serif' }}>{puzzle.subtext}</p>
-      <ChoiceDisplay options={puzzle.options} answer={puzzle.answer} onAnswer={onAnswer} disabled={disabled} color="#ec4899" />
-    </div>
-  )
-}
-
-/* Grid display — tap missing cell */
-function GridDisplay({ puzzle, onAnswer, disabled }) {
-  const [tapped, setTapped] = useState(null)
-  const { question:cells, answer, gridSize } = puzzle
-  const handleTap = (r,c) => {
-    if(disabled||tapped) return
-    setTapped([r,c])
-    const correct = Array.isArray(answer) && answer[0]===r && answer[1]===c
-    onAnswer(correct, [r,c])
-  }
-  return (
-    <div style={{ display:'grid', gridTemplateColumns:`repeat(${gridSize},1fr)`, gap:6, width:'100%', maxWidth:280, margin:'0 auto' }}>
-      {Array.from({length:gridSize},(_,r)=>Array.from({length:gridSize},(_,c)=>{
-        const isCell = cells.some(([cr,cc])=>cr===r&&cc===c)
-        const isTapped = tapped&&tapped[0]===r&&tapped[1]===c
-        const isAnswer = Array.isArray(answer)&&answer[0]===r&&answer[1]===c
-        return (
-          <button key={`${r}-${c}`} className="sm-pressable" onClick={()=>handleTap(r,c)} disabled={disabled||!!tapped}
-            style={{
-              height:60, borderRadius:12, border:'2px solid',
-              borderColor: isTapped?(isAnswer?'#22c55e':'#ef4444'):isCell?'rgba(245,158,11,0.6)':'rgba(255,255,255,0.08)',
-              background: isTapped?(isAnswer?'rgba(34,197,94,0.25)':'rgba(239,68,68,0.25)'):isCell?'rgba(245,158,11,0.2)':'rgba(255,255,255,0.04)',
-              cursor: isCell?'default':'pointer', transition:'all 0.15s',
-            }} />
-        )
-      })).flat()}
-    </div>
-  )
-}
-
-/* Reaction — tap target fast */
-function ReactionDisplay({ puzzle, onAnswer, disabled }) {
-  const [tapped, setTapped] = useState(null)
-  const { options, answer, target } = puzzle
-  return (
-    <div style={{ display:'grid', gridTemplateColumns:`repeat(${Math.ceil(Math.sqrt(options.length))},1fr)`, gap:10, width:'100%', maxWidth:280, margin:'0 auto' }}>
-      {options.map((item,i)=>(
-        <button key={i} className="sm-pressable" onClick={()=>{if(disabled||tapped!==null)return;setTapped(i);onAnswer(String(i)===String(answer),i)}}
-          disabled={disabled||tapped!==null}
-          style={{
-            height:64, borderRadius:16, fontSize:28,
-            border:'2px solid',
-            borderColor:tapped===i?(String(i)===String(answer)?'#22c55e':'#ef4444'):'rgba(255,255,255,0.1)',
-            background:tapped===i?(String(i)===String(answer)?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'):'rgba(255,255,255,0.05)',
-            cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.1s',
-          }}>{item}</button>
-      ))}
-    </div>
-  )
-}
-
-/* Sequence Recall */
-function RecallDisplay({ puzzle, onAnswer, disabled }) {
-  const [phase, setPhase] = useState('showing')
-  const [step, setStep] = useState(0)
-  const [currentItem, setCurrentItem] = useState(puzzle.question[0])
-  useEffect(()=>{
-    if(phase!=='showing') return
-    if(step>=puzzle.question.length){setPhase('recall');return}
-    setCurrentItem(puzzle.question[step])
-    const tid=setTimeout(()=>setStep(s=>s+1), puzzle.flashMs)
-    return()=>clearTimeout(tid)
-  },[step,phase,puzzle.flashMs,puzzle.question])
-  if(phase==='showing') return (
-    <div style={{ textAlign:'center' }}>
-      <div style={{ fontSize:56, marginBottom:12, animation:'smFlashItem 0.4s ease-in-out' }}>{currentItem}</div>
-      <div style={{ display:'flex', gap:6, justifyContent:'center' }}>
-        {puzzle.question.map((_,i)=>(
-          <div key={i} style={{ width:8, height:8, borderRadius:'50%', background:i<step?'#06b6d4':'rgba(255,255,255,0.2)', transition:'background 0.2s' }}/>
-        ))}
-      </div>
-      <p style={{ color:'rgba(255,255,255,0.35)', fontSize:11, marginTop:10, fontFamily:'Poppins,sans-serif' }}>Remember the sequence…</p>
-    </div>
-  )
-  return (
-    <div>
-      <p style={{ color:'#f0f0f0', fontSize:14, fontWeight:700, textAlign:'center', marginBottom:16, fontFamily:'Poppins,sans-serif' }}>{puzzle.subtext}</p>
-      <ChoiceDisplay options={puzzle.options} answer={puzzle.answer} onAnswer={onAnswer} disabled={disabled} color="#06b6d4"/>
-    </div>
-  )
-}
-
-/* Grid Tap Sequence */
-function GridTapDisplay({ puzzle, onAnswer, disabled }) {
-  const [phase, setPhase] = useState('showing')
-  const [flashIdx, setFlashIdx] = useState(0)
-  const [userSeq, setUserSeq] = useState([])
-  const { question:seq, gridSize, flashMs } = puzzle
-  useEffect(()=>{
-    if(phase!=='showing') return
-    if(flashIdx>=seq.length){setTimeout(()=>setPhase('recall'),400);return}
-    const tid=setTimeout(()=>setFlashIdx(i=>i+1),flashMs+100)
-    return()=>clearTimeout(tid)
-  },[flashIdx,phase,seq.length,flashMs])
-  const handleTap=(idx)=>{
-    if(phase!=='recall'||disabled) return
-    const ns=[...userSeq,idx]
-    setUserSeq(ns)
-    if(ns.length===seq.length){
-      const correct=JSON.stringify(ns)===JSON.stringify(seq)
-      onAnswer(correct,ns)
-    }
-  }
-  return (
-    <div>
-      {phase==='showing'&&<p style={{textAlign:'center',color:'rgba(255,255,255,0.5)',fontSize:12,marginBottom:10,fontFamily:'Poppins,sans-serif'}}>Watch the sequence…</p>}
-      {phase==='recall'&&<p style={{textAlign:'center',color:'#f97316',fontSize:13,fontWeight:700,marginBottom:10,fontFamily:'Poppins,sans-serif'}}>Tap in order! ({userSeq.length}/{seq.length})</p>}
-      <div style={{display:'grid',gridTemplateColumns:`repeat(${gridSize},1fr)`,gap:6,maxWidth:260,margin:'0 auto'}}>
-        {Array.from({length:gridSize*gridSize},(_,i)=>{
-          const isFlashing=phase==='showing'&&flashIdx<seq.length&&seq[flashIdx]===i
-          const isInUserSeq=userSeq.includes(i)
-          return (
-            <button key={i} className="sm-pressable" onClick={()=>handleTap(i)} disabled={phase!=='recall'||disabled}
-              style={{
-                height:55,borderRadius:12,border:'2px solid',
-                borderColor:isFlashing?'#f97316':isInUserSeq?'#22c55e':'rgba(255,255,255,0.1)',
-                background:isFlashing?'rgba(249,115,22,0.4)':isInUserSeq?'rgba(34,197,94,0.2)':'rgba(255,255,255,0.04)',
-                transition:'all 0.15s',cursor:phase==='recall'?'pointer':'default',
-              }}/>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-/* Rotate Fit */
-function RotateDisplay({ puzzle, onAnswer, disabled }) {
-  const [selected, setSelected] = useState(null)
-  const { question:target, options, answer, rotation, subtext } = puzzle
-  const ShapeRow = ({items, small}) => (
-    <div style={{display:'flex',gap:4,justifyContent:'center',flexWrap:'wrap'}}>
-      {items.map((it,i)=>(
-        <div key={i} style={{width:small?22:28,height:small?22:28,borderRadius:6,background:it.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:small?10:13}}>
-          {it.shape}
-        </div>
-      ))}
-    </div>
-  )
-  return (
-    <div>
-      <p style={{textAlign:'center',color:'rgba(255,255,255,0.5)',fontSize:11,marginBottom:6,fontFamily:'Poppins,sans-serif'}}>{subtext}</p>
-      <div style={{background:'rgba(20,184,166,0.1)',border:'2px solid rgba(20,184,166,0.4)',borderRadius:14,padding:'10px',marginBottom:12,textAlign:'center'}}>
-        <p style={{fontSize:10,color:'rgba(255,255,255,0.4)',margin:'0 0 6px',fontFamily:'Poppins,sans-serif'}}>ORIGINAL</p>
-        <ShapeRow items={target}/>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-        {options.map((opt,i)=>(
-          <button key={i} className="sm-pressable" onClick={()=>{if(disabled||selected!==null)return;setSelected(i);onAnswer(i===answer,i)}}
-            disabled={disabled||selected!==null}
-            style={{
-              padding:'10px',borderRadius:14,border:'2px solid',
-              borderColor:selected===null?'rgba(255,255,255,0.1)':selected===i?(i===answer?'#22c55e':'#ef4444'):(i===answer&&selected!==null?'#22c55e':'rgba(255,255,255,0.06)'),
-              background:selected===null?'rgba(255,255,255,0.04)':selected===i?(i===answer?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'):(i===answer&&selected!==null?'rgba(34,197,94,0.1)':'transparent'),
-              cursor:'pointer',
-            }}>
-            <ShapeRow items={opt} small/>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/* ─── Route puzzle to display ─── */
-function PuzzleDisplay({ puzzle, onAnswer, disabled }) {
-  const color = puzzle.engineColor || '#6366f1'
-  if(puzzle.display==='memory') return <MemoryDisplay puzzle={puzzle} onAnswer={onAnswer} disabled={disabled}/>
-  if(puzzle.display==='recall') return <RecallDisplay puzzle={puzzle} onAnswer={onAnswer} disabled={disabled}/>
-  if(puzzle.display==='grid')   return <GridDisplay puzzle={puzzle} onAnswer={onAnswer} disabled={disabled}/>
-  if(puzzle.display==='reaction') return <ReactionDisplay puzzle={puzzle} onAnswer={onAnswer} disabled={disabled}/>
-  if(puzzle.display==='gridtap')  return <GridTapDisplay puzzle={puzzle} onAnswer={onAnswer} disabled={disabled}/>
-  if(puzzle.display==='rotate')   return <RotateDisplay puzzle={puzzle} onAnswer={onAnswer} disabled={disabled}/>
-  // default: choice
-  return <ChoiceDisplay options={puzzle.options} answer={puzzle.answer} onAnswer={onAnswer} disabled={disabled} color={color}/>
-}
-
-/* ──────────────── TIMER BAR ──────────────── */
-function TimerBar({ durationMs, onExpire, active = true, key:k }) {
-  const [pct, setPct] = useState(100)
-  const startRef = useRef(Date.now())
-  const rafRef = useRef(null)
-  useEffect(()=>{
-    if(!active) return
-    startRef.current = Date.now()
-    const tick=()=>{
-      const elapsed=Date.now()-startRef.current
-      const p=Math.max(0,100-(elapsed/durationMs)*100)
-      setPct(p)
-      if(p<=0){onExpire();return}
-      rafRef.current=requestAnimationFrame(tick)
-    }
-    rafRef.current=requestAnimationFrame(tick)
-    return()=>cancelAnimationFrame(rafRef.current)
-  },[durationMs,onExpire,active])
-  const barColor = pct>60?'#22c55e':pct>30?'#f59e0b':'#ef4444'
-  return (
-    <div style={{height:5,background:'rgba(255,255,255,0.08)',borderRadius:4,overflow:'hidden',marginBottom:0,boxShadow:'0 0 12px rgba(99,102,241,0.18)'}}>
-      <div style={{height:'100%',width:`${pct}%`,background:barColor,borderRadius:4,transition:'width 0.16s linear, background 0.3s',boxShadow:`0 0 10px ${barColor}80`}}/>
-    </div>
-  )
-}
-
-/* ──────────────── FEEDBACK OVERLAY ──────────────── */
-function formatAnswer(answer) {
-  if (Array.isArray(answer)) return answer.map(item => typeof item === 'object' ? JSON.stringify(item) : item).join(', ')
-  if (answer && typeof answer === 'object') return JSON.stringify(answer)
-  return String(answer)
-}
-
-function FeedbackOverlay({ correct, coins, streak, nearMiss, extraMsg, correctAnswer, onDone }) {
-  const tone = correct ? '#22c55e' : nearMiss ? '#fbbf24' : '#ef4444'
-  const bg = correct ? 'rgba(34,197,94,0.18)' : nearMiss ? 'rgba(245,158,11,0.18)' : 'rgba(239,68,68,0.18)'
-  const message = correct ? 'Correct! 🔥' : nearMiss ? 'Almost! 🔥' : 'Wrong!'
-  return (
-    <div style={{
-      position:'absolute', inset:0, borderRadius:24, zIndex:10,
-      background:bg,
-      border:`2px solid ${tone}`,
-      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-      padding:20,
-      boxShadow:`0 18px 60px ${tone}30, inset 0 1px 0 rgba(255,255,255,0.1)`,
-      animation:'smFeedbackIn 0.28s ease-out both',
-    }}>
-      <div style={{fontSize:52, marginBottom:4}}>{correct?'✅':nearMiss?'⚠️':'❌'}</div>
-      {correct&&<p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:28,color:'#34D399',margin:0}}>+{coins} 💰</p>}
-      {correct&&streak>=3&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:14,color:'#fbbf24',margin:'4px 0 0'}}>🔥 x{streak} Streak!</p>}
-      {correct&&<p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:26,color:tone,margin:'0 0 6px',textAlign:'center'}}>{message}</p>}
-      {!correct&&<p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:26,color:tone,margin:'0 0 6px',textAlign:'center'}}>{message}</p>}
-      {!correct&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:16,color:'#fff',margin:'2px 0 0',textAlign:'center',lineHeight:1.45}}>Wrong! Correct Answer: <span style={{color:tone}}>{correctAnswer}</span></p>}
-      <button className="sm-pressable" onClick={onDone} style={{marginTop:20,padding:'12px 22px',borderRadius:14,border:`1.5px solid ${tone}`,background:`linear-gradient(135deg,${tone},${tone}cc)`,color:'#fff',fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:15,cursor:'pointer',boxShadow:`0 8px 26px ${tone}45`,transition:'transform 0.16s ease, box-shadow 0.16s ease'}}>
-        Next
-      </button>
-      {extraMsg&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:13,color:'#a5b4fc',margin:'4px 0 0'}}>{extraMsg}</p>}
-      {nearMiss&&!correct&&coins>0&&<p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:13,color:'#34D399',margin:'4px 0 0'}}>+{coins} 💰 Pity</p>}
-    </div>
-  )
-}
-
-/* ──────────────── SESSION COMPLETE ──────────────── */
-function SessionComplete({ coins, streak, accuracy, bestStreak, onClose, onPlayAgain }) {
-  return (
-    <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'28px 20px',textAlign:'center'}}>
-      <div style={{fontSize:56,marginBottom:12,animation:'smPop 0.6s cubic-bezier(.34,1.56,.64,1) both'}}>🏆</div>
-      <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:28,color:'#fff',margin:'0 0 4px'}}>Session Complete!</p>
-      <p style={{fontFamily:'Poppins,sans-serif',fontSize:13,color:'rgba(255,255,255,0.4)',margin:'0 0 28px'}}>Great brain workout!</p>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,width:'100%',maxWidth:280,marginBottom:28}}>
-        {[
-          {label:'Coins Earned',value:`+${coins} 💰`,color:'#fbbf24'},
-          {label:'Best Streak',value:`🔥 ${bestStreak}`,color:'#f97316'},
-          {label:'Accuracy',value:`${Math.round(accuracy*100)}%`,color:'#22c55e'},
-          {label:'Puzzles',value:`${SESSION_LENGTH}`,color:'#6366f1'},
-        ].map((s,i)=>(
-          <div key={i} style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:16,padding:'14px 10px'}}>
-            <p style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:20,color:s.color,margin:'0 0 4px'}}>{s.value}</p>
-            <p style={{fontSize:10,color:'rgba(255,255,255,0.35)',margin:0,fontFamily:'Poppins,sans-serif',textTransform:'uppercase',letterSpacing:'0.1em'}}>{s.label}</p>
-          </div>
-        ))}
-      </div>
-      <button onClick={onPlayAgain} style={{width:'100%',maxWidth:280,padding:'15px',borderRadius:16,border:'none',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',color:'#fff',fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:16,cursor:'pointer',boxShadow:'0 6px 24px rgba(99,102,241,0.45)',marginBottom:10}}>
-        ⚡ Play Again
-      </button>
-      <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,0.3)',fontFamily:'Poppins,sans-serif',fontSize:13,cursor:'pointer',padding:8}}>
-        Close
-      </button>
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   MAIN MODAL — GameEngineRunner
-══════════════════════════════════════════════════════════════════ */
-export function SkillMachineModal({ userId, isOpen, onClose, onReward, coins: syncedCoins = 0 }) {
-  /* ─── Session state ─── */
-  const [phase, setPhase]           = useState('loading')   // loading|ready|playing|feedback|done
-  const [puzzle, setPuzzle]         = useState(null)
-  const [nextPuzzle, setNextPuzzle] = useState(null)        // preloaded
-  const [history, setHistory]       = useState([])
-  const [feedback, setFeedback]     = useState(null)
-  const [puzzleIdx, setPuzzleIdx]   = useState(0)
-
-  /* ─── Stats ─── */
-  const [streak, setStreak]         = useState(0)
-  const [bestStreak, setBestStreak] = useState(0)
-  const [sessionCoins, setSessionCoins] = useState(0)
-  const [correct, setCorrect]       = useState(0)
-  const [timerKey, setTimerKey]     = useState(0)
-
-  /* ─── Firebase / wallet ─── */
-  const [difficulty, setDifficulty] = useState(1)
-  const [dailyDone, setDailyDone]   = useState(false)
-  const [dailyBonus, setDailyBonus] = useState(0)
-  const [loading, setLoading]       = useState(true)
-
-  const responseTimes = useRef([])
-  const sessionStartRef = useRef(null)
-  const timerRef = useRef(null)
-  const answeredRef = useRef(false)
-  const continuingRef = useRef(false)
-  const totalCoins = Number(syncedCoins || 0)
-
-  const TODAY = () => new Date().toISOString().slice(0,10)
-
-  /* ─── LOAD: check daily bonus, load wallet ─── */
-  const loadWallet = useCallback(async()=>{
-    if(!userId){setLoading(false);return}
-    setLoading(true)
+// ============ STORAGE HELPERS ============
+// Works in Claude artifact sandbox (window.storage) or normal browser (localStorage)
+const useStorage = () => {
+  const get = async (key, defaultVal) => {
     try {
-      const snap = await getDoc(doc(db,'acr_users',userId.toLowerCase()))
-      const d = snap.exists()?snap.data():{}
-      const sm = d.skillMachine||{}
-      const lastDaily = sm.lastDailyReward||''
-      const lastWeekly = sm.lastWeeklyReward||''
-      const todayStr = TODAY()
-      
-      // Enforce start difficulty of 1 for a smoother onboarding experience each time
-      setDifficulty(1)
-      
-      // Daily bonus
-      if(lastDaily!==todayStr){
-        const bonus = PICK(DAILY_BONUS)
-        setDailyBonus(bonus)
-        setDailyDone(false)
-      } else {
-        setDailyDone(true)
+      if (typeof window !== 'undefined' && window.storage?.get) {
+        const r = await window.storage.get(key);
+        return r ? JSON.parse(r.value) : defaultVal;
       }
-    } catch(e){console.error('SM load:',e)}
-    setLoading(false)
-  },[userId])
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const v = window.localStorage.getItem(key);
+        return v ? JSON.parse(v) : defaultVal;
+      }
+      return defaultVal;
+    } catch { return defaultVal; }
+  };
+  const set = async (key, val) => {
+    try {
+      if (typeof window !== 'undefined' && window.storage?.set) {
+        await window.storage.set(key, JSON.stringify(val));
+        return;
+      }
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, JSON.stringify(val));
+      }
+    } catch {}
+  };
+  return { get, set };
+};
 
-  useEffect(()=>{
-    if(isOpen){
-      setPhase('loading'); setHistory([]); setPuzzleIdx(0); setStreak(0)
-      setBestStreak(0); setSessionCoins(0); setCorrect(0); responseTimes.current=[]
-      answeredRef.current = false; continuingRef.current = false
-      setPuzzle(null); setNextPuzzle(null); setFeedback(null)
-      loadWallet()
-    }
-  },[isOpen, loadWallet])
+// ============ PUZZLE GENERATORS ============
+const generateQuickMath = (difficulty) => {
+  const tricks = [
+    () => {
+      const a = Math.floor(Math.random() * 9) + 2;
+      const ans = a * 9;
+      return {
+        question: `${a} × 9 = ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, 10),
+        trick: '×9 Trick',
+        explanation: `Quick trick: ${a} × 9 = ${a} × 10 − ${a} = ${a*10} − ${a} = ${ans}`,
+      };
+    },
+    () => {
+      const a = Math.floor(Math.random() * 40) + 10;
+      const b = Math.floor(Math.random() * 40) + 10;
+      const ans = a + b;
+      return {
+        question: `${a} + ${b} = ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, 8),
+        trick: 'Split Method',
+        explanation: `Split: ${a} + ${b} = (${Math.floor(a/10)*10} + ${Math.floor(b/10)*10}) + (${a%10} + ${b%10}) = ${Math.floor(a/10)*10 + Math.floor(b/10)*10} + ${a%10 + b%10} = ${ans}`,
+      };
+    },
+    () => {
+      const a = (Math.floor(Math.random() * 8) + 2) * 5;
+      const b = Math.floor(Math.random() * 10) + 2;
+      const ans = a * b;
+      return {
+        question: `${a} × ${b} = ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, 20),
+        trick: '×5 Shortcut',
+        explanation: `×5 trick: ${a} × ${b} = (${a/5} × ${b}) × 5 = ${a/5 * b} × 5 = ${ans}`,
+      };
+    },
+    () => {
+      const a = Math.floor(Math.random() * 50) + 50;
+      const b = Math.floor(Math.random() * 30) + 10;
+      const ans = a - b;
+      return {
+        question: `${a} − ${b} = ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, 8),
+        trick: 'Round-Off',
+        explanation: `Round-off: ${a} − ${b} ≈ ${a} − ${Math.round(b/10)*10} = ${a - Math.round(b/10)*10}, then adjust by ${Math.round(b/10)*10 - b} → ${ans}`,
+      };
+    },
+    () => {
+      const sq = Math.floor(Math.random() * 8) + 11;
+      const ans = sq * sq;
+      return {
+        question: `${sq}² = ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, 30),
+        trick: 'Square Trick',
+        explanation: `${sq}² = (${sq}+${sq-10})(${sq}-${sq-10}) + ${sq-10}² = ${(sq+sq-10)*(sq-(sq-10))} + ${(sq-10)**2} ... or just: ${sq}×${sq} = ${ans}`,
+      };
+    },
+  ];
+  return tricks[Math.floor(Math.random() * tricks.length)]();
+};
 
-  /* ─── Start session after loading ─── */
-  useEffect(()=>{
-    if(!loading&&isOpen&&phase==='loading'){
-      const p = generatePuzzle(1, [], 0)
-      const np = generatePuzzle(1, [p], 1)
-      setPuzzle(p); setNextPuzzle(np)
-      answeredRef.current = false; continuingRef.current = false
-      sessionStartRef.current = Date.now()
-      if(!dailyDone&&dailyBonus>0) setPhase('bonus')
-      else setPhase('playing')
-      setTimerKey(k=>k+1)
-    }
-  },[loading,isOpen,phase,difficulty,dailyDone,dailyBonus])
+const generateNumberLogic = (difficulty) => {
+  const patterns = [
+    () => {
+      const start = Math.floor(Math.random() * 5) + 2;
+      const step = Math.floor(Math.random() * 4) + 2;
+      const seq = [start, start+step, start+step*2, start+step*3];
+      const ans = start + step*4;
+      return {
+        question: `${seq.join(', ')}, ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, 5),
+        trick: 'Arithmetic',
+        explanation: `Add ${step} each time: ${seq[seq.length-1]} + ${step} = ${ans}`,
+      };
+    },
+    () => {
+      const start = Math.floor(Math.random() * 3) + 2;
+      const mult = Math.floor(Math.random() * 2) + 2;
+      const seq = [start, start*mult, start*mult*mult, start*mult*mult*mult];
+      const ans = start * Math.pow(mult, 4);
+      return {
+        question: `${seq.join(', ')}, ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, Math.floor(ans*0.3)),
+        trick: 'Geometric',
+        explanation: `Multiply by ${mult}: ${seq[seq.length-1]} × ${mult} = ${ans}`,
+      };
+    },
+    () => {
+      const seq = [1, 1, 2, 3, 5, 8, 13];
+      const idx = Math.floor(Math.random() * 3) + 2;
+      const display = seq.slice(idx, idx+4);
+      const ans = display[2] + display[3];
+      return {
+        question: `${display.join(', ')}, ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, 5),
+        trick: 'Fibonacci',
+        explanation: `Each number = sum of previous two: ${display[2]} + ${display[3]} = ${ans}`,
+      };
+    },
+    () => {
+      const start = Math.floor(Math.random() * 4) + 2;
+      const seq = [start, start*start, start*start*start];
+      const ans = Math.pow(start, 4);
+      return {
+        question: `${seq.join(', ')}, ?`,
+        answer: ans,
+        options: shuffleAnswers(ans, Math.floor(ans*0.3)),
+        trick: 'Powers',
+        explanation: `Powers of ${start}: ${start}¹, ${start}², ${start}³, ${start}⁴ = ${ans}`,
+      };
+    },
+  ];
+  return patterns[Math.floor(Math.random() * patterns.length)]();
+};
 
-  /* ─── CLAIM BONUS ─── */
-  const claimBonus = async () => {
-    answeredRef.current = false; continuingRef.current = false
-    setPhase('playing')
-    setSessionCoins(s=>s+dailyBonus)
-    if(userId) {
-      try {
-        const ref=doc(db,'acr_users',userId.toLowerCase())
-        await updateDoc(ref,{coins:increment(dailyBonus),'skillMachine.lastDailyReward':TODAY()})
-      } catch(e){console.error('bonus write:',e)}
-    }
-    onReward?.({coins:dailyBonus,bonus:true})
+const generateOddOneOut = () => {
+  const categories = [
+    { items: ['🍎', '🍊', '🍇', '🥕'], odd: '🥕', reason: 'All others are fruits — carrot is a vegetable' },
+    { items: ['🐕', '🐈', '🦁', '🦅'], odd: '🦅', reason: 'All others are mammals — eagle is a bird' },
+    { items: ['🚗', '🚕', '🚙', '🚲'], odd: '🚲', reason: 'All others are motor vehicles — bicycle is human-powered' },
+    { items: ['⚽', '🏀', '🏈', '🎸'], odd: '🎸', reason: 'All others are sports balls — guitar is an instrument' },
+    { items: ['☀️', '🌙', '⭐', '🌧️'], odd: '🌧️', reason: 'All others are celestial bodies — rain is weather' },
+    { items: ['4', '9', '16', '20'], odd: '20', reason: 'All others are perfect squares (2², 3², 4²)' },
+    { items: ['2', '3', '5', '9'], odd: '9', reason: 'All others are prime numbers' },
+    { items: ['🌹', '🌻', '🌷', '🌳'], odd: '🌳', reason: 'All others are flowers — tree is different' },
+    { items: ['🍕', '🍔', '🥗', '🌮'], odd: '🥗', reason: 'All others are fast food — salad is healthy' },
+    { items: ['🎹', '🥁', '🎸', '🎤'], odd: '🎤', reason: 'All others are instruments — mic is for voice' },
+  ];
+  const c = categories[Math.floor(Math.random() * categories.length)];
+  return {
+    question: 'Which one is different?',
+    options: [...c.items].sort(() => Math.random() - 0.5),
+    answer: c.odd,
+    trick: 'Category Logic',
+    explanation: c.reason,
+    type: 'emoji',
+  };
+};
+
+const generateCompare = () => {
+  const comparisons = [
+    () => {
+      const a = Math.floor(Math.random() * 99) + 10;
+      const b = Math.floor(Math.random() * 99) + 10;
+      return {
+        question: `Which is larger?`,
+        options: [`${a}`, `${b}`],
+        answer: a > b ? `${a}` : `${b}`,
+        explanation: `${Math.max(a,b)} > ${Math.min(a,b)} by ${Math.abs(a-b)}`,
+        trick: 'Number Compare',
+      };
+    },
+    () => {
+      const a = Math.floor(Math.random() * 8) + 2;
+      const b = Math.floor(Math.random() * 8) + 2;
+      const c = Math.floor(Math.random() * 8) + 2;
+      const d = Math.floor(Math.random() * 8) + 2;
+      const v1 = a * b;
+      const v2 = c * d;
+      return {
+        question: `Which is larger?`,
+        options: [`${a}×${b}`, `${c}×${d}`],
+        answer: v1 > v2 ? `${a}×${b}` : `${c}×${d}`,
+        explanation: `${a}×${b} = ${v1}, ${c}×${d} = ${v2}. ${Math.max(v1,v2)} wins.`,
+        trick: 'Multiplication',
+      };
+    },
+    () => {
+      const items = [
+        {name: '🐘 Elephant', weight: 6000},
+        {name: '🦏 Rhino', weight: 2300},
+        {name: '🦛 Hippo', weight: 1500},
+        {name: '🐻 Bear', weight: 400},
+        {name: '🐅 Tiger', weight: 250},
+        {name: '🐆 Leopard', weight: 90},
+      ];
+      const [a, b] = items.sort(() => Math.random() - 0.5).slice(0, 2);
+      return {
+        question: `Which is heavier?`,
+        options: [a.name, b.name],
+        answer: a.weight > b.weight ? a.name : b.name,
+        explanation: `${a.name}: ~${a.weight}kg, ${b.name}: ~${b.weight}kg`,
+        trick: 'Real World',
+      };
+    },
+  ];
+  return comparisons[Math.floor(Math.random() * comparisons.length)]();
+};
+
+const shuffleAnswers = (correct, range) => {
+  const opts = new Set([correct]);
+  while (opts.size < 4) {
+    const offset = Math.floor(Math.random() * range * 2) - range;
+    if (offset !== 0) opts.add(correct + offset);
   }
+  return [...opts].sort(() => Math.random() - 0.5).map(n => n.toString());
+};
 
-  /* ─── ANSWER HANDLER ─── */
-  const handleAnswer = useCallback(async (isCorrect, userAnswer) => {
-    if(phase!=='playing'||answeredRef.current) return
-    answeredRef.current = true
-    continuingRef.current = false
-    setPhase('feedback')
-    const responseMs = Date.now() - (sessionStartRef.current||Date.now())
-    responseTimes.current.push(responseMs)
-    sessionStartRef.current = Date.now()
-
-    // Near miss detection (checks if numerical answer is 'close')
-    let isNear = false;
-    if (!isCorrect && puzzle && puzzle.answer !== undefined && userAnswer !== undefined) {
-      const ansNum = Number(puzzle.answer);
-      const userNum = Number(userAnswer);
-      if (!isNaN(ansNum) && !isNaN(userNum)) {
-        // Tightened near-miss logic: difference is 2 or less
-        if (Math.abs(ansNum - userNum) <= 2) {
-          isNear = true;
-        }
-      }
-    }
-
-    const newStreak = isCorrect ? streak+1 : 0
-    const newBestStreak = Math.max(bestStreak, newStreak)
-    
-    const times = responseTimes.current
-    const avgMs = times.length ? times.reduce((a,b)=>a+b,0)/times.length : 4000
-    const timeLimit = calcTimeLimit(difficulty, avgMs)
-    
-    let coins = calcReward(isCorrect, newStreak, responseMs, timeLimit)
-    let extraMsg = '';
-
-    // Mystery reward drop (15% chance on correct answer)
-    if (isCorrect && Math.random() < 0.15) {
-      const rewards = [20, 30, 50]
-      const bonus = rewards[Math.floor(Math.random()*rewards.length)]
-      coins += bonus
-      extraMsg = '🎁 Lucky Reward!'
-    }
-
-    // Comeback Bonus
-    if (!isCorrect && streak >= 3) {
-      coins += 10;
-      extraMsg = '🔥 Comeback Bonus!';
-    }
-
-    // Pity points for Near Misses
-    if (isNear && !isCorrect) {
-      coins += 1; 
-    }
-
-    const newCorrect = isCorrect ? correct+1 : correct
-    const newPuzzleIdx = puzzleIdx+1
-
-    setStreak(newStreak); setBestStreak(newBestStreak)
-    if(coins > 0){
-      setSessionCoins(s=>s+coins)
-      if(userId) {
-        try {
-          await updateDoc(doc(db,'acr_users',userId.toLowerCase()), { coins: increment(coins) })
-        } catch(e) {
-          console.error('SM coin write:', e)
-        }
-      }
-    }
-    setCorrect(newCorrect); setPuzzleIdx(newPuzzleIdx)
-    
-    setFeedback({ correct:isCorrect, coins, nearMiss: isNear, extraMsg, correctAnswer: !isCorrect && puzzle ? formatAnswer(puzzle.answer) : null })
-
-    // Adaptive difficulty update
-    const acc = newCorrect/newPuzzleIdx
-    setDifficulty(d => calcDifficulty(d, acc, avgMs, newStreak))
-  },[phase,streak,bestStreak,difficulty,correct,puzzleIdx,puzzle,userId])
-
-  const handleTimeExpire = useCallback(()=>handleAnswer(false, null),[handleAnswer])
-
-  /* ─── NEXT PUZZLE ─── */
-  const advanceToNext = useCallback(()=>{
-    if(continuingRef.current) return
-    continuingRef.current = true
-    if(puzzleIdx>=5){
-      setPhase('done')
-      if(userId){
-        const times = responseTimes.current
-        const avgMs = times.length?times.reduce((a,b)=>a+b,0)/times.length:4000
-        const acc = correct/SESSION_LENGTH
-        const ref=doc(db,'acr_users',userId.toLowerCase())
-        getDoc(ref).then(snap=>{
-          const d=snap.exists()?snap.data():{}
-          const sm=d.skillMachine||{}
-          setDoc(ref,{
-            'skillMachine.gamesPlayed': (sm.gamesPlayed||0)+1,
-            'skillMachine.avgAccuracy': ((sm.avgAccuracy||0.5)*0.7 + acc*0.3),
-            'skillMachine.avgResponseTime': ((sm.avgResponseTime||4000)*0.7 + avgMs*0.3),
-            'skillMachine.bestStreak': Math.max(sm.bestStreak||0, bestStreak),
-            'skillMachine.lastPlayed': TODAY(),
-            updatedAt: serverTimestamp(),
-          },{merge:true}).catch(e=>console.error('SM session write:',e))
-        })
-      }
-      return
-    }
-    const newHistory = [...history, puzzle]
-    const freshPuzzle = generatePuzzle(difficulty, newHistory.slice(-5), puzzleIdx)
-    const freshNextPuzzle = generatePuzzle(difficulty, [...newHistory.slice(-4), freshPuzzle], puzzleIdx + 1)
-    setFeedback(null)
-    answeredRef.current = false; continuingRef.current = false
-    setHistory(newHistory)
-    setPuzzle(freshPuzzle)
-    setNextPuzzle(freshNextPuzzle)
-    setPhase('playing')
-    setTimerKey(k=>k+1)
-    sessionStartRef.current = Date.now()
-  },[puzzleIdx,history,puzzle,difficulty,userId,correct,bestStreak])
-
-  /* ─── PLAY AGAIN ─── */
-  const playAgain = () => {
-    setHistory([]); setPuzzleIdx(0); setStreak(0); setBestStreak(0)
-    setSessionCoins(0); setCorrect(0); responseTimes.current=[]
-    answeredRef.current = false; continuingRef.current = false
-    setDifficulty(1) // Reset difficulty for the new loop
-    const p=generatePuzzle(1, [], 0)
-    const np=generatePuzzle(1, [p], 1)
-    setPuzzle(p); setNextPuzzle(np)
-    setFeedback(null); setTimerKey(k=>k+1)
-    sessionStartRef.current=Date.now()
-    setPhase('playing')
-  }
-
-  if(!isOpen) return null
-
-  const times = responseTimes.current
-  const currentAvgMs = times.length ? times.reduce((a,b)=>a+b,0)/times.length : 5000
-  const timeLimit = calcTimeLimit(difficulty, currentAvgMs)
-  const streakMultStr = Object.entries(STREAK_MULTI).reverse().find(([s])=>streak>=Number(s))
-  const accuracy = puzzleIdx>0 ? correct/puzzleIdx : 0
+// ============ MAIN COMPONENT ============
+export default function SkillMachineModal({ userId, isOpen, onClose, onReward, coins = 0 }) {
+  if (!isOpen) return null;
 
   return (
-    <>
-    <style>{`
-      @keyframes smPop   {0%{transform:scale(0.4);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
-      @keyframes smShake {0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
-      @keyframes smFlash {0%{opacity:0;transform:scale(0.8)}30%{opacity:1;transform:scale(1.05)}70%{opacity:1}100%{opacity:0;transform:scale(0.9)}}
-      @keyframes smFlashItem {0%{opacity:0;transform:scale(0.5)}30%{opacity:1;transform:scale(1.1)}70%{opacity:1}100%{opacity:1}}
-      @keyframes smSlide {from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-      @keyframes smCoin  {0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
-      @keyframes smPulse {0%,100%{opacity:1}50%{opacity:0.5}}
-      @keyframes smGlow  {0%,100%{box-shadow:0 0 20px rgba(99,102,241,0.3)}50%{box-shadow:0 0 50px rgba(99,102,241,0.7)}}
-      @keyframes smStreakPop {0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
-      @keyframes smFeedbackIn {from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
-      .sm-pressable:active { transform:scale(0.96) !important; }
-      .sm-pressable:hover { box-shadow:0 10px 30px rgba(99,102,241,0.32) !important; }
-    `}</style>
+    <SkillMachineContent
+      userId={userId}
+      onClose={onClose}
+      onReward={onReward}
+      coins={coins}
+    />
+  );
+}
 
-    {/* Backdrop */}
-    <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:820,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(14px)'}}/>
+function SkillMachineContent({ userId, onClose, onReward, coins = 0 }) {
+  const storage = useStorage();
+  const [screen, setScreen] = useState('home'); // home, intro, puzzle, feedback, extraChoice, sessionEnd, spin, daily, learn
+  const [walletCoins, setWalletCoins] = useState(Number(coins || 0));
+  const [streak, setStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [totalWins, setTotalWins] = useState(0);
+  const [puzzleIndex, setPuzzleIndex] = useState(0);
+  const [sessionStartIndex, setSessionStartIndex] = useState(0);
+  const [activeSessionLimit, setActiveSessionLimit] = useState(SESSION_LIMIT);
+  const [currentPuzzle, setCurrentPuzzle] = useState(null);
+  const [puzzleType, setPuzzleType] = useState(null);
+  const [recentTypes, setRecentTypes] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [maxTime, setMaxTime] = useState(15);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [isCorrect, setIsCorrect] = useState(null);
+  const [sessionScore, setSessionScore] = useState({ correct: 0, coins: 0, perfect: true });
+  const [cooldownUntil, setCooldownUntil] = useState(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [limitWindowUntil, setLimitWindowUntil] = useState(null);
+  const [extraGamesRedeemedThisWindow, setExtraGamesRedeemedThisWindow] = useState(false);
+  const [extraGamesActive, setExtraGamesActive] = useState(false);
+  const [extraGamesRemaining, setExtraGamesRemaining] = useState(0);
+  const [spinUsedThisWindow, setSpinUsedThisWindow] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+  const [coinAnim, setCoinAnim] = useState(null);
+  const [reactionStart, setReactionStart] = useState(null);
+  const [reactionTime, setReactionTime] = useState(null);
+  const [memoryFlash, setMemoryFlash] = useState(null);
+  const [memoryPhase, setMemoryPhase] = useState('show');
+  const [gridPhase, setGridPhase] = useState('show');
+  const [sequenceItems, setSequenceItems] = useState([]);
+  const [sequenceIndex, setSequenceIndex] = useState(0);
+  const [sequencePhase, setSequencePhase] = useState('show');
+  const [gridTapItems, setGridTapItems] = useState([]);
+  const [gridTapIndex, setGridTapIndex] = useState(0);
+  const [gridTapPhase, setGridTapPhase] = useState('show');
+  const [rotationAngle, setRotationAngle] = useState(0);
+  const [targetRotation, setTargetRotation] = useState(0);
+  const [patternGridData, setPatternGridData] = useState(null);
+  const [countdown, setCountdown] = useState(null);
+  const [learnMode, setLearnMode] = useState(false);
+  const [badges, setBadges] = useState([]);
+  const [luckySpinResult, setLuckySpinResult] = useState(null);
+  const [luckySpinIndex, setLuckySpinIndex] = useState(null);
+  const [spinRotation, setSpinRotation] = useState(0);
+  const [spinning, setSpinning] = useState(false);
+  const [timerRunning, setTimerRunning] = useState(false);
+  
+  const timerRef = useRef(null);
+  const reactionTimeoutRef = useRef(null);
+  const coinAnimTimeoutRef = useRef(null);
+  const roundTimeoutsRef = useRef([]);
+  const roundIntervalsRef = useRef([]);
+  const previousCoinsRef = useRef(Number(coins || 0));
+  const pendingRewardRef = useRef(0);
+  const sessionEndedRef = useRef(false);
+  const answeredRef = useRef(false);
+  const timeoutAnswerRef = useRef(null);
+  const learnModeRef = useRef(false);
+  const redeemInProgressRef = useRef(false);
+  const storageKey = useMemo(() => `skillmachine_v2_${userId || 'guest'}`, [userId]);
+  const baseSessionLimit = SESSION_LIMIT;
+  const maxSessionLimit = SESSION_LIMIT + EXTRA_GAMES_LIMIT;
+  const gamesInCurrentRun = Math.max(1, activeSessionLimit - sessionStartIndex);
 
-    {/* Full-screen game container */}
-    <div style={{
-      position:'fixed', inset:0, zIndex:821, display:'flex', flexDirection:'column',
-      background:'linear-gradient(180deg,#06090f 0%,#0b0f1a 50%,#080c14 100%)',
-    }}>
+  const stopAnswerTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setTimerRunning(false);
+  }, []);
 
-      {/* ─── TOP BAR ─── */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:20}}>⚡</span>
-          <div>
-            <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:15,color:'#fff',margin:0}}>Skill Machine</p>
-            {puzzle&&<p style={{fontSize:10,color:puzzle.engineColor,margin:0,fontFamily:'Poppins,sans-serif',fontWeight:700}}>{puzzle.engineIcon} {puzzle.engineLabel}</p>}
+  const clearRoundTimers = useCallback(() => {
+    stopAnswerTimer();
+    if (coinAnimTimeoutRef.current) {
+      clearTimeout(coinAnimTimeoutRef.current);
+      coinAnimTimeoutRef.current = null;
+    }
+    if (reactionTimeoutRef.current) {
+      clearTimeout(reactionTimeoutRef.current);
+      reactionTimeoutRef.current = null;
+    }
+    roundTimeoutsRef.current.forEach(clearTimeout);
+    roundTimeoutsRef.current = [];
+    roundIntervalsRef.current.forEach(clearInterval);
+    roundIntervalsRef.current = [];
+  }, [stopAnswerTimer]);
+
+  const scheduleRoundTimeout = useCallback((fn, delay) => {
+    const id = setTimeout(() => {
+      roundTimeoutsRef.current = roundTimeoutsRef.current.filter(timeoutId => timeoutId !== id);
+      fn();
+    }, delay);
+    roundTimeoutsRef.current.push(id);
+    return id;
+  }, []);
+
+  const scheduleRoundInterval = useCallback((fn, delay) => {
+    const id = setInterval(fn, delay);
+    roundIntervalsRef.current.push(id);
+    return id;
+  }, []);
+
+  const clearRoundInterval = useCallback((id) => {
+    clearInterval(id);
+    roundIntervalsRef.current = roundIntervalsRef.current.filter(intervalId => intervalId !== id);
+  }, []);
+
+  const beginAnswerTimer = useCallback(() => {
+    if (!learnModeRef.current) setTimerRunning(true);
+  }, []);
+
+  const resetWindowFlags = useCallback(() => {
+    redeemInProgressRef.current = false;
+    setLimitWindowUntil(null);
+    setSpinUsedThisWindow(false);
+    setExtraGamesRedeemedThisWindow(false);
+    setExtraGamesActive(false);
+    setExtraGamesRemaining(0);
+  }, []);
+
+  useEffect(() => () => clearRoundTimers(), [clearRoundTimers]);
+
+  useEffect(() => {
+    learnModeRef.current = learnMode;
+  }, [learnMode]);
+
+  const awardCoins = useCallback((amount) => {
+    const earned = Number(amount || 0);
+    if (earned > 0) {
+      pendingRewardRef.current += earned;
+      onReward?.({ coins: earned });
+    }
+  }, [onReward]);
+
+  useEffect(() => {
+    const nextCoins = Number(coins || 0);
+    const previousCoins = previousCoinsRef.current;
+    const diff = nextCoins - previousCoins;
+
+    if (diff !== 0) {
+      const settledReward = diff > 0 ? Math.min(diff, pendingRewardRef.current) : 0;
+      pendingRewardRef.current = Math.max(0, pendingRewardRef.current - settledReward);
+      setWalletCoins(current => Math.max(0, current + diff - settledReward));
+      previousCoinsRef.current = nextCoins;
+    }
+  }, [coins]);
+
+  useEffect(() => {
+    const nextCoins = Number(coins || 0);
+    previousCoinsRef.current = nextCoins;
+    pendingRewardRef.current = 0;
+    setWalletCoins(nextCoins);
+  }, [storageKey]);
+
+  // Load state
+  useEffect(() => {
+    (async () => {
+      const saved = await storage.get(storageKey, null);
+      if (saved) {
+        const savedWindowUntil = saved.limitWindowUntil ?? null;
+        const windowActive = savedWindowUntil && savedWindowUntil > Date.now();
+        setBestStreak(saved.bestStreak ?? 0);
+        setTotalWins(saved.totalWins ?? 0);
+        setCooldownUntil((saved.cooldownUntil ?? null) > Date.now() ? saved.cooldownUntil : null);
+        setLimitWindowUntil(windowActive ? savedWindowUntil : null);
+        setExtraGamesRedeemedThisWindow(windowActive ? saved.extraGamesRedeemedThisWindow ?? saved.extraGamesPurchasedThisWindow ?? false : false);
+        setExtraGamesActive(false);
+        setExtraGamesRemaining(0);
+        setSpinUsedThisWindow(windowActive ? saved.spinUsedThisWindow ?? false : false);
+        setBadges(saved.badges ?? []);
+      }
+    })();
+  }, [storageKey]);
+
+  // Save state
+  useEffect(() => {
+    storage.set(storageKey, {
+      bestStreak,
+      totalWins,
+      cooldownUntil,
+      limitWindowUntil,
+      extraGamesRedeemedThisWindow,
+      extraGamesActive,
+      extraGamesRemaining,
+      spinUsedThisWindow,
+      badges
+    });
+  }, [
+    storageKey,
+    bestStreak,
+    totalWins,
+    cooldownUntil,
+    limitWindowUntil,
+    extraGamesRedeemedThisWindow,
+    extraGamesActive,
+    extraGamesRemaining,
+    spinUsedThisWindow,
+    badges
+  ]);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (!cooldownUntil) { setCooldownRemaining(0); return; }
+    const tick = () => {
+      const rem = Math.max(0, cooldownUntil - Date.now());
+      setCooldownRemaining(rem);
+      if (rem === 0) setCooldownUntil(null);
+    };
+    tick();
+    const i = setInterval(tick, 1000);
+    return () => clearInterval(i);
+  }, [cooldownUntil]);
+
+  useEffect(() => {
+    if (!limitWindowUntil) return undefined;
+    const tick = () => {
+      if (limitWindowUntil <= Date.now()) {
+        resetWindowFlags();
+        if (cooldownUntil && cooldownUntil <= Date.now()) setCooldownUntil(null);
+      }
+    };
+    tick();
+    const i = setInterval(tick, 1000);
+    return () => clearInterval(i);
+  }, [cooldownUntil, limitWindowUntil, resetWindowFlags]);
+
+  // Puzzle engines list
+  const engines = useMemo(() => [
+    'quickMath', 'numberLogic', 'memoryFlash', 'patternGrid',
+    'oddOneOut', 'reaction', 'sequenceRecall', 'compare',
+    'gridTap', 'rotateFit'
+  ], []);
+
+  const pickEngine = useCallback(() => {
+    const available = engines.filter(e => !recentTypes.includes(e));
+    const pool = available.length >= 3 ? available : engines;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }, [engines, recentTypes]);
+
+  // Start session
+  const startSession = (learning = false) => {
+    if (cooldownUntil) return;
+    clearRoundTimers();
+    setSessionStartIndex(0);
+    setPuzzleIndex(0);
+    setActiveSessionLimit(baseSessionLimit);
+    setExtraGamesActive(false);
+    setExtraGamesRemaining(0);
+    setSessionScore({ correct: 0, coins: 0, perfect: true });
+    setRecentTypes([]);
+    setLuckySpinResult(null);
+    setLuckySpinIndex(null);
+    setLearnMode(learning);
+    learnModeRef.current = learning;
+    sessionEndedRef.current = false;
+    setScreen('intro');
+    scheduleRoundTimeout(() => nextPuzzle(0), 1500);
+  };
+
+  const nextPuzzle = (idx = puzzleIndex) => {
+    clearRoundTimers();
+    answeredRef.current = false;
+    const type = pickEngine();
+    setRecentTypes(prev => [type, ...prev].slice(0, 3));
+    setPuzzleType(type);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setReactionTime(null);
+    setCountdown(null);
+    setTimerRunning(false);
+    
+    // Generate puzzle based on type
+    if (type === 'quickMath') {
+      setCurrentPuzzle(generateQuickMath());
+      setMaxTime(12); setTimeLeft(12);
+      setScreen('puzzle');
+      beginAnswerTimer();
+    } else if (type === 'numberLogic') {
+      setCurrentPuzzle(generateNumberLogic());
+      setMaxTime(15); setTimeLeft(15);
+      setScreen('puzzle');
+      beginAnswerTimer();
+    } else if (type === 'oddOneOut') {
+      setCurrentPuzzle(generateOddOneOut());
+      setMaxTime(10); setTimeLeft(10);
+      setScreen('puzzle');
+      beginAnswerTimer();
+    } else if (type === 'compare') {
+      setCurrentPuzzle(generateCompare());
+      setMaxTime(8); setTimeLeft(8);
+      setScreen('puzzle');
+      beginAnswerTimer();
+    } else if (type === 'memoryFlash') {
+      const nums = Array.from({length: 5}, () => Math.floor(Math.random() * 9) + 1);
+      setMemoryFlash(nums);
+      setMemoryPhase('show');
+      setCurrentPuzzle({ type: 'memory', answer: nums.join('') });
+      setMaxTime(15); setTimeLeft(15);
+      setScreen('puzzle');
+      scheduleRoundTimeout(() => {
+        setMemoryPhase('recall');
+        beginAnswerTimer();
+      }, 3000);
+    } else if (type === 'patternGrid') {
+      const size = 3;
+      const grid = Array.from({length: size*size}, () => Math.random() > 0.5);
+      const missing = Math.floor(Math.random() * (size*size));
+      setPatternGridData({ grid, missing, size });
+      setGridPhase('show');
+      setCurrentPuzzle({
+        type: 'pattern',
+        answer: grid[missing] ? 'Filled' : 'Empty',
+        options: ['Filled', 'Empty'],
+        trick: 'Visual Memory',
+        explanation: `The highlighted cell was ${grid[missing] ? 'filled' : 'empty'} in the original pattern.`
+      });
+      setMaxTime(12); setTimeLeft(12);
+      setScreen('puzzle');
+      scheduleRoundTimeout(() => {
+        setGridPhase('guess');
+        beginAnswerTimer();
+      }, 2500);
+    } else if (type === 'reaction') {
+      setCurrentPuzzle({ type: 'reaction' });
+      setMaxTime(10); setTimeLeft(10);
+      setCountdown(3);
+      setScreen('puzzle');
+      let c = 3;
+      const ci = scheduleRoundInterval(() => {
+        c--;
+        if (c > 0) setCountdown(c);
+        else {
+          setCountdown('GO!');
+          clearRoundInterval(ci);
+          const delay = 500 + Math.random() * 2000;
+          reactionTimeoutRef.current = scheduleRoundTimeout(() => {
+            setReactionStart(Date.now());
+            setCountdown('TAP!');
+            beginAnswerTimer();
+          }, delay);
+        }
+      }, 1000);
+    } else if (type === 'sequenceRecall') {
+      const len = 4;
+      const seq = Array.from({length: len}, () => Math.floor(Math.random() * 4));
+      setSequenceItems(seq);
+      setSequenceIndex(0);
+      setSequencePhase('show');
+      setCurrentPuzzle({ type: 'sequence', answer: seq });
+      setMaxTime(15); setTimeLeft(15);
+      setScreen('puzzle');
+      let i = 0;
+      const showInterval = scheduleRoundInterval(() => {
+        setSequenceIndex(i);
+        i++;
+        if (i > len) {
+          clearRoundInterval(showInterval);
+          setSequencePhase('input');
+          setSequenceIndex(0);
+          beginAnswerTimer();
+        }
+      }, 700);
+    } else if (type === 'gridTap') {
+      const count = 4;
+      const items = [];
+      const positions = new Set();
+      while (items.length < count) {
+        const p = Math.floor(Math.random() * 9);
+        if (!positions.has(p)) {
+          positions.add(p);
+          items.push(p);
+        }
+      }
+      setGridTapItems(items);
+      setGridTapIndex(0);
+      setGridTapPhase('show');
+      setCurrentPuzzle({ type: 'gridTap', answer: items });
+      setMaxTime(15); setTimeLeft(15);
+      setScreen('puzzle');
+      let i = 0;
+      const gti = scheduleRoundInterval(() => {
+        setGridTapIndex(i);
+        i++;
+        if (i > count) {
+          clearRoundInterval(gti);
+          setGridTapPhase('input');
+          setGridTapIndex(0);
+          beginAnswerTimer();
+        }
+      }, 800);
+    } else if (type === 'rotateFit') {
+      const target = [0, 90, 180, 270][Math.floor(Math.random() * 4)];
+      setTargetRotation(target);
+      setRotationAngle(0);
+      setCurrentPuzzle({ type: 'rotate', answer: target });
+      setMaxTime(12); setTimeLeft(12);
+      setScreen('puzzle');
+      beginAnswerTimer();
+    }
+  };
+
+  const handleAnswer = (answer, timedOut = false) => {
+    if (answeredRef.current) return;
+    answeredRef.current = true;
+    clearRoundTimers();
+    
+    let correct = false;
+    if (timedOut) {
+      correct = false;
+    } else if (puzzleType === 'reaction') {
+      const rt = Date.now() - reactionStart;
+      setReactionTime(rt);
+      correct = rt < 1500;
+      answer = `${rt}ms`;
+    } else if (puzzleType === 'sequenceRecall' || puzzleType === 'gridTap') {
+      correct = JSON.stringify(answer) === JSON.stringify(currentPuzzle.answer);
+    } else if (puzzleType === 'rotateFit') {
+      correct = rotationAngle === targetRotation;
+      answer = `${rotationAngle}°`;
+    } else {
+      correct = String(answer) === String(currentPuzzle.answer);
+    }
+    
+    setSelectedAnswer(answer ?? 'timeout');
+    setIsCorrect(correct);
+    
+    const speedBonus = correct ? Math.max(0, Math.floor((timeLeft / maxTime) * 8)) : 0;
+    const streakBonus = correct ? Math.min(streak * 3, 15) : 0;
+    const coinChange = correct ? BASE_REWARD + speedBonus + streakBonus : -WRONG_PENALTY;
+    
+    setWalletCoins(c => Math.max(0, c + coinChange));
+    if (coinChange > 0) awardCoins(coinChange);
+    setCoinAnim({ value: coinChange, key: Date.now() });
+    if (coinAnimTimeoutRef.current) clearTimeout(coinAnimTimeoutRef.current);
+    coinAnimTimeoutRef.current = setTimeout(() => {
+      setCoinAnim(null);
+      coinAnimTimeoutRef.current = null;
+    }, 1500);
+    
+    if (correct) {
+      setStreak(s => {
+        const ns = s + 1;
+        setBestStreak(bs => Math.max(bs, ns));
+        return ns;
+      });
+      setTotalWins(w => w + 1);
+      setSessionScore(s => ({ ...s, correct: s.correct + 1, coins: s.coins + coinChange }));
+    } else {
+      setStreak(0);
+      setSessionScore(s => ({ ...s, perfect: false, coins: s.coins + coinChange }));
+    }
+
+    if (extraGamesActive && puzzleIndex >= baseSessionLimit) {
+      setExtraGamesRemaining(Math.max(0, maxSessionLimit - (puzzleIndex + 1)));
+    }
+    
+    setScreen('feedback');
+  };
+
+  useEffect(() => {
+    timeoutAnswerRef.current = () => handleAnswer(null, true);
+  });
+
+  useEffect(() => {
+    if (!timerRunning || screen !== 'puzzle' || selectedAnswer !== null || learnMode) {
+      stopAnswerTimer();
+      return undefined;
+    }
+
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(previous => {
+        const next = Math.max(0, previous - 0.1);
+        if (next <= 0) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          setTimerRunning(false);
+          scheduleRoundTimeout(() => timeoutAnswerRef.current?.(), 0);
+        }
+        return next;
+      });
+    }, 100);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [learnMode, scheduleRoundTimeout, screen, selectedAnswer, stopAnswerTimer, timerRunning]);
+
+  const finishSessionAndStartCooldown = () => {
+    if (sessionEndedRef.current) return;
+    sessionEndedRef.current = true;
+    const now = Date.now();
+    const windowEnd = limitWindowUntil && limitWindowUntil > now
+      ? limitWindowUntil
+      : now + COOLDOWN_MS;
+    setLimitWindowUntil(windowEnd);
+    setCooldownUntil(windowEnd);
+    setExtraGamesActive(false);
+    setExtraGamesRemaining(0);
+    if (!extraGamesActive && sessionScore.perfect && isCorrect) {
+      setWalletCoins(c => c + PERFECT_SESSION_BONUS);
+      awardCoins(PERFECT_SESSION_BONUS);
+      if (!badges.includes('Perfect Session')) setBadges(b => [...b, 'Perfect Session']);
+    }
+    setScreen('sessionEnd');
+  };
+
+  const continueFromFeedback = () => {
+    const next = puzzleIndex + 1;
+    const finishedBaseRound = next >= baseSessionLimit && !extraGamesActive;
+    if (finishedBaseRound && !extraGamesRedeemedThisWindow) {
+      setScreen('extraChoice');
+      return;
+    }
+    if (next >= activeSessionLimit) {
+      finishSessionAndStartCooldown();
+    } else {
+      setPuzzleIndex(next);
+      nextPuzzle(next);
+    }
+  };
+
+  const redeemExtraGames = () => {
+    if (redeemInProgressRef.current || walletCoins < EXTRA_GAMES_COST || extraGamesRedeemedThisWindow) return;
+    redeemInProgressRef.current = true;
+    const now = Date.now();
+    const windowEnd = limitWindowUntil && limitWindowUntil > now
+      ? limitWindowUntil
+      : cooldownUntil && cooldownUntil > now
+      ? cooldownUntil
+      : now + COOLDOWN_MS;
+
+    setLimitWindowUntil(windowEnd);
+    setWalletCoins(c => Math.max(0, c - EXTRA_GAMES_COST));
+    setExtraGamesRedeemedThisWindow(true);
+    setExtraGamesActive(true);
+    setExtraGamesRemaining(EXTRA_GAMES_LIMIT);
+    setCooldownUntil(null);
+    setCooldownRemaining(0);
+    setSessionStartIndex(0);
+    setActiveSessionLimit(maxSessionLimit);
+    setPuzzleIndex(baseSessionLimit);
+    sessionEndedRef.current = false;
+    nextPuzzle(baseSessionLimit);
+
+    window.setTimeout(() => {
+      redeemInProgressRef.current = false;
+    }, 0);
+  };
+
+  const formatCooldown = (ms) => {
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  };
+
+  const openLuckySpin = () => {
+    setLuckySpinResult(null);
+    setLuckySpinIndex(null);
+    setScreen('spin');
+  };
+
+  const doLuckySpin = () => {
+    if (spinning || spinUsedThisWindow) return;
+    setSpinning(true);
+    setLuckySpinResult(null);
+    setLuckySpinIndex(null);
+    const now = Date.now();
+    if (!limitWindowUntil || limitWindowUntil <= now) {
+      setLimitWindowUntil(now + COOLDOWN_MS);
+    }
+    setSpinUsedThisWindow(true);
+    const rewardIndex = Math.floor(Math.random() * LUCKY_SPIN_REWARDS.length);
+    const segmentAngle = 360 / LUCKY_SPIN_REWARDS.length;
+    const rewardAngle = rewardIndex * segmentAngle + segmentAngle / 2;
+    const nextRotation = spinRotation + (360 * 5) - rewardAngle;
+    setSpinRotation(nextRotation);
+    scheduleRoundTimeout(() => {
+      const r = LUCKY_SPIN_REWARDS[rewardIndex];
+      setLuckySpinResult(r);
+      setLuckySpinIndex(rewardIndex);
+      setWalletCoins(c => c + r);
+      awardCoins(r);
+      setSpinning(false);
+    }, LUCKY_SPIN_DURATION_MS);
+  };
+
+  const useHint = () => {
+    if (walletCoins < 15 || !currentPuzzle?.options) return;
+    setWalletCoins(c => c - 15);
+    // Mark hint used - for simplicity just reduce options visually via state (not implemented deeper)
+  };
+
+  const addTime = () => {
+    if (walletCoins < 20) return;
+    setWalletCoins(c => c - 20);
+    setTimeLeft(t => Math.min(maxTime, t + 5));
+    setMaxTime(m => m + 5);
+  };
+
+  const removeWrong = () => {
+    if (walletCoins < 10 || !currentPuzzle?.options) return;
+    setWalletCoins(c => c - 10);
+    // For simplicity, we signal this state and let UI filter
+    setCurrentPuzzle(p => ({
+      ...p,
+      options: p.options.filter(o => String(o) === String(p.answer) || Math.random() > 0.5).slice(0, 3)
+    }));
+  };
+
+  // ============ UI RENDER ============
+  return (
+    <div className="skill-machine-root">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@700&display=swap');
+        
+        .skill-machine-root {
+          --bg-0: #0a0618;
+          --bg-1: #120826;
+          --bg-2: #1a0f3d;
+          --ink: #ffffff;
+          --ink-muted: rgba(255,255,255,0.7);
+          --ink-dim: rgba(255,255,255,0.45);
+          --p1: #ff00aa;
+          --p2: #00e5ff;
+          --p3: #ffea00;
+          --p4: #7c3aed;
+          --p5: #10b981;
+          --danger: #ff3366;
+          --surface: rgba(255,255,255,0.06);
+          --surface-2: rgba(255,255,255,0.1);
+          --border: rgba(255,255,255,0.12);
+          --glow-pink: 0 0 40px rgba(255,0,170,0.5);
+          --glow-cyan: 0 0 40px rgba(0,229,255,0.5);
+          --glow-yellow: 0 0 30px rgba(255,234,0,0.6);
+          
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          background: radial-gradient(ellipse at top left, #2a0845 0%, #0a0618 45%, #000 100%);
+          min-height: 100vh;
+          color: var(--ink);
+          position: fixed;
+          inset: 0;
+          z-index: 1200;
+          overflow-x: hidden;
+          overflow-y: auto;
+          padding: 0;
+          -webkit-font-smoothing: antialiased;
+        }
+        
+        .skill-machine-root::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image: 
+            radial-gradient(circle at 20% 30%, rgba(255,0,170,0.15), transparent 40%),
+            radial-gradient(circle at 80% 70%, rgba(0,229,255,0.12), transparent 40%),
+            radial-gradient(circle at 50% 100%, rgba(124,58,237,0.15), transparent 50%);
+          pointer-events: none;
+          z-index: 0;
+          animation: bgpulse 8s ease-in-out infinite alternate;
+        }
+        
+        @keyframes bgpulse {
+          from { opacity: 0.6; }
+          to { opacity: 1; }
+        }
+        
+        .sm-container {
+          position: relative;
+          z-index: 1;
+          max-width: 480px;
+          margin: 0 auto;
+          padding: 20px 16px 40px;
+          min-height: 100vh;
+        }
+
+        .skill-modal-close {
+          position: fixed;
+          top: 14px;
+          right: 14px;
+          z-index: 5;
+          width: 42px;
+          height: 42px;
+          border: 1px solid rgba(255,255,255,0.2);
+          border-radius: 12px;
+          background: rgba(0,0,0,0.45);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 22px;
+          font-weight: 800;
+          line-height: 1;
+          box-shadow: 0 12px 35px rgba(0,0,0,0.35);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+        }
+
+        .skill-modal-close:hover {
+          background: rgba(255,255,255,0.14);
+        }
+        
+        /* ============ TOP BAR ============ */
+        .top-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 18px;
+          background: linear-gradient(135deg, rgba(255,0,170,0.15), rgba(124,58,237,0.15));
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          margin-bottom: 20px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        
+        .logo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 700;
+          font-size: 17px;
+          letter-spacing: -0.5px;
+        }
+        
+        .logo-icon {
+          width: 36px; height: 36px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, var(--p1), var(--p4));
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: var(--glow-pink);
+          animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        
+        .coin-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: linear-gradient(135deg, #ffd700, #ff8800);
+          padding: 8px 14px;
+          border-radius: 999px;
+          font-weight: 800;
+          font-size: 15px;
+          color: #1a0f00;
+          box-shadow: 0 4px 20px rgba(255,170,0,0.4), inset 0 1px 0 rgba(255,255,255,0.5);
+          position: relative;
+        }
+        
+        .coin-badge svg { animation: spin 4s linear infinite; }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .coin-anim {
+          position: absolute;
+          right: 0;
+          top: -30px;
+          font-weight: 800;
+          font-size: 18px;
+          animation: coinFly 1.5s ease-out forwards;
+          pointer-events: none;
+          font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .coin-anim.positive { color: #ffea00; text-shadow: 0 0 15px #ffea00; }
+        .coin-anim.negative { color: #ff3366; text-shadow: 0 0 15px #ff3366; }
+        
+        @keyframes coinFly {
+          0% { transform: translateY(10px); opacity: 0; }
+          30% { transform: translateY(-5px); opacity: 1; }
+          100% { transform: translateY(-40px); opacity: 0; }
+        }
+        
+        /* ============ HOME SCREEN ============ */
+        .hero-card {
+          background: linear-gradient(135deg, rgba(255,0,170,0.2), rgba(0,229,255,0.15));
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 28px;
+          padding: 28px 24px;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(255,0,170,0.15);
+          margin-bottom: 20px;
+        }
+        
+        .hero-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: conic-gradient(from 0deg, transparent, rgba(255,0,170,0.1), transparent 60%);
+          animation: rotate 10s linear infinite;
+        }
+        
+        @keyframes rotate { to { transform: rotate(360deg); } }
+        
+        .hero-title {
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 700;
+          font-size: 32px;
+          line-height: 1.05;
+          letter-spacing: -1px;
+          margin-bottom: 8px;
+          position: relative;
+          background: linear-gradient(135deg, #fff 0%, #ff00aa 50%, #00e5ff 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        
+        .hero-sub {
+          color: var(--ink-muted);
+          font-size: 14px;
+          margin-bottom: 20px;
+          position: relative;
+        }
+        
+        .play-btn {
+          width: 100%;
+          padding: 18px;
+          background: linear-gradient(135deg, #ff00aa 0%, #7c3aed 100%);
+          border: none;
+          border-radius: 18px;
+          color: white;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-weight: 800;
+          font-size: 17px;
+          letter-spacing: 0.3px;
+          cursor: pointer;
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 10px 30px rgba(255,0,170,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+          transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+        }
+        
+        .play-btn:hover:not(:disabled) {
+          transform: translateY(-3px) scale(1.02);
+          box-shadow: 0 15px 40px rgba(255,0,170,0.6);
+        }
+        
+        .play-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+        
+        .play-btn:disabled {
+          background: rgba(255,255,255,0.1);
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+        
+        .play-btn::after {
+          content: '';
+          position: absolute;
+          top: 0; left: -100%;
+          width: 100%; height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+          animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer { to { left: 100%; } }
+        
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+        
+        .stat-card {
+          background: var(--surface);
+          backdrop-filter: blur(10px);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 14px 10px;
+          text-align: center;
+          transition: transform 0.2s;
+        }
+        
+        .stat-card:hover { transform: translateY(-2px); }
+        
+        .stat-icon {
+          width: 32px; height: 32px;
+          margin: 0 auto 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 10px;
+        }
+        
+        .stat-value {
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 700;
+          font-size: 20px;
+          line-height: 1;
+        }
+        
+        .stat-label {
+          font-size: 10px;
+          color: var(--ink-dim);
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          margin-top: 4px;
+        }
+        
+        .cooldown-card {
+          background: linear-gradient(135deg, rgba(255,51,102,0.15), rgba(255,136,0,0.1));
+          border: 1px solid rgba(255,51,102,0.3);
+          border-radius: 20px;
+          padding: 20px;
+          margin-bottom: 16px;
+          text-align: center;
+        }
+        
+        .cooldown-time {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 32px;
+          font-weight: 700;
+          margin: 8px 0;
+          color: #ff8800;
+        }
+        
+        .modes-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+        
+        .mode-btn {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 16px 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+          color: white;
+          font-family: inherit;
+          text-align: left;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        
+        .mode-btn:hover {
+          transform: translateY(-2px);
+          border-color: var(--p2);
+          box-shadow: 0 8px 20px rgba(0,229,255,0.2);
+        }
+        
+        .mode-btn-title {
+          font-weight: 700;
+          font-size: 14px;
+          display: flex; align-items: center; gap: 6px;
+        }
+        
+        .mode-btn-sub { font-size: 11px; color: var(--ink-dim); }
+        
+        .badges-section {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          padding: 16px;
+        }
+        
+        .badges-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: var(--ink-dim);
+          margin-bottom: 10px;
+          display: flex; align-items: center; gap: 6px;
+        }
+        
+        .badge-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: linear-gradient(135deg, rgba(255,234,0,0.2), rgba(255,170,0,0.15));
+          border: 1px solid rgba(255,234,0,0.3);
+          padding: 6px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 600;
+          margin: 3px;
+        }
+        
+        /* ============ PUZZLE SCREEN ============ */
+        .puzzle-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+        }
+        
+        .puzzle-progress {
+          display: flex;
+          gap: 4px;
+          flex: 1;
+          margin-right: 12px;
+        }
+        
+        .progress-dot {
+          flex: 1;
+          height: 6px;
+          border-radius: 3px;
+          background: rgba(255,255,255,0.1);
+          transition: background 0.3s;
+        }
+        
+        .progress-dot.done { background: linear-gradient(90deg, #10b981, #00e5ff); }
+        .progress-dot.current { background: linear-gradient(90deg, #ff00aa, #ffea00); box-shadow: 0 0 10px #ff00aa; }
+        
+        .streak-chip {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 6px 10px;
+          background: linear-gradient(135deg, #ff3366, #ff8800);
+          border-radius: 999px;
+          font-weight: 800;
+          font-size: 13px;
+          box-shadow: 0 0 15px rgba(255,51,102,0.5);
+        }
+        
+        .timer-big {
+          text-align: center;
+          margin-bottom: 18px;
+        }
+        
+        .timer-num {
+          font-family: 'JetBrains Mono', monospace;
+          font-weight: 700;
+          font-size: 48px;
+          line-height: 1;
+          transition: color 0.3s;
+        }
+        
+        .timer-num.green { color: #10b981; text-shadow: 0 0 20px rgba(16,185,129,0.5); }
+        .timer-num.orange { color: #ff8800; text-shadow: 0 0 20px rgba(255,136,0,0.6); }
+        .timer-num.red { color: #ff3366; text-shadow: 0 0 25px rgba(255,51,102,0.8); animation: pulse 0.5s infinite alternate; }
+        
+        @keyframes pulse { to { transform: scale(1.05); } }
+        
+        .timer-bar {
+          height: 6px;
+          background: rgba(255,255,255,0.1);
+          border-radius: 3px;
+          overflow: hidden;
+          margin-top: 8px;
+        }
+        
+        .timer-fill {
+          height: 100%;
+          transition: width 0.1s linear, background 0.3s;
+          border-radius: 3px;
+        }
+        
+        .puzzle-card {
+          background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+          backdrop-filter: blur(20px);
+          border: 1px solid var(--border);
+          border-radius: 24px;
+          padding: 28px 20px;
+          margin-bottom: 18px;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+          min-height: 200px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .puzzle-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: rgba(0,229,255,0.15);
+          border: 1px solid rgba(0,229,255,0.3);
+          padding: 5px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: #00e5ff;
+          margin-bottom: 16px;
+        }
+        
+        .puzzle-question {
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 700;
+          font-size: 36px;
+          line-height: 1.1;
+          text-align: center;
+          letter-spacing: -0.5px;
+          margin-bottom: 8px;
+        }
+        
+        .options-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        
+        .option-btn {
+          background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+          border: 2px solid var(--border);
+          border-radius: 16px;
+          padding: 18px;
+          color: white;
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 700;
+          font-size: 22px;
+          cursor: pointer;
+          transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .option-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          border-color: var(--p2);
+          background: linear-gradient(135deg, rgba(0,229,255,0.2), rgba(0,229,255,0.05));
+          box-shadow: var(--glow-cyan);
+        }
+        
+        .option-btn:active:not(:disabled) { transform: scale(0.96); }
+        
+        .option-btn.correct { 
+          background: linear-gradient(135deg, #10b981, #059669);
+          border-color: #10b981;
+          box-shadow: 0 0 30px rgba(16,185,129,0.6);
+          animation: correctPulse 0.5s;
+        }
+        
+        .option-btn.wrong {
+          background: linear-gradient(135deg, #ff3366, #dc2626);
+          border-color: #ff3366;
+          animation: shake 0.4s;
+        }
+        
+        @keyframes correctPulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.08); }
+          100% { transform: scale(1); }
+        }
+        
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-6px); }
+          75% { transform: translateX(6px); }
+        }
+        
+        .power-ups {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 6px;
+          margin-top: 14px;
+        }
+        
+        .powerup-btn {
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 8px 4px;
+          color: white;
+          cursor: pointer;
+          font-size: 10px;
+          font-weight: 600;
+          transition: all 0.2s;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
+        }
+        
+        .powerup-btn:hover:not(:disabled) {
+          background: rgba(255,234,0,0.15);
+          border-color: rgba(255,234,0,0.4);
+        }
+        
+        .powerup-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        .powerup-cost {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 9px;
+          color: #ffea00;
+        }
+        
+        /* ============ MEMORY FLASH ============ */
+        .memory-display {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 64px;
+          font-weight: 700;
+          letter-spacing: 8px;
+          background: linear-gradient(135deg, #ff00aa, #00e5ff);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          animation: memoryFocus 0.5s;
+        }
+        
+        @keyframes memoryFocus {
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        
+        .memory-input {
+          width: 100%;
+          padding: 18px;
+          background: rgba(255,255,255,0.05);
+          border: 2px solid var(--border);
+          border-radius: 16px;
+          color: white;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 28px;
+          font-weight: 700;
+          text-align: center;
+          letter-spacing: 8px;
+          outline: none;
+        }
+        
+        .memory-input:focus { border-color: var(--p2); box-shadow: var(--glow-cyan); }
+        
+        /* ============ PATTERN GRID ============ */
+        .pattern-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+          width: 220px;
+        }
+        
+        .pattern-cell {
+          aspect-ratio: 1;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.08);
+          border: 2px solid var(--border);
+          transition: all 0.3s;
+        }
+        
+        .pattern-cell.filled {
+          background: linear-gradient(135deg, #ff00aa, #7c3aed);
+          border-color: transparent;
+          box-shadow: 0 0 15px rgba(255,0,170,0.4);
+        }
+        
+        .pattern-cell.missing {
+          background: rgba(255,234,0,0.1);
+          border-color: #ffea00;
+          border-style: dashed;
+          animation: pulse2 1.5s infinite;
+        }
+
+        .pattern-answer-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          width: 100%;
+          margin-top: 18px;
+        }
+
+        .pattern-answer-btn {
+          background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04));
+          border: 2px solid var(--border);
+          border-radius: 14px;
+          padding: 14px;
+          color: white;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 18px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.18s;
+        }
+
+        .pattern-answer-btn:hover {
+          border-color: #ffea00;
+          box-shadow: 0 0 22px rgba(255,234,0,0.32);
+          transform: translateY(-2px);
+        }
+        
+        @keyframes pulse2 {
+          0%, 100% { box-shadow: 0 0 0 rgba(255,234,0,0.4); }
+          50% { box-shadow: 0 0 20px rgba(255,234,0,0.6); }
+        }
+        
+        /* ============ REACTION ============ */
+        .reaction-display {
+          width: 220px; height: 220px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 800;
+          font-size: 42px;
+          cursor: pointer;
+          transition: all 0.3s;
+          user-select: none;
+        }
+        
+        .reaction-display.wait {
+          background: radial-gradient(circle, #ff3366, #dc2626);
+          box-shadow: 0 0 40px rgba(255,51,102,0.5);
+        }
+        
+        .reaction-display.go {
+          background: radial-gradient(circle, #10b981, #059669);
+          box-shadow: 0 0 60px rgba(16,185,129,0.8);
+          animation: gopulse 0.3s infinite alternate;
+        }
+        
+        @keyframes gopulse {
+          from { transform: scale(1); }
+          to { transform: scale(1.08); }
+        }
+        
+        /* ============ SEQUENCE ============ */
+        .sequence-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          width: 240px;
+        }
+        
+        .seq-btn {
+          aspect-ratio: 1;
+          border-radius: 20px;
+          border: none;
+          cursor: pointer;
+          transition: all 0.15s;
+          opacity: 0.4;
+        }
+        
+        .seq-btn.active { opacity: 1; transform: scale(1.08); }
+        .seq-btn.clickable { opacity: 0.9; cursor: pointer; }
+        .seq-btn.clickable:hover { opacity: 1; transform: scale(1.05); }
+        .seq-btn.clickable:active { transform: scale(0.95); }
+        
+        .seq-btn:nth-child(1) { background: linear-gradient(135deg, #ff00aa, #dc2626); }
+        .seq-btn:nth-child(2) { background: linear-gradient(135deg, #00e5ff, #0891b2); }
+        .seq-btn:nth-child(3) { background: linear-gradient(135deg, #ffea00, #d97706); }
+        .seq-btn:nth-child(4) { background: linear-gradient(135deg, #10b981, #059669); }
+        
+        .seq-btn.active.active-1 { box-shadow: 0 0 30px #ff00aa; }
+        .seq-btn.active.active-2 { box-shadow: 0 0 30px #00e5ff; }
+        .seq-btn.active.active-3 { box-shadow: 0 0 30px #ffea00; }
+        .seq-btn.active.active-4 { box-shadow: 0 0 30px #10b981; }
+        
+        /* ============ GRID TAP ============ */
+        .gridtap-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          width: 260px;
+        }
+        
+        .gridtap-cell {
+          aspect-ratio: 1;
+          background: rgba(255,255,255,0.06);
+          border: 2px solid var(--border);
+          border-radius: 16px;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 18px;
+          color: white;
+          position: relative;
+        }
+        
+        .gridtap-cell.glow {
+          background: linear-gradient(135deg, #ff00aa, #7c3aed);
+          border-color: #ff00aa;
+          box-shadow: 0 0 30px rgba(255,0,170,0.7);
+          animation: glowPop 0.5s;
+        }
+        
+        @keyframes glowPop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+        
+        .gridtap-cell.tapped {
+          background: linear-gradient(135deg, #10b981, #059669);
+          border-color: #10b981;
+        }
+        
+        .gridtap-cell:hover:not(.tapped) { background: rgba(255,255,255,0.1); }
+        
+        /* ============ ROTATE ============ */
+        .rotate-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 20px;
+        }
+        
+        .rotate-target {
+          width: 120px; height: 120px;
+          display: flex; align-items: center; justify-content: center;
+          opacity: 0.4;
+          border: 2px dashed rgba(255,255,255,0.3);
+          border-radius: 16px;
+        }
+        
+        .rotate-shape {
+          width: 120px; height: 120px;
+          display: flex; align-items: center; justify-content: center;
+          transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          background: linear-gradient(135deg, #ff00aa, #00e5ff);
+          border-radius: 16px;
+          position: relative;
+        }
+        
+        .rotate-shape::after {
+          content: '';
+          position: absolute;
+          top: 8px; left: 50%;
+          transform: translateX(-50%);
+          width: 20px; height: 20px;
+          background: white;
+          border-radius: 50%;
+        }
+        
+        .rotate-btn {
+          padding: 14px 24px;
+          background: linear-gradient(135deg, #7c3aed, #ff00aa);
+          border: none;
+          border-radius: 14px;
+          color: white;
+          font-weight: 800;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 15px;
+          box-shadow: 0 6px 20px rgba(124,58,237,0.4);
+          transition: transform 0.2s;
+        }
+        
+        .rotate-btn:hover { transform: scale(1.05); }
+        
+        /* ============ FEEDBACK ============ */
+        .feedback-hero {
+          text-align: center;
+          padding: 30px 20px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+          border: 1px solid var(--border);
+          border-radius: 28px;
+          margin-bottom: 16px;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .feedback-hero.correct { box-shadow: 0 0 60px rgba(16,185,129,0.3); border-color: rgba(16,185,129,0.4); }
+        .feedback-hero.wrong { box-shadow: 0 0 40px rgba(255,51,102,0.2); border-color: rgba(255,51,102,0.3); }
+        
+        .feedback-icon {
+          width: 90px; height: 90px;
+          margin: 0 auto 14px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        @keyframes popIn {
+          from { transform: scale(0) rotate(-180deg); opacity: 0; }
+          to { transform: scale(1) rotate(0); opacity: 1; }
+        }
+        
+        .feedback-icon.correct {
+          background: linear-gradient(135deg, #10b981, #059669);
+          box-shadow: 0 0 40px rgba(16,185,129,0.6);
+        }
+        
+        .feedback-icon.wrong {
+          background: linear-gradient(135deg, #ff3366, #dc2626);
+          box-shadow: 0 0 30px rgba(255,51,102,0.5);
+        }
+        
+        .feedback-title {
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 700;
+          font-size: 32px;
+          margin-bottom: 6px;
+          letter-spacing: -0.5px;
+        }
+        
+        .feedback-sub { color: var(--ink-muted); font-size: 14px; margin-bottom: 14px; }
+        
+        .feedback-reward {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: linear-gradient(135deg, #ffd700, #ff8800);
+          color: #1a0f00;
+          padding: 10px 18px;
+          border-radius: 999px;
+          font-weight: 800;
+          font-size: 18px;
+          box-shadow: 0 8px 20px rgba(255,170,0,0.4);
+        }
+        
+        .feedback-reward.negative {
+          background: linear-gradient(135deg, #ff3366, #dc2626);
+          color: white;
+        }
+        
+        .learn-card {
+          background: linear-gradient(135deg, rgba(255,234,0,0.12), rgba(255,170,0,0.06));
+          border: 1px solid rgba(255,234,0,0.25);
+          border-radius: 20px;
+          padding: 18px;
+          margin-bottom: 16px;
+        }
+        
+        .learn-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 800;
+          font-size: 13px;
+          color: #ffea00;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 8px;
+        }
+        
+        .learn-trick {
+          font-weight: 700;
+          font-size: 16px;
+          margin-bottom: 4px;
+        }
+        
+        .learn-explanation {
+          color: var(--ink-muted);
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        
+        .next-btn {
+          width: 100%;
+          padding: 16px;
+          background: linear-gradient(135deg, #00e5ff, #7c3aed);
+          border: none;
+          border-radius: 16px;
+          color: white;
+          font-weight: 800;
+          font-size: 16px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 10px 30px rgba(0,229,255,0.3);
+          transition: transform 0.2s;
+        }
+        
+        .next-btn:hover { transform: translateY(-2px); }
+        .next-btn:active { transform: scale(0.98); }
+        
+        /* ============ INTRO ============ */
+        .intro-screen {
+          min-height: 60vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          gap: 20px;
+        }
+        
+        .intro-big {
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 700;
+          font-size: 64px;
+          background: linear-gradient(135deg, #ff00aa, #ffea00, #00e5ff);
+          background-size: 200% 200%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          animation: gradient 3s ease infinite;
+          letter-spacing: -2px;
+        }
+        
+        @keyframes gradient {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+
+        /* ============ EXTRA CHOICE ============ */
+        .extra-choice-card {
+          background: linear-gradient(135deg, rgba(255,234,0,0.14), rgba(255,0,170,0.12), rgba(0,229,255,0.08));
+          border: 1px solid rgba(255,234,0,0.28);
+          border-radius: 28px;
+          padding: 28px 22px;
+          text-align: center;
+          box-shadow: 0 20px 60px rgba(255,0,170,0.16);
+          position: relative;
+          overflow: hidden;
+          margin-bottom: 16px;
+        }
+
+        .extra-choice-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 50% 0%, rgba(255,234,0,0.28), transparent 55%);
+          pointer-events: none;
+        }
+
+        .extra-choice-content {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .extra-choice-icon {
+          width: 82px;
+          height: 82px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #ffd700, #ff8800);
+          color: #1a0f00;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 42px rgba(255,170,0,0.48);
+        }
+
+        .extra-choice-title {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 28px;
+          font-weight: 800;
+          line-height: 1.05;
+          letter-spacing: -0.5px;
+        }
+
+        .extra-choice-sub {
+          color: var(--ink-muted);
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .extra-choice-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+          width: 100%;
+        }
+
+        .extra-choice-stat {
+          background: rgba(0,0,0,0.26);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 14px;
+          padding: 12px 8px;
+        }
+
+        .extra-choice-stat strong {
+          display: block;
+          color: #ffea00;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 20px;
+          line-height: 1;
+        }
+
+        .extra-choice-stat span {
+          display: block;
+          color: var(--ink-dim);
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          margin-top: 5px;
+        }
+
+        .extra-choice-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+          width: 100%;
+          margin-top: 4px;
+        }
+
+        .extra-choice-note {
+          color: #ffea00;
+          font-size: 12px;
+          font-weight: 800;
+        }
+        
+        /* ============ SESSION END ============ */
+        .session-end-card {
+          background: linear-gradient(135deg, rgba(255,234,0,0.15), rgba(255,0,170,0.1));
+          border: 1px solid rgba(255,234,0,0.3);
+          border-radius: 28px;
+          padding: 30px 24px;
+          text-align: center;
+          margin-bottom: 18px;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .session-end-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 50% 0%, rgba(255,234,0,0.3), transparent 60%);
+        }
+        
+        .trophy-big {
+          width: 100px; height: 100px;
+          margin: 0 auto 16px;
+          background: linear-gradient(135deg, #ffd700, #ff8800);
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 0 60px rgba(255,170,0,0.6);
+          animation: float 3s infinite ease-in-out;
+          position: relative;
+        }
+        
+        .session-stats {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 10px;
+          margin-top: 16px;
+          position: relative;
+        }
+        
+        .session-stat {
+          background: rgba(0,0,0,0.3);
+          border-radius: 14px;
+          padding: 12px 8px;
+        }
+        
+        .session-stat-val {
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 800;
+          font-size: 22px;
+          color: #ffea00;
+        }
+        
+        .session-stat-lbl {
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: var(--ink-dim);
+        }
+        
+        /* ============ SPIN WHEEL ============ */
+        .spin-wheel {
+          width: 240px; height: 240px;
+          margin: 0 auto 20px;
+          position: relative;
+        }
+        
+        .spin-wheel-inner {
+          width: 100%; height: 100%;
+          border-radius: 50%;
+          position: relative;
+          overflow: hidden;
+          background: conic-gradient(
+            #ff00aa 0deg 45deg,
+            #00e5ff 45deg 90deg,
+            #ffea00 90deg 135deg,
+            #10b981 135deg 180deg,
+            #7c3aed 180deg 225deg,
+            #ff8800 225deg 270deg,
+            #ff3366 270deg 315deg,
+            #06b6d4 315deg 360deg
+          );
+          transition: transform 2.5s cubic-bezier(0.23, 1, 0.32, 1);
+          box-shadow: 0 0 60px rgba(255,0,170,0.4), inset 0 0 40px rgba(0,0,0,0.3);
+        }
+
+        .spin-label {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 48px;
+          height: 24px;
+          margin: -12px 0 0 -24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #1a0f00;
+          background: rgba(255,255,255,0.82);
+          border: 1px solid rgba(255,255,255,0.65);
+          border-radius: 999px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 13px;
+          font-weight: 800;
+          box-shadow: 0 5px 16px rgba(0,0,0,0.22);
+          text-shadow: none;
+        }
+
+        .spin-label.winner {
+          background: #ffea00;
+          box-shadow: 0 0 22px rgba(255,234,0,0.85);
+        }
+        
+        .spin-pointer {
+          position: absolute;
+          top: -10px; left: 50%;
+          transform: translateX(-50%);
+          width: 0; height: 0;
+          border-left: 15px solid transparent;
+          border-right: 15px solid transparent;
+          border-top: 25px solid #ffea00;
+          filter: drop-shadow(0 0 8px #ffea00);
+          z-index: 2;
+        }
+        
+        .spin-center {
+          position: absolute;
+          top: 50%; left: 50%;
+          transform: translate(-50%, -50%);
+          width: 60px; height: 60px;
+          background: white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 30px rgba(255,255,255,0.5);
+        }
+        
+        /* Confetti */
+        .confetti {
+          position: absolute;
+          width: 8px; height: 8px;
+          top: 50%; left: 50%;
+          animation: confetti 1.5s ease-out forwards;
+          pointer-events: none;
+        }
+        
+        @keyframes confetti {
+          0% { transform: translate(-50%, -50%) rotate(0); opacity: 1; }
+          100% { transform: translate(var(--x), var(--y)) rotate(720deg); opacity: 0; }
+        }
+        
+        .back-btn {
+          background: transparent;
+          border: 1px solid var(--border);
+          color: var(--ink-muted);
+          padding: 10px 16px;
+          border-radius: 12px;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 13px;
+          transition: all 0.2s;
+          display: flex; align-items: center; gap: 6px;
+          font-family: inherit;
+        }
+        
+        .back-btn:hover { background: var(--surface); color: white; }
+        
+        @media (max-width: 380px) {
+          .hero-title { font-size: 26px; }
+          .timer-num { font-size: 40px; }
+          .puzzle-question { font-size: 28px; }
+          .intro-big { font-size: 48px; }
+        }
+      `}</style>
+
+      <button className="skill-modal-close" type="button" onClick={onClose} aria-label="Close Skill Machine">
+        ×
+      </button>
+
+      <div className="sm-container" role="dialog" aria-modal="true" aria-label="Skill Machine">
+        {/* TOP BAR */}
+        <div className="top-bar">
+          <div className="logo">
+            <div className="logo-icon"><Brain size={20} /></div>
+            <span>Skill Machine</span>
           </div>
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          {/* Streak */}
-          {streak>=3&&(
-            <div style={{display:'flex',alignItems:'center',gap:4,background:'rgba(251,191,36,0.15)',border:'1px solid rgba(251,191,36,0.3)',borderRadius:20,padding:'4px 10px',animation:'smStreakPop 0.4s ease-out'}}>
-              <span style={{fontSize:14}}>🔥</span>
-              <span style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:14,color:'#fbbf24'}}>{streak}</span>
-              {streakMultStr&&<span style={{fontSize:10,color:'#fbbf24',fontFamily:'Poppins,sans-serif'}}>x{streakMultStr[1]}</span>}
-            </div>
-          )}
-          {/* Coins */}
-          <div style={{display:'flex',alignItems:'center',gap:5,background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:20,padding:'4px 10px'}}>
-            <span style={{fontSize:13}}>💰</span>
-            <span style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:14,color:'#a5b4fc'}}>{totalCoins.toLocaleString()}</span>
-          </div>
-          <button onClick={onClose} style={{width:30,height:30,borderRadius:10,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.45)',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>✕</button>
-        </div>
-      </div>
-
-      {/* ─── PROGRESS BAR ─── */}
-      {(phase==='playing'||phase==='feedback')&&(
-        <div style={{padding:'0 16px 8px',flexShrink:0}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
-            <span style={{fontSize:10,color:'rgba(255,255,255,0.3)',fontFamily:'Poppins,sans-serif'}}>{Math.min(puzzleIdx+1,SESSION_LENGTH)}/{SESSION_LENGTH}</span>
-            <span style={{fontSize:10,color:'rgba(255,255,255,0.3)',fontFamily:'Poppins,sans-serif'}}>D:{difficulty} · {Math.round(accuracy*100)}%</span>
-          </div>
-          <div style={{height:3,background:'rgba(255,255,255,0.06)',borderRadius:3,overflow:'hidden',boxShadow:'0 0 12px rgba(99,102,241,0.16)'}}>
-            <div style={{height:'100%',width:`${(Math.min(puzzleIdx,SESSION_LENGTH)/SESSION_LENGTH)*100}%`,background:'linear-gradient(90deg,#6366f1,#8b5cf6)',borderRadius:3,transition:'width 0.3s ease',boxShadow:'0 0 12px rgba(139,92,246,0.55)'}}/>
-          </div>
-        </div>
-      )}
-
-      {/* ─── BODY ─── */}
-      <div style={{flex:1,display:'flex',flexDirection:'column',overflowY:'auto',padding:'0 16px'}}>
-
-        {/* LOADING */}
-        {phase==='loading'&&(
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16}}>
-            <div style={{width:44,height:44,border:'3px solid rgba(99,102,241,0.2)',borderTop:'3px solid #6366f1',borderRadius:'50%',animation:'smPulse 0.8s linear infinite'}}/>
-            <p style={{color:'rgba(255,255,255,0.4)',fontFamily:'Poppins,sans-serif',fontSize:13}}>Loading…</p>
-          </div>
-        )}
-
-        {/* DAILY BONUS SCREEN */}
-        {phase==='bonus'&&(
-          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',padding:20}}>
-            <div style={{fontSize:62,marginBottom:16,animation:'smPop 0.6s cubic-bezier(.34,1.56,.64,1) both'}}>🎁</div>
-            <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:26,color:'#fff',margin:'0 0 8px'}}>Daily Bonus!</p>
-            <p style={{fontFamily:'Poppins,sans-serif',fontSize:13,color:'rgba(255,255,255,0.4)',margin:'0 0 24px'}}>Your reward for today</p>
-            <div style={{background:'linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.2))',border:'2px solid rgba(99,102,241,0.4)',borderRadius:24,padding:'24px 40px',marginBottom:28,animation:'smGlow 2s ease-in-out infinite'}}>
-              <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:48,color:'#a5b4fc',margin:0}}>{dailyBonus}</p>
-              <p style={{fontFamily:'Poppins,sans-serif',fontSize:14,color:'rgba(255,255,255,0.4)',margin:0}}>coins</p>
-            </div>
-            <button onClick={claimBonus} style={{width:'100%',maxWidth:260,padding:'15px',borderRadius:16,border:'none',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',color:'#fff',fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:16,cursor:'pointer',boxShadow:'0 6px 24px rgba(99,102,241,0.5)'}}>
-              Claim & Play ⚡
+          <div style={{display: 'flex', gap: 8, alignItems: 'center'}}>
+            <button onClick={() => setSoundOn(s => !s)} style={{background:'none', border:'none', color:'white', cursor:'pointer', opacity: 0.7}}>
+              {soundOn ? <Volume2 size={18}/> : <VolumeX size={18}/>}
             </button>
+            <div className="coin-badge">
+              <Coins size={16}/>
+              <span>{Number(walletCoins || 0).toLocaleString('en-IN')}</span>
+              {coinAnim && (
+                <div key={coinAnim.key} className={`coin-anim ${coinAnim.value >= 0 ? 'positive' : 'negative'}`}>
+                  {coinAnim.value >= 0 ? '+' : ''}{coinAnim.value}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* HOME */}
+        {screen === 'home' && (
+          <>
+            <div className="hero-card">
+              <h1 className="hero-title">Train Your Brain.<br/>Win Big Coins.</h1>
+              <p className="hero-sub">{SESSION_LIMIT} puzzles · 10 unique engines · infinite learning</p>
+              
+              {cooldownRemaining > 0 ? (
+                <div>
+                  <div style={{color: 'var(--ink-muted)', fontSize: 13, marginBottom: 6}}>Next session in</div>
+                  <div className="cooldown-time">{formatCooldown(cooldownRemaining)}</div>
+                  <div style={{color: 'var(--ink-dim)', fontSize: 12}}>Extra games are offered after game {SESSION_LIMIT}.</div>
+                </div>
+              ) : (
+                <button className="play-btn" onClick={() => startSession(false)}>
+                  <Rocket size={20}/> Start Session · Earn coins
+                </button>
+              )}
+            </div>
+
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon" style={{background: 'rgba(255,51,102,0.2)'}}>
+                  <Flame size={18} color="#ff3366"/>
+                </div>
+                <div className="stat-value">{bestStreak}</div>
+                <div className="stat-label">Best Streak</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon" style={{background: 'rgba(0,229,255,0.2)'}}>
+                  <Trophy size={18} color="#00e5ff"/>
+                </div>
+                <div className="stat-value">{totalWins}</div>
+                <div className="stat-label">Total Wins</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon" style={{background: 'rgba(255,234,0,0.2)'}}>
+                  <Star size={18} color="#ffea00"/>
+                </div>
+                <div className="stat-value">{badges.length}</div>
+                <div className="stat-label">Badges</div>
+              </div>
+            </div>
+
+            <div className="modes-row">
+              <button className="mode-btn" onClick={() => startSession(true)}>
+                <div className="mode-btn-title"><Lightbulb size={14} color="#ffea00"/> Learn Mode</div>
+                <div className="mode-btn-sub">No timer. Pure practice.</div>
+              </button>
+              <button className="mode-btn" onClick={openLuckySpin}>
+                <div className="mode-btn-title"><Gift size={14} color="#ff00aa"/> Lucky Spin</div>
+                <div className="mode-btn-sub">Win up to 200 coins</div>
+              </button>
+            </div>
+
+            <div className="badges-section">
+              <div className="badges-title"><Award size={14}/> Achievements</div>
+              {badges.length === 0 ? (
+                <div style={{color: 'var(--ink-dim)', fontSize: 13}}>Play to unlock badges!</div>
+              ) : (
+                <div>
+                  {badges.map(b => (
+                    <span key={b} className="badge-chip">
+                      <Crown size={12}/> {b}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {bestStreak >= 5 && !badges.includes('Speed Thinker') && (
+                <span className="badge-chip"><Zap size={12}/> Speed Thinker</span>
+              )}
+              {totalWins >= 10 && (
+                <span className="badge-chip"><Brain size={12}/> Memory Master</span>
+              )}
+              {totalWins >= 25 && (
+                <span className="badge-chip"><Puzzle size={12}/> Pattern Genius</span>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* INTRO */}
+        {screen === 'intro' && (
+          <div className="intro-screen">
+            <div style={{fontSize: 16, color: 'var(--ink-muted)'}}>Get Ready</div>
+            <div className="intro-big">3... 2... 1...</div>
+            <div style={{fontSize: 14, color: 'var(--ink-dim)'}}>Focus your mind 🧠</div>
           </div>
         )}
 
-        {/* PLAYING */}
-        {(phase==='playing'||phase==='feedback')&&puzzle&&(
-          <div style={{flex:1,display:'flex',flexDirection:'column',animation:'smSlide 0.24s ease-out'}}>
-
-            {/* Timer */}
-            <div style={{marginBottom:12}}>
-              <TimerBar key={timerKey} durationMs={timeLimit} onExpire={handleTimeExpire} active={phase==='playing'}/>
+        {/* PUZZLE */}
+        {screen === 'puzzle' && currentPuzzle && (
+          <>
+            <div className="puzzle-header">
+              <button className="back-btn" onClick={() => { clearRoundTimers(); setScreen('home'); }}>
+                <Home size={14}/>
+              </button>
+              <div className="puzzle-progress">
+                {Array.from({ length: activeSessionLimit }, (_, i) => (
+                  <div 
+                    key={i} 
+                    className={`progress-dot ${i < puzzleIndex ? 'done' : i === puzzleIndex ? 'current' : ''}`}
+                  />
+                ))}
+              </div>
+              {streak > 0 && (
+                <div className="streak-chip">
+                  <Flame size={14}/> {streak}
+                </div>
+              )}
             </div>
 
-            {/* Puzzle card */}
-            <div style={{position:'relative',background:'rgba(255,255,255,0.04)',border:`1.5px solid ${puzzle.engineColor}30`,borderRadius:24,padding:'18px 16px',flex:1,display:'flex',flexDirection:'column',gap:16,boxShadow:`0 18px 45px rgba(0,0,0,0.24), 0 0 22px ${puzzle.engineColor}18`,animation:'smSlide 0.28s ease-out both',transition:'box-shadow 0.25s ease, transform 0.2s ease'}}>
-              {/* Feedback overlay */}
-              {phase==='feedback'&&feedback&&(
-                <FeedbackOverlay 
-                  correct={feedback.correct} 
-                  coins={feedback.coins} 
-                  streak={streak} 
-                  nearMiss={feedback.nearMiss}
-                  extraMsg={feedback.extraMsg}
-                  correctAnswer={feedback.correctAnswer}
-                  onDone={advanceToNext}
+            <div className="timer-big">
+              <div className={`timer-num ${timeLeft > maxTime*0.5 ? 'green' : timeLeft > maxTime*0.25 ? 'orange' : 'red'}`}>
+                {Math.max(0, Math.ceil(timeLeft))}
+              </div>
+              <div className="timer-bar">
+                <div 
+                  className="timer-fill"
+                  style={{
+                    width: `${(timeLeft/maxTime) * 100}%`,
+                    background: timeLeft > maxTime*0.5 
+                      ? 'linear-gradient(90deg, #10b981, #00e5ff)' 
+                      : timeLeft > maxTime*0.25 
+                      ? 'linear-gradient(90deg, #ff8800, #ffea00)'
+                      : 'linear-gradient(90deg, #ff3366, #dc2626)'
+                  }}
                 />
-              )}
+              </div>
+            </div>
 
-              {/* Engine badge */}
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:16}}>{puzzle.engineIcon}</span>
-                <span style={{fontSize:10,fontWeight:800,color:puzzle.engineColor,textTransform:'uppercase',letterSpacing:'0.14em',fontFamily:'Poppins,sans-serif'}}>{puzzle.engineLabel}</span>
+            <div className="puzzle-card">
+              <div className="puzzle-tag">
+                {puzzleType === 'quickMath' && <><Sigma size={12}/> Quick Math</>}
+                {puzzleType === 'numberLogic' && <><Hash size={12}/> Number Logic</>}
+                {puzzleType === 'memoryFlash' && <><Eye size={12}/> Memory Flash</>}
+                {puzzleType === 'patternGrid' && <><Grid3x3 size={12}/> Pattern Grid</>}
+                {puzzleType === 'oddOneOut' && <><Shuffle size={12}/> Odd One Out</>}
+                {puzzleType === 'reaction' && <><Zap size={12}/> Reaction</>}
+                {puzzleType === 'sequenceRecall' && <><Activity size={12}/> Sequence Recall</>}
+                {puzzleType === 'compare' && <><Equal size={12}/> Compare</>}
+                {puzzleType === 'gridTap' && <><MousePointerClick size={12}/> Grid Tap</>}
+                {puzzleType === 'rotateFit' && <><RotateCw size={12}/> Rotate & Fit</>}
               </div>
 
-              {/* Question text (for text-based puzzles) */}
-              {typeof puzzle.question==='string'&&(
-                <div style={{textAlign:'center',padding:'8px 0'}}>
-                  <p style={{fontFamily:'Syne,sans-serif',fontWeight:900,fontSize:puzzle.question.length>20?20:26,color:'#f0f0f0',margin:0,lineHeight:1.3}}>
-                    {puzzle.question}
-                  </p>
-                  {puzzle.subtext&&<p style={{fontFamily:'Poppins,sans-serif',fontSize:12,color:'rgba(255,255,255,0.35)',margin:'6px 0 0'}}>{puzzle.subtext}</p>}
+              {/* QUICK MATH, NUMBER LOGIC, ODD ONE OUT, COMPARE */}
+              {(puzzleType === 'quickMath' || puzzleType === 'numberLogic' || puzzleType === 'compare') && (
+                <div className="puzzle-question">{currentPuzzle.question}</div>
+              )}
+
+              {puzzleType === 'oddOneOut' && (
+                <>
+                  <div style={{fontSize: 16, color: 'var(--ink-muted)', marginBottom: 12}}>{currentPuzzle.question}</div>
+                </>
+              )}
+
+              {/* MEMORY FLASH */}
+              {puzzleType === 'memoryFlash' && (
+                <>
+                  {memoryPhase === 'show' ? (
+                    <>
+                      <div style={{fontSize: 14, color: 'var(--ink-muted)', marginBottom: 12}}>Memorize this number</div>
+                      <div className="memory-display">{memoryFlash?.join('')}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{fontSize: 16, color: 'var(--ink-muted)', marginBottom: 12}}>Type what you saw</div>
+                      <input 
+                        className="memory-input"
+                        autoFocus
+                        maxLength={memoryFlash?.length}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAnswer(e.target.value);
+                        }}
+                        onChange={(e) => {
+                          if (e.target.value.length === memoryFlash?.length) {
+                            scheduleRoundTimeout(() => handleAnswer(e.target.value), 200);
+                          }
+                        }}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* PATTERN GRID */}
+              {puzzleType === 'patternGrid' && patternGridData && (
+                <>
+                  <div style={{fontSize: 14, color: 'var(--ink-muted)', marginBottom: 14}}>
+                    {gridPhase === 'show' ? 'Study the full pattern' : 'Was the highlighted cell filled or empty?'}
+                  </div>
+                  <div className="pattern-grid">
+                    {patternGridData.grid.map((cell, i) => (
+                      <div 
+                        key={i}
+                        className={`pattern-cell ${cell && (gridPhase === 'show' || i !== patternGridData.missing) ? 'filled' : ''} ${gridPhase === 'guess' && i === patternGridData.missing ? 'missing' : ''}`}
+                      />
+                    ))}
+                  </div>
+                  {gridPhase === 'guess' && (
+                    <div className="pattern-answer-row">
+                      <button className="pattern-answer-btn" onClick={() => handleAnswer('Filled')}>
+                        Filled
+                      </button>
+                      <button className="pattern-answer-btn" onClick={() => handleAnswer('Empty')}>
+                        Empty
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* REACTION */}
+              {puzzleType === 'reaction' && (
+                <div 
+                  className={`reaction-display ${countdown === 'TAP!' ? 'go' : 'wait'}`}
+                  onClick={() => {
+                    if (countdown === 'TAP!') handleAnswer('tapped');
+                    else if (typeof countdown === 'number' || countdown === 'GO!') {
+                      // too early - treat as wrong
+                      if (reactionTimeoutRef.current) clearTimeout(reactionTimeoutRef.current);
+                      handleAnswer('early', true);
+                    }
+                  }}
+                >
+                  {countdown}
                 </div>
               )}
 
-              {/* Puzzle display */}
-              <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center'}}>
-                <PuzzleDisplay key={puzzle.id} puzzle={puzzle} onAnswer={handleAnswer} disabled={phase!=='playing'}/>
+              {/* SEQUENCE RECALL */}
+              {puzzleType === 'sequenceRecall' && (
+                <>
+                  <div style={{fontSize: 14, color: 'var(--ink-muted)', marginBottom: 14}}>
+                    {sequencePhase === 'show' ? 'Watch the sequence' : `Repeat it (${sequenceIndex}/${sequenceItems.length})`}
+                  </div>
+                  <div className="sequence-grid">
+                    {[0,1,2,3].map(i => (
+                      <button
+                        key={i}
+                        className={`seq-btn ${sequencePhase === 'show' && sequenceItems[sequenceIndex] === i ? `active active-${i+1}` : ''} ${sequencePhase === 'input' ? 'clickable' : ''}`}
+                        onClick={() => {
+                          if (sequencePhase === 'input') {
+                            const newIdx = sequenceIndex + 1;
+                            if (sequenceItems[sequenceIndex] === i) {
+                              if (newIdx >= sequenceItems.length) {
+                                handleAnswer(sequenceItems);
+                              } else {
+                                setSequenceIndex(newIdx);
+                              }
+                            } else {
+                              handleAnswer([...sequenceItems.slice(0, sequenceIndex), i]);
+                            }
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* GRID TAP */}
+              {puzzleType === 'gridTap' && (
+                <>
+                  <div style={{fontSize: 14, color: 'var(--ink-muted)', marginBottom: 14}}>
+                    {gridTapPhase === 'show' ? `Memorize cells (${gridTapIndex + 1}/${gridTapItems.length})` : `Tap in order (${gridTapIndex}/${gridTapItems.length})`}
+                  </div>
+                  <div className="gridtap-grid">
+                    {[0,1,2,3,4,5,6,7,8].map(i => {
+                      const showGlow = gridTapPhase === 'show' && gridTapItems[gridTapIndex] === i;
+                      const tappedIdx = gridTapPhase === 'input' ? gridTapItems.slice(0, gridTapIndex).indexOf(i) : -1;
+                      return (
+                        <div
+                          key={i}
+                          className={`gridtap-cell ${showGlow ? 'glow' : ''} ${tappedIdx >= 0 ? 'tapped' : ''}`}
+                          onClick={() => {
+                            if (gridTapPhase === 'input') {
+                              if (gridTapItems[gridTapIndex] === i) {
+                                const newIdx = gridTapIndex + 1;
+                                if (newIdx >= gridTapItems.length) {
+                                  handleAnswer(gridTapItems);
+                                } else {
+                                  setGridTapIndex(newIdx);
+                                }
+                              } else {
+                                handleAnswer([...gridTapItems.slice(0, gridTapIndex), i]);
+                              }
+                            }
+                          }}
+                        >
+                          {tappedIdx >= 0 ? tappedIdx + 1 : ''}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* ROTATE FIT */}
+              {puzzleType === 'rotateFit' && (
+                <div className="rotate-container">
+                  <div style={{fontSize: 14, color: 'var(--ink-muted)'}}>Rotate to match the target</div>
+                  <div style={{display: 'flex', gap: 20, alignItems: 'center'}}>
+                    <div>
+                      <div style={{fontSize: 10, color: 'var(--ink-dim)', textAlign: 'center', marginBottom: 6}}>TARGET</div>
+                      <div className="rotate-target">
+                        <div style={{width: '100%', height: '100%', transform: `rotate(${targetRotation}deg)`, transition: 'transform 0.4s'}}>
+                          <div style={{width: '100%', height: '100%', background: 'rgba(255,255,255,0.15)', borderRadius: 16, position: 'relative'}}>
+                            <div style={{position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', width: 20, height: 20, background: 'rgba(255,255,255,0.5)', borderRadius: '50%'}}/>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{fontSize: 10, color: 'var(--ink-dim)', textAlign: 'center', marginBottom: 6}}>YOURS</div>
+                      <div style={{width: 120, height: 120}}>
+                        <div className="rotate-shape" style={{transform: `rotate(${rotationAngle}deg)`}}/>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{display: 'flex', gap: 10}}>
+                    <button className="rotate-btn" onClick={() => setRotationAngle(a => (a + 90) % 360)}>
+                      <RotateCw size={16}/> Rotate 90°
+                    </button>
+                    <button className="rotate-btn" style={{background: 'linear-gradient(135deg, #10b981, #059669)'}} onClick={() => handleAnswer(rotationAngle)}>
+                      <Check size={16}/> Confirm
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* OPTIONS */}
+            {currentPuzzle.options && ['quickMath','numberLogic','oddOneOut','compare'].includes(puzzleType) && (
+              <div className="options-grid">
+                {currentPuzzle.options.map((opt, i) => (
+                  <button
+                    key={i}
+                    className={`option-btn ${selectedAnswer === opt ? (isCorrect ? 'correct' : 'wrong') : ''}`}
+                    onClick={() => handleAnswer(opt)}
+                    disabled={selectedAnswer !== null}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* POWER-UPS */}
+            {currentPuzzle.options && selectedAnswer === null && (
+              <div className="power-ups">
+                <button className="powerup-btn" onClick={removeWrong} disabled={walletCoins < 10}>
+                  <Shuffle size={14}/>
+                  <span>Remove</span>
+                  <span className="powerup-cost">10</span>
+                </button>
+                <button className="powerup-btn" onClick={addTime} disabled={walletCoins < 20}>
+                  <Clock size={14}/>
+                  <span>+5 sec</span>
+                  <span className="powerup-cost">20</span>
+                </button>
+                <button className="powerup-btn" onClick={useHint} disabled={walletCoins < 15}>
+                  <Lightbulb size={14}/>
+                  <span>Hint</span>
+                  <span className="powerup-cost">15</span>
+                </button>
+                <button className="powerup-btn" disabled={streak === 0 || walletCoins < 20}>
+                  <Heart size={14}/>
+                  <span>Revive</span>
+                  <span className="powerup-cost">20</span>
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* FEEDBACK */}
+        {screen === 'feedback' && currentPuzzle && (
+          <>
+            <div className={`feedback-hero ${isCorrect ? 'correct' : 'wrong'}`}>
+              <div className={`feedback-icon ${isCorrect ? 'correct' : 'wrong'}`}>
+                {isCorrect ? <Check size={44} strokeWidth={3}/> : <X size={44} strokeWidth={3}/>}
+              </div>
+              <div className="feedback-title">
+                {isCorrect 
+                  ? (streak >= 3 ? '🔥 On Fire!' : 'Correct!') 
+                  : 'Not quite'}
+              </div>
+              <div className="feedback-sub">
+                {isCorrect 
+                  ? (reactionTime ? `Reaction: ${reactionTime}ms` : `Answer: ${currentPuzzle.answer}`) 
+                  : `Answer: ${currentPuzzle.answer}`}
+              </div>
+              <div className={`feedback-reward ${!isCorrect ? 'negative' : ''}`}>
+                <Coins size={18}/>
+                {isCorrect ? '+' : ''}{sessionScore.coins - (sessionScore.coins - (coinAnim?.value ?? 0))}
+                {isCorrect && streak >= 2 && ` · ${streak}x streak!`}
               </div>
             </div>
-          </div>
+
+            {currentPuzzle.explanation && (
+              <div className="learn-card">
+                <div className="learn-label">
+                  <Lightbulb size={14}/> Learn · {currentPuzzle.trick || 'Tip'}
+                </div>
+                <div className="learn-explanation">{currentPuzzle.explanation}</div>
+              </div>
+            )}
+
+            <button className="next-btn" onClick={continueFromFeedback}>
+              {puzzleIndex + 1 >= activeSessionLimit ? 'Finish Session' : `Next Puzzle (${puzzleIndex + 2}/${activeSessionLimit})`} <ChevronRight size={18}/>
+            </button>
+          </>
         )}
 
-        {/* SESSION DONE */}
-        {phase==='done'&&(
-          <SessionComplete
-            coins={sessionCoins} streak={streak} accuracy={accuracy}
-            bestStreak={bestStreak}
-            onClose={onClose} onPlayAgain={playAgain}
-          />
+        {/* EXTRA GAMES CHOICE */}
+        {screen === 'extraChoice' && (
+          <>
+            <div className="extra-choice-card">
+              <div className="extra-choice-content">
+                <div className="extra-choice-icon">
+                  <Trophy size={42}/>
+                </div>
+                <div>
+                  <div className="extra-choice-title">Normal Round Complete</div>
+                  <div className="extra-choice-sub">
+                    You finished {baseSessionLimit} games. Wait for the next window, or redeem coins to keep the run alive for {EXTRA_GAMES_LIMIT} more games.
+                  </div>
+                </div>
+
+                <div className="extra-choice-stats">
+                  <div className="extra-choice-stat">
+                    <strong>{sessionScore.correct}/{baseSessionLimit}</strong>
+                    <span>Correct</span>
+                  </div>
+                  <div className="extra-choice-stat">
+                    <strong>{Number(walletCoins || 0).toLocaleString('en-IN')}</strong>
+                    <span>Coins</span>
+                  </div>
+                  <div className="extra-choice-stat">
+                    <strong>{EXTRA_GAMES_COST}</strong>
+                    <span>Cost</span>
+                  </div>
+                </div>
+
+                <div className="extra-choice-note">
+                  Unlocks games {baseSessionLimit + 1} and {maxSessionLimit}
+                </div>
+              </div>
+            </div>
+
+            <div className="extra-choice-actions">
+              <button
+                className="next-btn"
+                onClick={redeemExtraGames}
+                disabled={walletCoins < EXTRA_GAMES_COST || extraGamesRedeemedThisWindow}
+                style={walletCoins < EXTRA_GAMES_COST || extraGamesRedeemedThisWindow ? {opacity: 0.55, cursor: 'not-allowed'} : undefined}
+              >
+                <Rocket size={18}/> Redeem {EXTRA_GAMES_COST} coins · Play {EXTRA_GAMES_LIMIT} more
+              </button>
+              {walletCoins < EXTRA_GAMES_COST && (
+                <div style={{textAlign: 'center', color: '#ffea00', fontSize: 12, fontWeight: 800}}>
+                  Need {EXTRA_GAMES_COST} coins
+                </div>
+              )}
+              <button className="back-btn" onClick={finishSessionAndStartCooldown} style={{width:'100%', justifyContent:'center', padding: 14}}>
+                <Clock size={14}/> Wait for next window
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* SESSION END */}
+        {screen === 'sessionEnd' && (
+          <>
+            <div className="session-end-card">
+              <div className="trophy-big">
+                <Trophy size={50} color="#1a0f00"/>
+              </div>
+              <div style={{fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 28, letterSpacing: -0.5}}>
+                Session Complete!
+              </div>
+              <div style={{color: 'var(--ink-muted)', fontSize: 14, marginTop: 6}}>
+                {sessionStartIndex === 0 && activeSessionLimit === baseSessionLimit && sessionScore.perfect ? `Perfect Run Bonus: +${PERFECT_SESSION_BONUS} coins` : 'Great effort!'}
+              </div>
+              <div className="session-stats">
+                <div className="session-stat">
+                  <div className="session-stat-val">{sessionScore.correct}/{gamesInCurrentRun}</div>
+                  <div className="session-stat-lbl">Correct</div>
+                </div>
+                <div className="session-stat">
+                  <div className="session-stat-val">{bestStreak}</div>
+                  <div className="session-stat-lbl">Best Streak</div>
+                </div>
+                <div className="session-stat">
+                  <div className="session-stat-val">{sessionScore.coins + (sessionStartIndex === 0 && activeSessionLimit === baseSessionLimit && sessionScore.perfect ? PERFECT_SESSION_BONUS : 0) >= 0 ? '+' : ''}{sessionScore.coins + (sessionStartIndex === 0 && activeSessionLimit === baseSessionLimit && sessionScore.perfect ? PERFECT_SESSION_BONUS : 0)}</div>
+                  <div className="session-stat-lbl">Coins</div>
+                </div>
+              </div>
+            </div>
+
+            <button className="next-btn" onClick={openLuckySpin} style={{marginBottom: 10}}>
+              <Gift size={18}/> Lucky Spin Bonus
+            </button>
+            <button className="back-btn" onClick={() => setScreen('home')} style={{width:'100%', justifyContent:'center', padding: 14}}>
+              <Home size={14}/> Back Home
+            </button>
+          </>
+        )}
+
+        {/* SPIN */}
+        {screen === 'spin' && (
+          <>
+            <div style={{textAlign: 'center', marginBottom: 20}}>
+              <div className="hero-title" style={{fontSize: 28, marginTop: 10}}>Lucky Spin</div>
+              <div style={{color: 'var(--ink-muted)', fontSize: 14, marginTop: 4}}>Spin to win up to 200 coins</div>
+            </div>
+            <div className="spin-wheel">
+              <div className="spin-pointer"/>
+              <div
+                className="spin-wheel-inner"
+                style={{ transform: `rotate(${spinRotation}deg)` }}
+              >
+                {LUCKY_SPIN_REWARDS.map((reward, index) => {
+                  const segmentAngle = 360 / LUCKY_SPIN_REWARDS.length;
+                  const angle = index * segmentAngle + segmentAngle / 2;
+                  return (
+                    <div
+                      key={reward}
+                      className={`spin-label ${luckySpinIndex === index ? 'winner' : ''}`}
+                      style={{
+                        transform: `rotate(${angle}deg) translateY(-84px) rotate(-${angle}deg)`
+                      }}
+                    >
+                      +{reward}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="spin-center">
+                <Gem size={24} color="#ff00aa"/>
+              </div>
+            </div>
+            {luckySpinResult !== null ? (
+              <>
+                <div style={{textAlign: 'center', fontSize: 32, fontFamily: 'Space Grotesk', fontWeight: 700, marginBottom: 16, color: '#ffea00'}}>
+                  You won +{luckySpinResult} coins
+                </div>
+                <button className="back-btn" onClick={() => setScreen('home')} style={{width:'100%', justifyContent:'center', padding: 14}}>
+                  <Home size={14}/> Back Home
+                </button>
+              </>
+            ) : spinUsedThisWindow && !spinning ? (
+              <>
+                <div style={{textAlign: 'center', fontSize: 16, fontWeight: 800, marginBottom: 16, color: 'var(--ink-muted)'}}>
+                  Spin used for this session window
+                </div>
+                <button className="back-btn" onClick={() => setScreen('home')} style={{width:'100%', justifyContent:'center', padding: 14}}>
+                  <Home size={14}/> Back Home
+                </button>
+              </>
+            ) : (
+              <button className="play-btn" onClick={doLuckySpin} disabled={spinning || spinUsedThisWindow}>
+                {spinning ? <><Sparkles size={18}/> Spinning...</> : <><Rocket size={18}/> Spin Now</>}
+              </button>
+            )}
+          </>
         )}
       </div>
-
-      {/* Bottom legal note */}
-      <p style={{textAlign:'center',fontSize:8,color:'rgba(255,255,255,0.08)',padding:'6px 16px 10px',fontFamily:'Poppins,sans-serif',flexShrink:0}}>
-        Skill-based game · Coins are virtual tokens with no monetary value
-      </p>
     </div>
-    </>
-  )
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   SKILL MACHINE CARD (Home page widget)
-══════════════════════════════════════════════════════════════════ */
-export function SkillMachineCard({ onOpen }) {
-  return (
-    <button onClick={onOpen}
-      style={{
-        width:'100%', padding:'14px 16px', borderRadius:18, border:'1.5px solid rgba(99,102,241,0.4)',
-        background:'linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1),rgba(6,9,15,0.9))',
-        boxShadow:'4px 4px 12px rgba(99,102,241,0.12),-3px -3px 8px rgba(255,255,255,0.02)',
-        cursor:'pointer', textAlign:'left', transition:'all 0.2s', position:'relative', overflow:'hidden',
-      }}
-      onMouseEnter={e=>e.currentTarget.style.transform='scale(1.02)'}
-      onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:24}}>⚡</span>
-          <div>
-            <p style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:15,color:'#fff',margin:0}}>Skill Machine</p>
-            <p style={{fontSize:11,color:'rgba(165,180,252,0.7)',margin:0,fontFamily:'Poppins,sans-serif'}}>10 engines · Infinite puzzles 🧠</p>
-          </div>
-        </div>
-        <div style={{padding:'6px 14px',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',borderRadius:20,boxShadow:'0 4px 14px rgba(99,102,241,0.4)'}}>
-          <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:12,color:'#fff'}}>Play →</span>
-        </div>
-      </div>
-    </button>
-  )
+  );
 }

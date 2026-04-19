@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { db } from '../firebase'
 import {
-  doc, onSnapshot, getDoc, setDoc, updateDoc,
-  collection, addDoc, getDocs, query, where, orderBy, limit,
-  serverTimestamp, increment
+  doc, onSnapshot, getDoc, setDoc,
+  collection, getDocs, query, where, orderBy, limit,
+  serverTimestamp, increment, runTransaction
 } from 'firebase/firestore'
 
 /* ══════════════════════════════════════════════════════
@@ -87,35 +87,43 @@ function useCountdown(date, time) {
       if(h>0)  return `${h}h ${String(m).padStart(2,'0')}m`
       return `${m}m ${String(s).padStart(2,'0')}s`
     }
-    setV(parse()); const t=setInterval(()=>setV(parse()),1000); return ()=>clearInterval(t)
+    const update = () => {
+      const next = parse()
+      setV(prev => prev === next ? prev : next)
+    }
+    update(); const t=setInterval(update,1000); return ()=>clearInterval(t)
   },[date,time])
   return v
 }
 
 /* ═══ WALLET + PREDICTION LOGIC ═══ */
 
+const userDocId = (userId='') => String(userId || '').trim().toLowerCase()
+
 async function loadWallet(userId) {
-  if (!userId) return {coins:500,streak:0,predictions:0,wins:0,losses:0,accuracy:0,boosters:{}}
+  if (!userId) return {streak:0,predictions:0,wins:0,losses:0,accuracy:0,boosters:{}}
   try {
-    const ref=doc(db,'ipl_wallets',userId)
+    const ref=doc(db,'ipl_wallets',userDocId(userId))
     const snap=await getDoc(ref)
     if (snap.exists()) return snap.data()
-    const init={coins:500,streak:0,predictions:0,wins:0,losses:0,accuracy:0,lastLogin:null,boosters:{},createdAt:serverTimestamp()}
+    const init={streak:0,predictions:0,wins:0,losses:0,accuracy:0,lastLogin:null,boosters:{},createdAt:serverTimestamp()}
     await setDoc(ref,init); return init
-  } catch { return {coins:500,streak:0,predictions:0,wins:0,losses:0,accuracy:0,boosters:{}} }
+  } catch { return {streak:0,predictions:0,wins:0,losses:0,accuracy:0,boosters:{}} }
 }
 
 async function claimDaily(userId) {
   if (!userId) return null
   try {
-    const ref=doc(db,'ipl_wallets',userId)
+    const id = userDocId(userId)
+    const ref=doc(db,'ipl_wallets',id)
     const snap=await getDoc(ref); const d=snap.exists()?snap.data():{}
     const today=new Date().toISOString().slice(0,10)
     if (d.lastLogin===today) return null
     const yest=new Date(Date.now()-86400000).toISOString().slice(0,10)
     const str=d.lastLogin===yest?(d.streak||0)+1:1
     const bonus=str>=7?50:str>=3?25:10
-    await setDoc(ref,{coins:(d.coins||500)+bonus,streak:str,lastLogin:today},{merge:true})
+    await setDoc(ref,{streak:str,lastLogin:today},{merge:true})
+    await setDoc(doc(db,'acr_users',id),{coins:increment(bonus)},{merge:true})
     return {coins:bonus,streak:str}
   } catch { return null }
 }
@@ -151,26 +159,19 @@ async function placePrediction(userId, matchId, winner, wager, hasFreeBooster) {
   if (typeof wager !== 'number' || wager < 0) return {error:'Invalid wager'}
 
   try {
+    const id = userDocId(userId)
     // Check for existing prediction
-    const existing = await getUserPrediction(userId, matchId)
+    const existing = await getUserPrediction(id, matchId)
     if (existing) return {error:'Already predicted this match'}
 
-    const walletRef = doc(db,'ipl_wallets',userId)
-    const snap = await getDoc(walletRef)
-    const d = snap.exists() ? snap.data() : {}
-    const bal = d.coins || 500
     const effectiveWager = hasFreeBooster ? 0 : wager
-
-    if (effectiveWager > 0 && bal < effectiveWager) return {error:'Not enough coins'}
-
-    // Wallet updates — no undefined values
-    const walletUpdates = { predictions: increment(1) }
-    if (effectiveWager > 0) walletUpdates.coins = increment(-effectiveWager)
-    await updateDoc(walletRef, walletUpdates)
+    const userRef = doc(db,'acr_users',id)
+    const walletRef = doc(db,'ipl_wallets',id)
+    const predRef = doc(db,'ipl_predictions',`${id}_${String(matchId)}`)
 
     // Build prediction doc — strip ALL undefined/null before saving
     const predDoc = cleanForFirestore({
-      userId:          userId,
+      userId:          id,
       matchId:         String(matchId),
       predictedWinner: String(winner),
       coinsWagered:    Number(effectiveWager),
@@ -180,7 +181,23 @@ async function placePrediction(userId, matchId, winner, wager, hasFreeBooster) {
     // Only add freeEntry if it's actually true
     if (hasFreeBooster === true) predDoc.freeEntry = true
 
-    await addDoc(collection(db,'ipl_predictions'), predDoc)
+    await runTransaction(db, async (tx) => {
+      const predSnap = await tx.get(predRef)
+      if (predSnap.exists()) throw new Error('Already predicted this match')
+      const userSnap = await tx.get(userRef)
+      const bal = Number(userSnap.exists() ? userSnap.data().coins || 0 : 0)
+      if (effectiveWager > 0 && bal < effectiveWager) throw new Error('Not enough coins')
+
+      tx.set(walletRef, { predictions: increment(1) }, { merge: true })
+      tx.set(userRef, {
+        coins: increment(-effectiveWager),
+        predictions: increment(1),
+        iplStats: {
+          predictions: increment(1)
+        }
+      }, { merge: true })
+      tx.set(predRef, predDoc)
+    })
     return {ok:true, coinsDeducted: effectiveWager}
   } catch(e) { return {error:e.message} }
 }
@@ -188,9 +205,19 @@ async function placePrediction(userId, matchId, winner, wager, hasFreeBooster) {
 /* ── Load leaderboard ── */
 async function loadLeaderboard(type='global') {
   try {
-    const q = query(collection(db,'ipl_wallets'), orderBy('coins','desc'), limit(20))
+    const q = query(collection(db,'acr_users'), orderBy('coins','desc'), limit(20))
     const snap = await getDocs(q)
-    return snap.docs.map((d,i)=>({rank:i+1,userId:d.id,...d.data()}))
+    return snap.docs.map((d,i)=>{
+      const data = d.data()
+      return {
+        rank:i+1,
+        userId:d.id,
+        coins:data.coins || 0,
+        predictions:data.predictions || data.iplStats?.predictions || 0,
+        wins:data.wins || data.iplStats?.wins || 0,
+        losses:data.losses || data.iplStats?.losses || 0,
+      }
+    })
   } catch { return [] }
 }
 
@@ -211,9 +238,37 @@ const Skel=({h=60,r=12})=>(
   <div style={{height:h,borderRadius:r,background:'linear-gradient(90deg,#F3F4F6 25%,#E5E7EB 50%,#F3F4F6 75%)',backgroundSize:'400% 100%',animation:'shimmer 1.4s ease-in-out infinite',marginBottom:10}}/>
 )
 
-function TeamLogo({name,size=44,showName=true}) {
+const matchKey = (match, fallback='') => match?.id || `${match?.date || 'date'}-${match?.team1 || 'team1'}-${match?.team2 || 'team2'}-${fallback}`
+const sameData = (a, b) => {
+  if (a === b) return true
+  try { return JSON.stringify(a) === JSON.stringify(b) } catch { return false }
+}
+
+const MatchCountdownStatus = memo(function MatchCountdownStatus({ date, time, started }) {
+  const cd = useCountdown(date, time)
+  if (cd) {
+    return (
+      <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 9px',background:'#FFF7ED',border:`1px solid ${C.orange}30`,borderRadius:20}}>
+        <span style={{fontSize:10}}>⏱</span>
+        <span style={{fontSize:10,fontWeight:800,color:C.orange,fontFamily:'Poppins,sans-serif'}}>{cd}</span>
+      </div>
+    )
+  }
+  return started
+    ? <Chip c={C.g3} label="⏸ CLOSED" bg={C.g5} border={C.g4}/>
+    : <Chip c={C.blue} label="📅 UPCOMING" bg={C.blue2} border={`${C.blue}25`}/>
+})
+
+const CountdownText = memo(function CountdownText({ date, time }) {
+  const cd = useCountdown(date, time)
+  if (!cd) return null
+  return <span style={{fontSize:10,fontWeight:700,color:C.orange,fontFamily:'Poppins,sans-serif'}}>⏱ {cd}</span>
+})
+
+const TeamLogo = memo(function TeamLogo({name,size=44,showName=true}) {
   const t=getTeam(name)
   const [err,setErr]=useState(false)
+  useEffect(()=>setErr(false),[name])
   return (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
       <div style={{width:size,height:size,borderRadius:size*0.24,overflow:'hidden',border:`2px solid ${t.c}20`,background:err?t.g:'#fff',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 3px 12px ${t.c}30`,flexShrink:0}}>
@@ -226,7 +281,7 @@ function TeamLogo({name,size=44,showName=true}) {
       {showName&&<span style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:Math.max(9,size*0.22),color:t.c}}>{t.s}</span>}
     </div>
   )
-}
+})
 
 function Form({f=[]}) {
   return <div style={{display:'flex',gap:2,marginTop:2}}>
@@ -326,7 +381,7 @@ function PredictPanel({match, userId, wallet, onDone}) {
 }
 
 /* ── Prediction Status Badge (shown after predicting) ── */
-function PredictionStatus({prediction}) {
+const PredictionStatus = memo(function PredictionStatus({prediction}) {
   const team = getTeam(prediction.predictedWinner)
   const statusConfig = {
     pending: {bg:'#FFF7ED',border:'#FED7AA',color:'#92400E',icon:'⏳',label:'Pending Result'},
@@ -362,33 +417,40 @@ function PredictionStatus({prediction}) {
       </div>
     </div>
   )
-}
+})
 
 /* ── Hero Match Card ── */
-function HeroCard({match, userId, wallet, onPredicted, onClick}) {
+const HeroCard = memo(function HeroCard({match, userId, wallet, onPredicted, onPredictionReward, onClick}) {
   const t1=getTeam(match.team1), t2=getTeam(match.team2)
   const isLive=match.status==='live', isDone=match.status==='completed'
   const started = matchHasStarted(match)
   const canPredict = !started && userId && !isLive && !isDone
-  const cd = useCountdown(match.date, match.time)
   const [showPredict,setShowPredict]   = useState(false)
   const [myPrediction,setMyPrediction] = useState(null)
   const [predLoading,setPredLoading]   = useState(false)
   const [expanded,setExpanded]         = useState(false)
+  const openMatch = useCallback(()=>onClick?.(match), [match, onClick])
 
   // Load user's prediction for this match
   useEffect(()=>{
     if (!userId || !match.id) return
     setPredLoading(true)
-    getUserPrediction(userId, match.id).then(p=>{setMyPrediction(p);setPredLoading(false)})
-  },[userId, match.id])
+    getUserPrediction(userId, match.id).then(p=>{
+      setMyPrediction(p)
+      if (p?.status === 'won' && p.coinsWon > 0) onPredictionReward?.(p)
+      setPredLoading(false)
+    })
+  },[userId, match.id, onPredictionReward])
 
-  const handlePredicted = (coinsDeducted) => {
+  const handlePredicted = useCallback((coinsDeducted) => {
     setShowPredict(false)
     onPredicted?.(coinsDeducted)
     // Reload prediction
-    if (userId && match.id) getUserPrediction(userId, match.id).then(setMyPrediction)
-  }
+    if (userId && match.id) getUserPrediction(userId, match.id).then(p => {
+      setMyPrediction(p)
+      if (p?.status === 'won' && p.coinsWon > 0) onPredictionReward?.(p)
+    })
+  }, [match.id, onPredicted, onPredictionReward, userId])
 
   return (
     <div style={{borderRadius:18,overflow:'hidden',background:'#fff',boxShadow:'0 6px 24px rgba(17,24,39,0.1)',marginBottom:12,border:`1px solid ${C.g4}`}}>
@@ -400,21 +462,14 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
         <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:14,paddingBottom:12}}>
           {isLive&&<LiveDot/>}
           {isDone&&<Chip c={C.green} label="✓ RESULT" bg={C.green2} border={`${C.green}30`}/>}
-          {!isLive&&!isDone&&cd&&(
-            <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 9px',background:'#FFF7ED',border:`1px solid ${C.orange}30`,borderRadius:20}}>
-              <span style={{fontSize:10}}>⏱</span>
-              <span style={{fontSize:10,fontWeight:800,color:C.orange,fontFamily:'Poppins,sans-serif'}}>{cd}</span>
-            </div>
-          )}
-          {!isLive&&!isDone&&!cd&&started&&<Chip c={C.g3} label="⏸ CLOSED" bg={C.g5} border={C.g4}/>}
-          {!isLive&&!isDone&&!started&&!cd&&<Chip c={C.blue} label="📅 UPCOMING" bg={C.blue2} border={`${C.blue}25`}/>}
+          {!isLive&&!isDone&&<MatchCountdownStatus date={match.date} time={match.time} started={started}/>}
           <span style={{marginLeft:'auto',fontSize:11,fontWeight:700,color:C.g2,fontFamily:'Poppins,sans-serif'}}>{fmtTime(match.time)}</span>
         </div>
       </div>
 
       <div style={{padding:'14px'}}>
         {/* Teams */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',alignItems:'center',gap:10,marginBottom:12}} onClick={()=>onClick?.(match)}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',alignItems:'center',gap:10,marginBottom:12}} onClick={openMatch}>
           <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,cursor:'pointer'}}>
             <TeamLogo name={match.team1} size={54}/>
             {/* Score shown here ONLY for completed matches — live scores shown in strip below */}
@@ -642,16 +697,20 @@ function HeroCard({match, userId, wallet, onPredicted, onClick}) {
       </div>
     </div>
   )
-}
+})
 
 /* ── Result Card ── */
-function ResultCard({match, userId, onClick}) {
+const ResultCard = memo(function ResultCard({match, userId, onPredictionReward, onClick}) {
   const t1=getTeam(match.team1),t2=getTeam(match.team2)
   const [myPred,setMyPred]=useState(null)
-  useEffect(()=>{ if(userId&&match.id) getUserPrediction(userId,match.id).then(setMyPred) },[userId,match.id])
+  const openMatch = useCallback(()=>onClick?.(match), [match, onClick])
+  useEffect(()=>{ if(userId&&match.id) getUserPrediction(userId,match.id).then(p => {
+    setMyPred(p)
+    if (p?.status === 'won' && p.coinsWon > 0) onPredictionReward?.(p)
+  }) },[userId,match.id,onPredictionReward])
 
   return (
-    <div onClick={()=>onClick?.(match)} style={{borderRadius:14,background:'#fff',border:`1px solid ${C.g4}`,boxShadow:'0 2px 10px rgba(17,24,39,0.07)',marginBottom:8,overflow:'hidden',cursor:'pointer'}}>
+    <div onClick={openMatch} style={{borderRadius:14,background:'#fff',border:`1px solid ${C.g4}`,boxShadow:'0 2px 10px rgba(17,24,39,0.07)',marginBottom:8,overflow:'hidden',cursor:'pointer'}}>
       <div style={{height:3,background:`linear-gradient(90deg,${t1.c},${t2.c})`}}/>
       <div style={{padding:'10px 13px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -689,17 +748,24 @@ function ResultCard({match, userId, onClick}) {
       </div>
     </div>
   )
-}
+})
 
 /* ── Upcoming Card ── */
-function UpCard({match,userId,wallet,onPredicted}) {
+const UpCard = memo(function UpCard({match,userId,wallet,onPredicted,onPredictionReward}) {
   const t1=getTeam(match.team1),t2=getTeam(match.team2)
-  const cd=useCountdown(match.date,match.time)
   const [myPred,setMyPred]=useState(null)
   const [showP,setShowP]=useState(false)
   const canPredict=!matchHasStarted(match)&&userId
+  const handleDone = useCallback((c)=>{
+    onPredicted?.(c)
+    getUserPrediction(userId,match.id).then(setMyPred)
+    setShowP(false)
+  }, [match.id, onPredicted, userId])
 
-  useEffect(()=>{ if(userId&&match.id) getUserPrediction(userId,match.id).then(setMyPred) },[userId,match.id])
+  useEffect(()=>{ if(userId&&match.id) getUserPrediction(userId,match.id).then(p => {
+    setMyPred(p)
+    if (p?.status === 'won' && p.coinsWon > 0) onPredictionReward?.(p)
+  }) },[userId,match.id,onPredictionReward])
 
   return (
     <div style={{borderRadius:16,background:'#fff',border:`1px solid ${C.g4}`,boxShadow:'0 2px 10px rgba(17,24,39,0.07)',marginBottom:10,overflow:'hidden'}}>
@@ -708,7 +774,7 @@ function UpCard({match,userId,wallet,onPredicted}) {
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
           <div style={{display:'flex',alignItems:'center',gap:7}}>
             <Chip c={C.blue} label={match.dayLabel||fmtDate(match.date)} bg={C.blue2} border={`${C.blue}20`}/>
-            {cd&&<span style={{fontSize:10,fontWeight:700,color:C.orange,fontFamily:'Poppins,sans-serif'}}>⏱ {cd}</span>}
+            <CountdownText date={match.date} time={match.time}/>
           </div>
           <span style={{fontSize:11,fontWeight:700,color:C.g2,fontFamily:'Poppins,sans-serif'}}>{fmtTime(match.time)}</span>
         </div>
@@ -726,18 +792,18 @@ function UpCard({match,userId,wallet,onPredicted}) {
             <button onClick={()=>setShowP(s=>!s)} style={{width:'100%',padding:'9px',borderRadius:10,border:'none',background:showP?C.blue:`linear-gradient(135deg,${C.orange},#E05000)`,color:'#fff',fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:11,cursor:'pointer',boxShadow:`0 3px 12px ${showP?C.blue:C.orange}40`,transition:'all 0.2s'}}>
               {showP?'✕ Close':'🎯 Predict & Win 💰'}
             </button>
-            {showP&&<div style={{marginTop:10}}><PredictPanel match={match} userId={userId} wallet={wallet} onDone={(c)=>{onPredicted?.(c);getUserPrediction(userId,match.id).then(setMyPred);setShowP(false)}}/></div>}
+            {showP&&<div style={{marginTop:10}}><PredictPanel match={match} userId={userId} wallet={wallet} onDone={handleDone}/></div>}
           </>
         ) : null}
       </div>
     </div>
   )
-}
+})
 
 /* ── Points Table ── */
-function Table({points=[]}) {
+const Table = memo(function Table({points=[]}) {
   const [all,setAll]=useState(false)
-  const rows=all?points:points.slice(0,6)
+  const rows=useMemo(()=>all?points:points.slice(0,6),[all,points])
   if(!points.length) return <div style={{padding:'20px',textAlign:'center',background:'#fff',borderRadius:14,border:`1px solid ${C.g4}`}}><p style={{fontSize:12,color:C.g3,fontFamily:'Poppins,sans-serif'}}>Standings loading…</p></div>
   return (
     <div style={{borderRadius:16,background:'#fff',border:`1px solid ${C.g4}`,overflow:'hidden',boxShadow:'0 2px 10px rgba(17,24,39,0.07)'}}>
@@ -747,7 +813,7 @@ function Table({points=[]}) {
       {rows.map((row,i)=>{
         const t=getTeam(row.team),top4=row.rank<=4
         return (
-          <div key={i} style={{display:'grid',gridTemplateColumns:'26px 1fr 26px 26px 26px 46px 28px',gap:3,padding:'9px 12px',borderBottom:`1px solid ${C.g4}`,background:top4?`${t.c}04`:'#fff',alignItems:'center'}}>
+          <div key={row.team || i} style={{display:'grid',gridTemplateColumns:'26px 1fr 26px 26px 26px 46px 28px',gap:3,padding:'9px 12px',borderBottom:`1px solid ${C.g4}`,background:top4?`${t.c}04`:'#fff',alignItems:'center'}}>
             <div style={{width:18,height:18,borderRadius:'50%',background:top4?t.c:C.g4,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:8,fontWeight:800,color:top4?'#fff':C.g3,fontFamily:'Poppins,sans-serif'}}>{row.rank}</span></div>
             <div style={{display:'flex',alignItems:'center',gap:5,minWidth:0}}>
               <div style={{width:20,height:20,borderRadius:5,overflow:'hidden',background:t.bg,flexShrink:0}}>
@@ -770,13 +836,13 @@ function Table({points=[]}) {
       </div>
     </div>
   )
-}
+})
 
 /* ── Cap Card ── */
-function CapCard({data,type}) {
+const CapCard = memo(function CapCard({data,type}) {
   const isO=type==='orange',acc=isO?C.orange:C.purple,bg2=isO?C.orange2:C.purple2
   const t=getTeam(data?.team||'')
-  const stats=isO?[{l:'Runs',v:data?.runs},{l:'Avg',v:data?.avg},{l:'S/R',v:data?.sr},{l:'HS',v:data?.hs}]:[{l:'Wkts',v:data?.wickets},{l:'Econ',v:data?.economy},{l:'Avg',v:data?.avg},{l:'Best',v:data?.best}]
+  const stats=useMemo(()=>isO?[{l:'Runs',v:data?.runs},{l:'Avg',v:data?.avg},{l:'S/R',v:data?.sr},{l:'HS',v:data?.hs}]:[{l:'Wkts',v:data?.wickets},{l:'Econ',v:data?.economy},{l:'Avg',v:data?.avg},{l:'Best',v:data?.best}],[data,isO])
   return (
     <div style={{borderRadius:16,background:'#fff',border:`1.5px solid ${acc}25`,overflow:'hidden',boxShadow:`0 4px 18px ${acc}15`,marginBottom:10}}>
       <div style={{background:`linear-gradient(135deg,${acc},${acc}CC)`,padding:'12px 14px'}}>
@@ -806,14 +872,14 @@ function CapCard({data,type}) {
       )}
     </div>
   )
-}
+})
 
 /* ── Leaderboard ── */
-function Leaderboard({userId}) {
+const Leaderboard = memo(function Leaderboard({userId}) {
   const [data,setData]=useState([])
   const [loading,setLoading]=useState(true)
   const [tab,setTab]=useState('global')
-  useEffect(()=>{ loadLeaderboard(tab).then(d=>{setData(d);setLoading(false)}) },[tab])
+  useEffect(()=>{ loadLeaderboard(tab).then(d=>{setData(prev => sameData(prev, d) ? prev : d);setLoading(false)}) },[tab])
 
   return (
     <div>
@@ -832,7 +898,7 @@ function Leaderboard({userId}) {
             const isMe=row.userId===userId
             const medals=['🥇','🥈','🥉']
             return (
-              <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 13px',borderBottom:i<data.length-1?`1px solid ${C.g4}`:'none',background:isMe?C.blue2:'#fff'}}>
+              <div key={row.userId || i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 13px',borderBottom:i<data.length-1?`1px solid ${C.g4}`:'none',background:isMe?C.blue2:'#fff'}}>
                 <span style={{fontSize:i<3?16:13,width:22,textAlign:'center',flexShrink:0}}>{i<3?medals[i]:i+1}</span>
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:12,color:isMe?C.blue:C.g1,margin:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
@@ -851,19 +917,19 @@ function Leaderboard({userId}) {
       )}
     </div>
   )
-}
+})
 
 /* ── User Stats Strip ── */
-function StatsStrip({wallet}) {
-  if (!wallet) return null
-  const acc = wallet.predictions>0 ? Math.round(((wallet.wins||0)/wallet.predictions)*100) : 0
-  const stats=[
-    {icon:'🎯',label:'Predictions',value:wallet.predictions||0,color:C.blue},
-    {icon:'🏆',label:'Wins',value:wallet.wins||0,color:C.green},
+const StatsStrip = memo(function StatsStrip({wallet, coins=0}) {
+  const acc = wallet?.predictions>0 ? Math.round(((wallet.wins||0)/wallet.predictions)*100) : 0
+  const stats=useMemo(()=>[
+    {icon:'🎯',label:'Predictions',value:wallet?.predictions||0,color:C.blue},
+    {icon:'🏆',label:'Wins',value:wallet?.wins||0,color:C.green},
     {icon:'📊',label:'Accuracy',value:`${acc}%`,color:C.purple},
-    {icon:'🔥',label:'Streak',value:`${wallet.streak||0}d`,color:C.orange},
-    {icon:'💰',label:'Coins',value:(wallet.coins||500).toLocaleString(),color:C.gold},
-  ]
+    {icon:'🔥',label:'Streak',value:`${wallet?.streak||0}d`,color:C.orange},
+    {icon:'💰',label:'Coins',value:Number(coins || 0).toLocaleString(),color:C.gold},
+  ],[acc, coins, wallet?.predictions, wallet?.streak, wallet?.wins])
+  if (!wallet) return null
   return (
     <div style={{borderRadius:12,background:'#fff',border:`1px solid ${C.g4}`,padding:'10px 12px',marginBottom:12,boxShadow:'0 2px 8px rgba(17,24,39,0.06)'}}>
       <p style={{fontSize:9,fontWeight:800,color:C.g3,textTransform:'uppercase',letterSpacing:'0.1em',margin:'0 0 8px',fontFamily:'Poppins,sans-serif'}}>Your Stats</p>
@@ -878,7 +944,7 @@ function StatsStrip({wallet}) {
       </div>
     </div>
   )
-}
+})
 
 /* ── Match Detail ── */
 function Detail({match,onClose}) {
@@ -938,8 +1004,8 @@ function Detail({match,onClose}) {
 /* ══════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════ */
-export default function IPLCricket({currentUser}) {
-  const userId = currentUser?.username || null
+export default function IPLCricket({currentUser, coins = 0, onPredictionReward}) {
+  const userId = currentUser?.username ? userDocId(currentUser.username) : null
 
   const [matches,setMatches]     = useState(null)
   const [leader,setLeader]       = useState(null)
@@ -950,23 +1016,32 @@ export default function IPLCricket({currentUser}) {
   const [wallet,setWallet]       = useState(null)
   const [dailyDone,setDailyDone] = useState(false)
   const [rewardPop,setRewardPop] = useState(null)
+  const loggedRewardsRef = useRef(new Set())
 
   useEffect(()=>{
     let mL=false,lL=false
     const check=()=>{ if(mL&&lL) setLoading(false) }
     const uM=onSnapshot(doc(db,'ipl_data','matches'),(s)=>{
-      if(s.exists()){setMatches(s.data());setError(null)}
-      else{setMatches(null);setError('No match data yet')}
+      if(s.exists()){
+        const next = s.data()
+        setMatches(prev => sameData(prev, next) ? prev : next)
+        setError(null)
+      }
+      else{setMatches(prev => prev === null ? prev : null);setError('No match data yet')}
       mL=true;check()
-    },(e)=>{setMatches(null);setError(`${e.code}: Check Firestore rules`);mL=true;check()})
-    const uL=onSnapshot(doc(db,'ipl_data','leaderboard'),(s)=>{setLeader(s.exists()?s.data():null);lL=true;check()},()=>{setLeader(null);lL=true;check()})
+    },(e)=>{setMatches(prev => prev === null ? prev : null);setError(`${e.code}: Check Firestore rules`);mL=true;check()})
+    const uL=onSnapshot(doc(db,'ipl_data','leaderboard'),(s)=>{
+      const next = s.exists()?s.data():null
+      setLeader(prev => sameData(prev, next) ? prev : next)
+      lL=true;check()
+    },()=>{setLeader(prev => prev === null ? prev : null);lL=true;check()})
     return ()=>{uM();uL()}
   },[])
 
   useEffect(()=>{
     if(!userId) return
-    loadWallet(userId).then(setWallet)
-    const unsub=onSnapshot(doc(db,'ipl_wallets',userId),s=>{if(s.exists())setWallet(s.data())},()=>{})
+    loadWallet(userId).then(next => setWallet(prev => sameData(prev, next) ? prev : next))
+    const unsub=onSnapshot(doc(db,'ipl_wallets',userId),s=>{if(s.exists()){const next=s.data();setWallet(prev => sameData(prev, next) ? prev : next)}},()=>{})
     return ()=>unsub()
   },[userId])
 
@@ -976,23 +1051,35 @@ export default function IPLCricket({currentUser}) {
     claimDaily(userId).then(r=>{ if(r) setRewardPop(r) })
   },[userId,dailyDone])
 
-  const today    = matches?.today    || []
-  const upcoming = matches?.upcoming || []
-  const results  = matches?.results  || []
-  const hasLive  = today.some(m=>m.status==='live')
-  const points   = leader?.points    || []
-  const orangeCap= leader?.orange_cap|| null
-  const purpleCap= leader?.purple_cap|| null
-  const handlePredicted = (c) => setWallet(w=>w?{...w,coins:Math.max(0,(w.coins||500)-c)}:w)
+  const today    = useMemo(()=>matches?.today    || [], [matches?.today])
+  const upcoming = useMemo(()=>matches?.upcoming || [], [matches?.upcoming])
+  const results  = useMemo(()=>matches?.results  || [], [matches?.results])
+  const hasLive  = useMemo(()=>today.some(m=>m.status==='live'), [today])
+  const points   = useMemo(()=>leader?.points    || [], [leader?.points])
+  const orangeCap= useMemo(()=>leader?.orange_cap|| null, [leader?.orange_cap])
+  const purpleCap= useMemo(()=>leader?.purple_cap|| null, [leader?.purple_cap])
+  const handlePredicted = useCallback(() => {
+    setWallet(w=>w?{...w,predictions:(w.predictions||0)+1}:w)
+  }, [])
+  const handlePredictionReward = useCallback((prediction) => {
+    if (!prediction?.id || !prediction?.coinsWon || loggedRewardsRef.current.has(prediction.id)) return
+    loggedRewardsRef.current.add(prediction.id)
+    onPredictionReward?.({
+      coins: Number(prediction.coinsWon || 0),
+      predictionId: prediction.id
+    })
+  }, [onPredictionReward])
+  const closeDetail = useCallback(()=>setDetail(null), [])
+  const closeRewardPop = useCallback(()=>setRewardPop(null), [])
 
-  const TABS=[
+  const TABS=useMemo(()=>[
     {id:'today',   icon:'📅',label:'Today',   n:today.length},
     {id:'results', icon:'📊',label:'Results', n:results.length},
     {id:'upcoming',icon:'🗓',label:'Upcoming',n:upcoming.length},
     {id:'table',   icon:'📋',label:'Table',   n:null},
     {id:'caps',    icon:'🏆',label:'Caps',    n:null},
     {id:'leaders', icon:'🏅',label:'Leaders', n:null},
-  ]
+  ], [results.length, today.length, upcoming.length])
 
   return (
     <div>
@@ -1006,11 +1093,11 @@ export default function IPLCricket({currentUser}) {
         .iplt{transition:all 0.16s;} .iplt:active{transform:scale(0.93);}
       `}</style>
 
-      {detail&&<Detail match={detail} onClose={()=>setDetail(null)}/>}
+      {detail&&<Detail match={detail} onClose={closeDetail}/>}
 
       {/* Daily reward popup */}
       {rewardPop&&(
-        <div style={{position:'fixed',inset:0,zIndex:950,background:'rgba(17,24,39,0.6)',display:'flex',alignItems:'center',justifyContent:'center',padding:20,backdropFilter:'blur(6px)'}} onClick={()=>setRewardPop(null)}>
+        <div style={{position:'fixed',inset:0,zIndex:950,background:'rgba(17,24,39,0.6)',display:'flex',alignItems:'center',justifyContent:'center',padding:20,backdropFilter:'blur(6px)'}} onClick={closeRewardPop}>
           <div style={{width:'100%',maxWidth:300,background:'#fff',borderRadius:22,padding:'24px 20px',textAlign:'center',boxShadow:'0 24px 60px rgba(17,24,39,0.2)',animation:'popIn 0.4s cubic-bezier(.34,1.56,.64,1)'}} onClick={e=>e.stopPropagation()}>
             <div style={{fontSize:48,marginBottom:8}}>🎁</div>
             <p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:18,color:C.g1,margin:'0 0 3px'}}>Daily Reward!</p>
@@ -1018,7 +1105,7 @@ export default function IPLCricket({currentUser}) {
             <div style={{padding:'13px',background:C.gold2,borderRadius:12,border:`1.5px solid ${C.gold}30`,marginBottom:16}}>
               <p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:30,color:C.gold,margin:0}}>+{rewardPop.coins} 💰</p>
             </div>
-            <button onClick={()=>setRewardPop(null)} style={{width:'100%',padding:'12px',borderRadius:12,border:'none',background:`linear-gradient(135deg,${C.blue},#1A3DAB)`,color:'#fff',fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:13,cursor:'pointer'}}>Let's predict! 🏏</button>
+            <button onClick={closeRewardPop} style={{width:'100%',padding:'12px',borderRadius:12,border:'none',background:`linear-gradient(135deg,${C.blue},#1A3DAB)`,color:'#fff',fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:13,cursor:'pointer'}}>Let's predict! 🏏</button>
           </div>
         </div>
       )}
@@ -1044,7 +1131,7 @@ export default function IPLCricket({currentUser}) {
             {userId&&(
               <div style={{display:'flex',alignItems:'center',gap:5,padding:'6px 12px',background:'rgba(255,215,0,0.12)',border:'1.5px solid rgba(255,215,0,0.28)',borderRadius:22}}>
                 <span style={{fontSize:14}}>💰</span>
-                <p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:14,color:'#FFD700',margin:0}}>{wallet?(wallet.coins??500).toLocaleString():'500'}</p>
+                <p style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:14,color:'#FFD700',margin:0}}>{Number(coins || 0).toLocaleString()}</p>
               </div>
             )}
           </div>
@@ -1052,7 +1139,7 @@ export default function IPLCricket({currentUser}) {
       </div>
 
       {/* User stats */}
-      {userId&&wallet&&<StatsStrip wallet={wallet}/>}
+      {userId&&wallet&&<StatsStrip wallet={wallet} coins={coins}/>}
 
       {/* Tabs */}
       <div style={{display:'flex',gap:5,marginBottom:12,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>
@@ -1068,12 +1155,12 @@ export default function IPLCricket({currentUser}) {
       {loading?(<div><Skel h={220} r={18}/><Skel h={110}/><Skel h={90}/></div>):
        error&&!matches?(<div style={{textAlign:'center',padding:'28px 18px',background:'#fff',borderRadius:14,border:`1.5px solid ${C.red}20`}}><p style={{fontSize:28,marginBottom:8}}>📡</p><p style={{fontWeight:800,fontSize:13,color:C.red,fontFamily:'Poppins,sans-serif',margin:'0 0 5px'}}>No Data</p><p style={{fontSize:11,color:C.g3,fontFamily:'Poppins,sans-serif'}}>{error}</p></div>):(
 
-        <div style={{animation:'fadein 0.25s ease both'}}>
-          {tab==='today'&&(today.length===0?<div style={{textAlign:'center',padding:'36px 18px',background:'#fff',borderRadius:16,border:`1px solid ${C.g4}`}}><p style={{fontSize:36,marginBottom:10}}>🏏</p><p style={{fontWeight:800,fontSize:14,color:C.g2,fontFamily:'Poppins,sans-serif',margin:'0 0 4px'}}>No matches today</p><p style={{fontSize:11,color:C.g3,fontFamily:'Poppins,sans-serif'}}>Check the Upcoming tab</p></div>:today.map((m,i)=><HeroCard key={m.id||i} match={m} userId={userId} wallet={wallet} onPredicted={handlePredicted} onClick={setDetail}/>))}
+        <div>
+          {tab==='today'&&(today.length===0?<div style={{textAlign:'center',padding:'36px 18px',background:'#fff',borderRadius:16,border:`1px solid ${C.g4}`}}><p style={{fontSize:36,marginBottom:10}}>🏏</p><p style={{fontWeight:800,fontSize:14,color:C.g2,fontFamily:'Poppins,sans-serif',margin:'0 0 4px'}}>No matches today</p><p style={{fontSize:11,color:C.g3,fontFamily:'Poppins,sans-serif'}}>Check the Upcoming tab</p></div>:today.map((m,i)=><HeroCard key={matchKey(m,i)} match={m} userId={userId} wallet={wallet} onPredicted={handlePredicted} onPredictionReward={handlePredictionReward} onClick={setDetail}/>))}
 
-          {tab==='results'&&(results.length===0?<div style={{textAlign:'center',padding:'24px',background:'#fff',borderRadius:14,border:`1px solid ${C.g4}`}}><p style={{fontSize:11,color:C.g3,fontFamily:'Poppins,sans-serif'}}>No results yet</p></div>:results.map((m,i)=><ResultCard key={m.id||i} match={m} userId={userId} onClick={setDetail}/>))}
+          {tab==='results'&&(results.length===0?<div style={{textAlign:'center',padding:'24px',background:'#fff',borderRadius:14,border:`1px solid ${C.g4}`}}><p style={{fontSize:11,color:C.g3,fontFamily:'Poppins,sans-serif'}}>No results yet</p></div>:results.map((m,i)=><ResultCard key={matchKey(m,i)} match={m} userId={userId} onPredictionReward={handlePredictionReward} onClick={setDetail}/>))}
 
-          {tab==='upcoming'&&(upcoming.length===0?<div style={{textAlign:'center',padding:'24px',background:'#fff',borderRadius:14,border:`1px solid ${C.g4}`}}><p style={{fontSize:11,color:C.g3,fontFamily:'Poppins,sans-serif'}}>No upcoming matches</p></div>:upcoming.map((m,i)=><UpCard key={m.id||i} match={m} userId={userId} wallet={wallet} onPredicted={handlePredicted}/>))}
+          {tab==='upcoming'&&(upcoming.length===0?<div style={{textAlign:'center',padding:'24px',background:'#fff',borderRadius:14,border:`1px solid ${C.g4}`}}><p style={{fontSize:11,color:C.g3,fontFamily:'Poppins,sans-serif'}}>No upcoming matches</p></div>:upcoming.map((m,i)=><UpCard key={matchKey(m,i)} match={m} userId={userId} wallet={wallet} onPredicted={handlePredicted} onPredictionReward={handlePredictionReward}/>))}
 
           {tab==='table'&&<Table points={points}/>}
 

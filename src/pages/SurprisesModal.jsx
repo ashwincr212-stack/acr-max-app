@@ -39,14 +39,14 @@ const rarityStyles = {
   },
   legendary: {
     label: 'Legendary Insight',
-    bg: 'linear-gradient(135deg,#fde047 0%,#f59e0b 48%,#f97316 100%)',
-    text: '#111827',
-    muted: 'rgba(17,24,39,.72)',
-    border: 'rgba(120,53,15,.24)',
-    glow: 'rgba(251,191,36,.52)',
-    chipBg: 'rgba(255,255,255,.36)',
-    chipText: '#78350f',
-    revealBg: 'linear-gradient(145deg,rgba(255,255,255,.9),rgba(255,251,235,.78))',
+    bg: 'linear-gradient(145deg,#18120a 0%,#3a2508 48%,#9a5a0a 100%)',
+    text: '#fff7ed',
+    muted: 'rgba(255,237,213,.76)',
+    border: 'rgba(253,230,138,.38)',
+    glow: 'rgba(245,158,11,.5)',
+    chipBg: 'rgba(255,248,220,.14)',
+    chipText: '#fef3c7',
+    revealBg: 'linear-gradient(145deg,rgba(255,255,255,.94),rgba(255,251,235,.9))',
   },
 }
 
@@ -204,6 +204,7 @@ export default function SurprisesModal({ isOpen, onClose, currentUser, coins = 0
   const currentRarity = String(currentCard?.rarity || 'common').toLowerCase()
   const rarity = rarityStyles[currentRarity] ? currentRarity : 'common'
   const theme = rarityStyles[rarity]
+  const isLegendary = rarity === 'legendary'
   const unlockedCount = Math.min(visibleCount, cards.length)
   const maxVisibleIndex = Math.max(0, unlockedCount - 1)
   const isCurrentRevealed = currentCard ? !!revealed[currentCard.id] : false
@@ -449,6 +450,9 @@ if (!cancelled) {
         @keyframes flashSweep{0%{opacity:0;transform:translateX(-120%) skewX(-16deg)}22%{opacity:.55}100%{opacity:0;transform:translateX(140%) skewX(-16deg)}}
         @keyframes cardPulse{0%{transform:scale(1)}42%{transform:scale(.992)}100%{transform:scale(1)}}
         @keyframes borderFlow{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+        @keyframes legendaryGlow{0%,100%{opacity:.58;box-shadow:inset 0 0 0 1px rgba(254,243,199,.28),0 0 28px rgba(245,158,11,.22)}50%{opacity:.92;box-shadow:inset 0 0 0 1px rgba(254,243,199,.5),0 0 46px rgba(245,158,11,.34)}}
+        @keyframes legendaryRevealBurst{0%{opacity:0;transform:scale(.9)}24%{opacity:.86}100%{opacity:0;transform:scale(1.34)}}
+        @keyframes legendaryBadgeGleam{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
         .surprise-shell,.surprise-shell *{box-sizing:border-box}
         .surprise-btn{transition:transform .18s ease,box-shadow .22s ease,opacity .18s ease,filter .18s ease}
         .surprise-btn:not(:disabled):active{transform:scale(.96)}
@@ -456,10 +460,16 @@ if (!cancelled) {
         .surprise-reveal-btn{position:relative;overflow:hidden}
         .surprise-reveal-btn:before{content:"";position:absolute;inset:-40% auto -40% -45%;width:42%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.62),transparent);animation:sheen 2.4s ease-in-out infinite;pointer-events:none}
         .surprise-card{position:relative;overflow:hidden;animation:surpriseModalIn .32s cubic-bezier(.2,.8,.2,1) both}
+        .surprise-card.is-legendary{isolation:isolate}
+        .surprise-card.is-legendary:before{content:"";position:absolute;inset:1px;border-radius:inherit;background:radial-gradient(circle at 50% 0%,rgba(253,230,138,.22),transparent 42%),linear-gradient(135deg,rgba(254,243,199,.2),transparent 34%,rgba(245,158,11,.16));animation:legendaryGlow 3.2s ease-in-out infinite;pointer-events:none;z-index:0}
         .surprise-card.is-revealing{animation:cardPulse .28s ease-out both}
         .surprise-card.is-revealing:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 56%,rgba(255,255,255,.42),transparent 48%);animation:burst .42s ease-out both;pointer-events:none}
+        .surprise-card.is-legendary.is-revealing:after{background:radial-gradient(circle at 50% 54%,rgba(254,243,199,.68),rgba(245,158,11,.18) 36%,transparent 58%);animation:legendaryRevealBurst .56s ease-out both}
         .surprise-card.is-revealing .surprise-sweep{animation:flashSweep .48s ease-out both}
+        .surprise-card.is-legendary.is-revealing .surprise-sweep{background:linear-gradient(90deg,transparent,rgba(254,243,199,.64),transparent);animation:flashSweep .62s ease-out both}
         .surprise-sweep{position:absolute;top:-20%;bottom:-20%;left:0;width:38%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.48),transparent);opacity:0;pointer-events:none}
+        .surprise-legendary-badge{background:linear-gradient(135deg,rgba(255,251,235,.96),rgba(251,191,36,.9),rgba(255,251,235,.96));background-size:180% 180%;animation:legendaryBadgeGleam 3.8s ease-in-out infinite}
+        .surprise-legendary-callout{animation:microIn .3s ease-out both}
         .surprise-action-panel{animation:revealIn .28s ease-out both}
         .surprise-micro-copy{animation:microIn .28s ease-out both}
         .surprise-cooldown-panel{animation:revealIn .34s ease-out both;position:relative;overflow:hidden}
@@ -502,12 +512,17 @@ if (!cancelled) {
               </div>
             ) : currentCard ? (
               <>
-                <div className={`surprise-card ${revealing ? 'is-revealing' : ''}`} style={{ padding:16, borderRadius:24, background:theme.bg, color:theme.text, border:`1.5px solid ${theme.border}`, boxShadow:`0 22px 60px rgba(15,23,42,.16),0 0 36px ${theme.glow},inset 0 1px 0 rgba(255,255,255,.34)`, backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)' }}>
+                <div className={`surprise-card ${isLegendary ? 'is-legendary' : ''} ${revealing ? 'is-revealing' : ''}`} style={{ padding:16, borderRadius:24, background:theme.bg, color:theme.text, border:`1.5px solid ${theme.border}`, boxShadow:`0 22px 60px rgba(15,23,42,.16),0 0 ${isLegendary ? 46 : 36}px ${theme.glow},inset 0 1px 0 rgba(255,255,255,.34)`, backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)' }}>
                   <div className="surprise-sweep" />
                   {(rarity === 'rare' || rarity === 'legendary') && <div style={{ position:'absolute', inset:-60, background:`radial-gradient(circle at 80% 6%,${theme.glow},transparent 36%),radial-gradient(circle at 8% 92%,rgba(255,255,255,.24),transparent 32%)`, pointerEvents:'none' }} />}
 
                   <div style={{ position:'relative', zIndex:1, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:10 }}>
-                    <span style={{ padding:'6px 10px', borderRadius:999, background:theme.chipBg, border:`1px solid ${theme.border}`, color:theme.chipText, fontFamily:'Poppins,sans-serif', fontSize:10, fontWeight:900, textTransform:'uppercase', whiteSpace:'nowrap' }}>{theme.label}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0, flexWrap:'wrap' }}>
+                      <span style={{ padding:'6px 10px', borderRadius:999, background:theme.chipBg, border:`1px solid ${theme.border}`, color:theme.chipText, fontFamily:'Poppins,sans-serif', fontSize:10, fontWeight:900, textTransform:'uppercase', whiteSpace:'nowrap' }}>{theme.label}</span>
+                      {isLegendary && (
+                        <span className="surprise-legendary-badge" style={{ padding:'6px 9px', borderRadius:999, border:'1px solid rgba(253,230,138,.64)', color:'#78350f', fontFamily:'Poppins,sans-serif', fontSize:10, fontWeight:900, lineHeight:1, whiteSpace:'nowrap', boxShadow:'0 8px 22px rgba(245,158,11,.22),inset 0 1px 0 rgba(255,255,255,.72)' }}>👑 Legendary</span>
+                      )}
+                    </div>
                     <span style={{ color:theme.muted, fontFamily:'Poppins,sans-serif', fontSize:10, fontWeight:900, textTransform:'uppercase', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{currentCard.category || 'Surprise'}</span>
                   </div>
 
@@ -515,7 +530,7 @@ if (!cancelled) {
                     <p className="surprise-title" style={{ color:theme.text, fontFamily:'Poppins,sans-serif', fontSize:22, fontWeight:900, lineHeight:1.2, margin:'4px 0 0', letterSpacing:0 }}>{currentCard.hook || 'A hidden surprise is waiting.'}</p>
 
                     {!isCurrentRevealed && (
-                      <button className="surprise-btn surprise-reveal-btn" onClick={revealCurrent} disabled={revealing || stage === STAGES.COOLDOWN_LOCKED} style={{ width:'100%', minHeight:48, padding:'13px 14px', borderRadius:16, border:'1px solid rgba(255,255,255,.24)', background:'linear-gradient(135deg,#111827,#7c3aed 48%,#2563eb)', color:'#fff', cursor:revealing ? 'wait' : 'pointer', fontFamily:'Poppins,sans-serif', fontSize:14, fontWeight:900, boxShadow:'0 15px 34px rgba(124,58,237,.4),inset 0 1px 0 rgba(255,255,255,.24)', opacity:revealing ? .9 : 1 }}>
+                      <button className="surprise-btn surprise-reveal-btn" onClick={revealCurrent} disabled={revealing || stage === STAGES.COOLDOWN_LOCKED} style={{ width:'100%', minHeight:48, padding:'13px 14px', borderRadius:16, border:isLegendary ? '1px solid rgba(254,243,199,.64)' : '1px solid rgba(255,255,255,.24)', background:isLegendary ? 'linear-gradient(135deg,#78350f 0%,#d97706 48%,#fbbf24 100%)' : 'linear-gradient(135deg,#111827,#7c3aed 48%,#2563eb)', color:isLegendary ? '#fff7ed' : '#fff', cursor:revealing ? 'wait' : 'pointer', fontFamily:'Poppins,sans-serif', fontSize:14, fontWeight:900, boxShadow:isLegendary ? '0 16px 36px rgba(245,158,11,.36),0 0 0 1px rgba(255,255,255,.12) inset,inset 0 1px 0 rgba(255,255,255,.28)' : '0 15px 34px rgba(124,58,237,.4),inset 0 1px 0 rgba(255,255,255,.24)', opacity:revealing ? .9 : 1 }}>
                         {revealing ? 'Opening...' : 'Tap to reveal'}
                       </button>
                     )}
@@ -525,6 +540,10 @@ if (!cancelled) {
                         <div style={{ background:theme.revealBg, border:`1px solid ${theme.border}`, borderRadius:18, padding:'13px 14px', backdropFilter:'blur(14px)', boxShadow:'inset 0 1px 0 rgba(255,255,255,.82),0 12px 30px rgba(15,23,42,.12)', textAlign:'left' }}>
                           <p className="surprise-reveal-copy" style={{ color:'#1f2937', fontFamily:'Poppins,sans-serif', fontSize:14, fontWeight:800, lineHeight:1.55, margin:0 }}>{currentCard.reveal || 'No reveal available.'}</p>
                         </div>
+
+                        {isLegendary && (
+                          <div className="surprise-legendary-callout" style={{ alignSelf:'center', padding:'7px 11px', borderRadius:999, background:'linear-gradient(135deg,rgba(255,251,235,.96),rgba(254,243,199,.9))', border:'1px solid rgba(245,158,11,.34)', color:'#92400e', fontFamily:'Poppins,sans-serif', fontSize:11, fontWeight:900, lineHeight:1, boxShadow:'0 10px 24px rgba(245,158,11,.18),inset 0 1px 0 rgba(255,255,255,.86)' }}>👑 Ultra rare pull</div>
+                        )}
 
                         {showMicro && currentMicro && (
                           <p className="surprise-micro-copy" style={{ margin:'-2px 0 0', color:rarity === 'common' ? '#7c3aed' : theme.text, fontFamily:'Poppins,sans-serif', fontSize:12, fontWeight:900, textAlign:'center', lineHeight:1.35, textShadow:rarity === 'common' ? 'none' : '0 2px 10px rgba(0,0,0,.18)' }}>{currentMicro}</p>

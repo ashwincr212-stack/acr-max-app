@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
-import { SkillMachineModal } from './SkillMachine'
+import SkillMachineModal from './SkillMachine'
 import { db } from '../firebase'
-import { collection, query, orderBy, limit, onSnapshot, doc } from 'firebase/firestore'
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore'
 
 /* ── Greeting ── */
 function useGreeting() {
@@ -727,13 +727,28 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
           </div>
           {/* Modal body - scrollable */}
           <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 80px' }}>
-            <IPLCricket currentUser={currentUser} />
+            <IPLCricket
+              currentUser={currentUser}
+              coins={coins}
+              onPredictionReward={(r) => {
+                if (r?.coins > 0) {
+                  setCoinLogs?.(prev => [
+                    ...prev,
+                    {
+                      amount: r.coins,
+                      source: 'prediction',
+                      createdAt: Date.now()
+                    }
+                  ])
+                }
+              }}
+            />
           </div>
         </div>
       )}
       {/* Mystery Box Modal */}
       <SkillMachineModal userId={currentUser?.username} isOpen={skillOpen} onClose={()=>setSkillOpen(false)} coins={coins}
-        onReward={(r)=>{
+        onReward={async (r)=>{
           if(r?.coins>0) {
             setCoinLogs?.(prev => [
               ...prev,
@@ -743,6 +758,13 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
                 createdAt: Date.now()
               }
             ])
+            if (currentUser?.username) {
+              try {
+                await updateDoc(doc(db, 'acr_users', currentUser.username.toLowerCase()), {
+                  coins: increment(r.coins)
+                })
+              } catch {}
+            }
           }
         }} />
       {/* Surprises Modal */}

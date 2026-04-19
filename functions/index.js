@@ -333,17 +333,30 @@ async function resolvePredictions(completedMatches) {
         coinsWon: coinsWon,
       });
 
-      // Update user wallet
+      // Update IPL stats and the single global user coin balance.
       const walletRef = db.collection("ipl_wallets").doc(pred.userId);
+      const userRef = db.collection("acr_users").doc(String(pred.userId || "").toLowerCase());
       if (isWin) {
-        batch.update(walletRef, {
-          coins: FieldValue.increment(coinsWon),
+        batch.set(walletRef, {
           wins:  FieldValue.increment(1),
-        });
+        }, { merge: true });
+        batch.set(userRef, {
+          coins: FieldValue.increment(coinsWon),
+          wins: FieldValue.increment(1),
+          iplStats: {
+            wins: FieldValue.increment(1),
+          },
+        }, { merge: true });
       } else {
-        batch.update(walletRef, {
+        batch.set(walletRef, {
           losses: FieldValue.increment(1),
-        });
+        }, { merge: true });
+        batch.set(userRef, {
+          losses: FieldValue.increment(1),
+          iplStats: {
+            losses: FieldValue.increment(1),
+          },
+        }, { merge: true });
       }
 
       batchCount++;
