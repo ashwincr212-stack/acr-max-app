@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
 import { SkillMachineModal } from './SkillMachine'
@@ -344,7 +345,10 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
 
       <div className="home-content" style={{ padding:'0 8px' }}>
 
-      {/* ══════════════════════════════════
+        <div style={{ textAlign: "center", margin: "10px 0" }}>
+  
+</div>
+            {/* ══════════════════════════════════
           2. WELCOME + DASHBOARD CARD
       ══════════════════════════════════ */}
       <div className="home-welcome home-hero-premium" style={{

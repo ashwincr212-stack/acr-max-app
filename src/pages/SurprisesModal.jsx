@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { collection, getDocs, doc, updateDoc, onSnapshot, increment, serverTimestamp } from 'firebase/firestore'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { collection, getDocs, getDoc, doc, setDoc, updateDoc, onSnapshot, increment, serverTimestamp, arrayUnion } from 'firebase/firestore'
 import { db } from '../firebase'
 
 const FREE_COUNT = 5
@@ -82,6 +82,75 @@ function shuffleCards(items) {
   }
   return next
 }
+
+function getBalancedCards(items, count = FREE_COUNT) {
+  const shuffled = shuffleCards(items)
+  const picked = []
+  const usedCategories = new Set()
+
+  for (const card of shuffled) {
+    if (!usedCategories.has(card.category)) {
+      picked.push(card)
+      usedCategories.add(card.category)
+    }
+    if (picked.length === count) break
+  }
+
+  if (picked.length < count) {
+    for (const card of shuffled) {
+      if (!picked.find(item => item.factId === card.factId)) {
+        picked.push(card)
+      }
+      if (picked.length === count) break
+    }
+  }
+
+  const remaining = shuffled.filter(
+    card => !picked.find(item => item.factId === card.factId)
+  )
+
+  return [...picked, ...remaining]
+}
+
+function getRarityControlledCards(items, count = FREE_COUNT) {
+  const commons = shuffleCards(items.filter(card => (card.rarity || 'common') === 'common'))
+  const rares = shuffleCards(items.filter(card => card.rarity === 'rare'))
+  const legendaries = shuffleCards(items.filter(card => card.rarity === 'legendary'))
+
+  const picked = []
+
+  // Prefer 3 commons first
+  for (const card of commons) {
+    if (picked.length < 3) picked.push(card)
+  }
+
+  // Then up to 2 rares
+  for (const card of rares) {
+    if (picked.length < count) picked.push(card)
+  }
+
+  // Fill remaining with commons if needed
+  for (const card of commons) {
+    if (!picked.find(item => item.factId === card.factId) && picked.length < count) {
+      picked.push(card)
+    }
+  }
+
+  // Legendary kept out of first batch unless needed
+  for (const card of legendaries) {
+    if (!picked.find(item => item.factId === card.factId) && picked.length < count) {
+      picked.push(card)
+    }
+  }
+
+  const remaining = shuffleCards(items.filter(
+    card => !picked.find(item => item.factId === card.factId)
+  ))
+
+  return [...picked, ...remaining]
+}
+
+
 
 function timestampToMs(value) {
   if (!value) return 0
@@ -206,7 +275,19 @@ export default function SurprisesModal({ isOpen, onClose, currentUser, coins = 0
         const cardsSnap = await getDocs(collection(db, 'surprise_cards'))
         const allCards = cardsSnap.docs.map(cardDoc => ({ id: cardDoc.id, ...cardDoc.data() }))
         const activeCards = allCards.filter(card => card.isActive !== false)
-        if (!cancelled) setCards(shuffleCards(activeCards))
+
+        const userRef = doc(db, 'acr_users', userId.toLowerCase())
+        const userSnap = await getDoc(userRef)
+        const seenFacts = userSnap.exists() ? userSnap.data().seenFacts || [] : []
+
+        const unseenCards = activeCards.filter(card => !seenFacts.includes(card.factId))
+
+const balancedCards = getBalancedCards(unseenCards, FREE_COUNT)
+const finalCards = getRarityControlledCards(balancedCards, FREE_COUNT)
+
+if (!cancelled) {
+  setCards(finalCards)
+}
       } catch (error) {
         console.error('Surprise cards fetch failed:', error)
         if (!cancelled) setMessage('Could not load surprise cards right now.')
@@ -272,32 +353,42 @@ export default function SurprisesModal({ isOpen, onClose, currentUser, coins = 0
   }
 
   const revealCurrent = () => {
-    if (!currentCard?.id || revealing || isCurrentRevealed || isLocked) return
+  if (!currentCard?.id || revealing || isCurrentRevealed || isLocked) return
 
-    setMessage('')
-    setShowMicro(false)
-    setRevealing(true)
-    window.clearTimeout(revealTimerRef.current)
-    window.clearTimeout(microTimerRef.current)
-    window.clearTimeout(cooldownTimerRef.current)
+  setMessage('')
+  setShowMicro(false)
+  setRevealing(true)
+  window.clearTimeout(revealTimerRef.current)
+  window.clearTimeout(microTimerRef.current)
+  window.clearTimeout(cooldownTimerRef.current)
 
-    revealTimerRef.current = window.setTimeout(() => {
-      const copy = microByCard[currentCard.id] || pickMicroCopy(rarity, lastMicroRef.current)
-      lastMicroRef.current = copy
-      setMicroByCard(prev => ({ ...prev, [currentCard.id]: copy }))
-      setRevealed(prev => ({ ...prev, [currentCard.id]: true }))
-      setRevealing(false)
-      microTimerRef.current = window.setTimeout(() => setShowMicro(true), 180)
+  revealTimerRef.current = window.setTimeout(async () => {
+    const copy = microByCard[currentCard.id] || pickMicroCopy(rarity, lastMicroRef.current)
+    lastMicroRef.current = copy
+    setMicroByCard(prev => ({ ...prev, [currentCard.id]: copy }))
+    setRevealed(prev => ({ ...prev, [currentCard.id]: true }))
 
-      if (isLastVisibleCard) {
-        if (stage === STAGES.EXTRA_TWO_ACTIVE) {
-          cooldownTimerRef.current = window.setTimeout(startCooldownSession, 900)
-        } else {
-          setStage(STAGES.FINAL_CHOICE)
-        }
+    await setDoc(
+      doc(db, 'acr_users', userId.toLowerCase()),
+      {
+        seenFacts: arrayUnion(currentCard.factId),
+        lastSeenFactAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
+
+    setRevealing(false)
+    microTimerRef.current = window.setTimeout(() => setShowMicro(true), 180)
+
+    if (isLastVisibleCard) {
+      if (stage === STAGES.EXTRA_TWO_ACTIVE) {
+        cooldownTimerRef.current = window.setTimeout(startCooldownSession, 900)
+      } else {
+        setStage(STAGES.FINAL_CHOICE)
       }
-    }, 260)
-  }
+    }
+  }, 260)
+}
 
   const moveCard = direction => {
     if (stage === STAGES.FINAL_CHOICE || revealing) return

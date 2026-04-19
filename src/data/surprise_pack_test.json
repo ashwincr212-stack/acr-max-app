@@ -1,0 +1,222 @@
+[
+  {
+    "factId": "science_001",
+    "category": "science",
+    "categoryName": "Science",
+    "factNumber": 1,
+    "rarity": "rare",
+    "coins": 30,
+    "isActive": true,
+    "hook": "Your brain decides before you do.",
+    "reveal": "Neural signals appear milliseconds before conscious choice."
+  },
+  {
+    "factId": "psychology_001",
+    "category": "psychology",
+    "categoryName": "Psychology",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "You remember emotions more than events.",
+    "reveal": "Your brain prioritizes feelings over exact details in memory."
+  },
+  {
+    "factId": "space_001",
+    "category": "space",
+    "categoryName": "Space",
+    "factNumber": 1,
+    "rarity": "rare",
+    "coins": 30,
+    "isActive": true,
+    "hook": "Space is completely silent.",
+    "reveal": "There’s no air to carry sound waves in space."
+  },
+  {
+    "factId": "earth_001",
+    "category": "earth",
+    "categoryName": "Earth",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "Earth hums constantly.",
+    "reveal": "Low-frequency vibrations come from ocean waves."
+  },
+  {
+    "factId": "animals_001",
+    "category": "animals",
+    "categoryName": "Animals",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "Octopuses have three hearts.",
+    "reveal": "Two pump blood to the gills, one to the rest of the body."
+  },
+  {
+    "factId": "human_body_001",
+    "category": "human_body",
+    "categoryName": "Human Body",
+    "factNumber": 1,
+    "rarity": "rare",
+    "coins": 30,
+    "isActive": true,
+    "hook": "Your body glows in the dark.",
+    "reveal": "Humans emit tiny amounts of light invisible to the eye."
+  },
+  {
+    "factId": "india_001",
+    "category": "india",
+    "categoryName": "India",
+    "factNumber": 1,
+    "rarity": "rare",
+    "coins": 30,
+    "isActive": true,
+    "hook": "India has a floating post office.",
+    "reveal": "It operates on Dal Lake in Srinagar."
+  },
+  {
+    "factId": "history_001",
+    "category": "history",
+    "categoryName": "History",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "Cleopatra lived closer to the Moon landing.",
+    "reveal": "She lived closer to 1969 than to the pyramids being built."
+  },
+  {
+    "factId": "technology_001",
+    "category": "technology",
+    "categoryName": "Technology",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "The first computer bug was a real bug.",
+    "reveal": "A moth was found stuck in a computer in 1947."
+  },
+  {
+    "factId": "daily_life_001",
+    "category": "daily_life",
+    "categoryName": "Daily Life",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "You check your phone without thinking.",
+    "reveal": "It’s driven by a dopamine feedback loop."
+  },
+  {
+    "factId": "mysteries_001",
+    "category": "mysteries",
+    "categoryName": "Mysteries",
+    "factNumber": 1,
+    "rarity": "rare",
+    "coins": 30,
+    "isActive": true,
+    "hook": "Some places on Earth have no explanation.",
+    "reveal": "Events like the Bermuda Triangle still lack clear answers."
+  },
+  {
+    "factId": "ocean_001",
+    "category": "ocean",
+    "categoryName": "Ocean",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "We’ve explored less than 10% of the ocean.",
+    "reveal": "Most of the deep sea remains unknown."
+  },
+  {
+    "factId": "food_001",
+    "category": "food",
+    "categoryName": "Food",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "Honey never spoils.",
+    "reveal": "Jars of honey found in tombs are still edible."
+  },
+  {
+    "factId": "language_001",
+    "category": "language",
+    "categoryName": "Language",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "You think in language silently.",
+    "reveal": "Your brain uses internal speech for reasoning."
+  },
+  {
+    "factId": "inventions_001",
+    "category": "inventions",
+    "categoryName": "Inventions",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "The internet started as a military project.",
+    "reveal": "ARPANET was built for secure communication."
+  },
+  {
+    "factId": "culture_001",
+    "category": "culture",
+    "categoryName": "Culture",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "Every culture has unique greetings.",
+    "reveal": "From bows to handshakes, greetings vary globally."
+  },
+  {
+    "factId": "weather_001",
+    "category": "weather",
+    "categoryName": "Weather",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "Lightning is hotter than the sun.",
+    "reveal": "It can reach temperatures five times hotter than the sun’s surface."
+  },
+  {
+    "factId": "world_records_001",
+    "category": "world_records",
+    "categoryName": "World Records",
+    "factNumber": 1,
+    "rarity": "rare",
+    "coins": 30,
+    "isActive": true,
+    "hook": "The longest hiccup lasted decades.",
+    "reveal": "A man hiccupped for 68 years straight."
+  },
+  {
+    "factId": "myths_vs_facts_001",
+    "category": "myths_vs_facts",
+    "categoryName": "Myths vs Facts",
+    "factNumber": 1,
+    "rarity": "common",
+    "coins": 10,
+    "isActive": true,
+    "hook": "You only use 10% of your brain.",
+    "reveal": "False—almost all parts of the brain are used."
+  },
+  {
+    "factId": "future_001",
+    "category": "future",
+    "categoryName": "Future",
+    "factNumber": 1,
+    "rarity": "rare",
+    "coins": 30,
+    "isActive": true,
+    "hook": "AI may predict your actions.",
+    "reveal": "Advanced models can already anticipate behavior patterns."
+  }
+]
