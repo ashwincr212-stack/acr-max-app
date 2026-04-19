@@ -1,9 +1,3 @@
-/**
- * panchangFunction.js
- * Daily Panchang fetcher using Vedic Astro API
- * Firebase Functions v2 — defineSecret + axios
- */
-
 "use strict";
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
@@ -14,19 +8,19 @@ const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const axios = require("axios");
 
-// ── Secrets (NEVER use process.env) ─────────────────────────────────────────
 const VEDIC_API_KEY = defineSecret("VEDIC_ASTRO_API_KEY");
 const ADMIN_SECRET = defineSecret("ADMIN_SECRET_KEY");
 
-// ── Firebase Admin init (safe: skip if already initialized by index.js) ──────
 if (!getApps().length) {
   initializeApp();
 }
 const db = getFirestore();
 
-// ── Constants ────────────────────────────────────────────────────────────────
-const VEDIC_API_BASE =
+const VEDIC_PANCHANG_API_BASE =
   "https://api.vedicastroapi.com/v3-json/panchang/panchang";
+
+const VEDIC_FESTIVALS_API_BASE =
+  "https://api.vedicastroapi.com/v3-json/panchang/festivals";
 
 const LOCATIONS = {
   Chennai: {
@@ -46,11 +40,13 @@ const LOCATIONS = {
   },
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+const LANGUAGES = {
+  en: "English",
+  hi: "Hindi",
+  ta: "Tamil",
+  ml: "Malayalam",
+};
 
-/**
- * Returns today's date string in IST as YYYY-MM-DD
- */
 function getTodayIST() {
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
@@ -61,62 +57,52 @@ function getTodayIST() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-/**
- * Safely extracts a string value — returns null instead of undefined.
- * Prevents "undefined" values from reaching Firestore.
- */
 function safe(value) {
   if (value === undefined || value === null || value === "") return null;
   return String(value);
 }
 
-// ── Core Functions ───────────────────────────────────────────────────────────
+function num(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
-/**
- * Fetches raw Panchang data from Vedic Astro API for a given location + date.
- *
- * @param {string} locationName  - Key from LOCATIONS (e.g. "Chennai")
- * @param {string} dateStr       - Date in YYYY-MM-DD format
- * @param {string} apiKey        - Live value from VEDIC_API_KEY.value()
- * @returns {Object}             - Raw API response.response object
- */
-async function fetchPanchangFromAPI(locationName, dateStr, apiKey) {
-  const { latitude, longitude, timezone } = LOCATIONS[locationName];
+function buildApiDate(dateStr) {
   const [yyyy, mm, dd] = dateStr.split("-");
+  return `${dd}/${mm}/${yyyy}`;
+}
 
-  // API expects date as DD/MM/YYYY
-  const apiDate = `${dd}/${mm}/${yyyy}`;
+function getRequestParams(locationName, dateStr, lang, apiKey) {
+  const { latitude, longitude, timezone } = LOCATIONS[locationName];
+  return {
+    api_key: apiKey,
+    lat: Number(latitude),
+    lon: Number(longitude),
+    tz: Number(timezone),
+    date: buildApiDate(dateStr),
+    lang,
+  };
+}
 
-  const params = {
-  api_key: apiKey,
-  lat: Number(latitude),
-  lon: Number(longitude),
-  tz: Number(timezone),
-  date: apiDate,
-};
-
-  logger.info(`[Panchang] Fetching API → ${locationName} | ${dateStr}`, {
-    latitude,
-    longitude,
-    apiDate,
-  });
+async function fetchFromAPI(url, params, label) {
+  logger.info(`[Astro] API fetch → ${label}`, params);
 
   let response;
   try {
-    response = await axios.get(VEDIC_API_BASE, {
+    response = await axios.get(url, {
       params,
-      timeout: 15000,
+      timeout: 20000,
     });
   } catch (axiosErr) {
-    // Log full API error body when available (e.g. 4xx/5xx from VedicAstroAPI)
     const apiErrBody = axiosErr.response?.data;
     logger.error(
-      `[Panchang] axios error for ${locationName}:`,
+      `[Astro] axios error → ${label}:`,
       axiosErr.message,
       apiErrBody ? JSON.stringify(apiErrBody) : "(no response body)"
     );
     throw new Error(
-      `HTTP error for ${locationName}: ${axiosErr.message}` +
+      `HTTP error for ${label}: ${axiosErr.message}` +
         (apiErrBody ? ` | API body: ${JSON.stringify(apiErrBody)}` : "")
     );
   }
@@ -125,258 +111,372 @@ async function fetchPanchangFromAPI(locationName, dateStr, apiKey) {
 
   if (!body || body.status !== 200) {
     throw new Error(
-      `API returned unexpected status for ${locationName}: ${JSON.stringify(body)}`
+      `API returned unexpected status for ${label}: ${JSON.stringify(body)}`
     );
   }
 
   return body.response;
 }
 
-/**
- * Parses the raw API response into our clean Firestore schema.
- * All fields guaranteed to be string | null — no undefined values.
- *
- * @param {Object} raw           - response.response from API
- * @param {string} locationName  - e.g. "Chennai"
- * @param {string} dateStr       - YYYY-MM-DD
- * @returns {Object}             - Firestore-ready document
- */
-function parseAPIResponse(raw, locationName, dateStr) {
-  // VedicAstroAPI /panchang/panchang response shape:
-  //   raw.advanced_details.sun_rise / sun_set / moon_rise / moon_set
-  //   raw.tithi        → object (not array)  → .name
-  //   raw.nakshatra    → object               → .name
-  //   raw.yoga         → object               → .name
-  //   raw.karana       → object               → .name
-  //   raw.rahukaal     → string time range
-  //   raw.gulika       → string time range
-  //   raw.yamakanta    → string time range
+async function fetchPanchangFromAPI(locationName, dateStr, lang, apiKey) {
+  const params = getRequestParams(locationName, dateStr, lang, apiKey);
+  return fetchFromAPI(
+    VEDIC_PANCHANG_API_BASE,
+    params,
+    `Panchang | ${locationName} | ${dateStr} | ${lang}`
+  );
+}
 
+async function fetchFestivalsFromAPI(locationName, dateStr, lang, apiKey) {
+  const params = getRequestParams(locationName, dateStr, lang, apiKey);
+  return fetchFromAPI(
+    VEDIC_FESTIVALS_API_BASE,
+    params,
+    `Festivals | ${locationName} | ${dateStr} | ${lang}`
+  );
+}
+
+function normalizeFestivalList(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => ({
+      festival_name: safe(item?.festival_name),
+      significance: safe(item?.significance),
+      type: safe(item?.type),
+    }))
+    .filter((item) => item.festival_name);
+}
+
+function normalizeYogaList(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => ({
+      yoga_name: safe(item?.yoga_name),
+      significance: safe(item?.significance),
+      day: safe(item?.day),
+      type: safe(item?.type),
+    }))
+    .filter((item) => item.yoga_name);
+}
+
+function buildNormalizedPanchang(raw) {
   const adv = raw?.advanced_details || {};
+  const masa = adv?.masa || {};
+  const years = adv?.years || {};
   const tithi = raw?.tithi || {};
   const nakshatra = raw?.nakshatra || {};
   const yoga = raw?.yoga || {};
   const karana = raw?.karana || {};
+  const abhijit = adv?.abhijit_muhurta || {};
+
+  const abhijitStart = safe(abhijit?.start);
+  const abhijitEnd = safe(abhijit?.end);
 
   return {
-    // ── Document keys
-    docId: `${dateStr}_${locationName}`,
+    sunrise: safe(adv?.sun_rise),
+    sunset: safe(adv?.sun_set),
+    moonrise: safe(adv?.moon_rise),
+    moonset: safe(adv?.moon_set),
+
+    rahuKalam: safe(raw?.rahukaal),
+    yamagandam: safe(raw?.yamakanta),
+    gulikaKalam: safe(raw?.gulika),
+    abhijitMuhurta:
+      abhijitStart && abhijitEnd
+        ? `${abhijitStart} - ${abhijitEnd}`
+        : abhijitStart || abhijitEnd || null,
+
+    tithi: {
+      name: safe(tithi?.name),
+      number: num(tithi?.number),
+      type: safe(tithi?.type),
+      lord: safe(tithi?.lord),
+      deity: safe(tithi?.deity || tithi?.diety),
+      startTime: safe(tithi?.start),
+      endTime: safe(tithi?.end),
+      next: safe(tithi?.next_tithi),
+      meaning: safe(tithi?.meaning),
+      special: safe(tithi?.special),
+      summary: safe(tithi?.summary),
+    },
+
+    nakshatra: {
+      name: safe(nakshatra?.name),
+      number: num(nakshatra?.number),
+      pada: num(nakshatra?.pada),
+      lord: safe(nakshatra?.lord),
+      deity: safe(nakshatra?.deity || nakshatra?.diety),
+      startTime: safe(nakshatra?.start),
+      endTime: safe(nakshatra?.end),
+      next: safe(nakshatra?.next_nakshatra),
+      meaning: safe(nakshatra?.meaning),
+      special: safe(nakshatra?.special),
+      summary: safe(nakshatra?.summary),
+      auspiciousDisha: Array.isArray(nakshatra?.auspicious_disha)
+        ? nakshatra.auspicious_disha.map(String)
+        : [],
+    },
+
+    yoga: {
+      name: safe(yoga?.name),
+      number: num(yoga?.number),
+      lord: safe(yoga?.lord),
+      startTime: safe(yoga?.start),
+      endTime: safe(yoga?.end),
+      next: safe(yoga?.next_yoga),
+      meaning: safe(yoga?.meaning),
+      special: safe(yoga?.special),
+      summary: safe(yoga?.summary),
+    },
+
+    karana: {
+      name: safe(karana?.name),
+      number: num(karana?.number),
+      type: safe(karana?.type),
+      lord: safe(karana?.lord),
+      deity: safe(karana?.deity || karana?.diety),
+      startTime: safe(karana?.start),
+      endTime: safe(karana?.end),
+      next: safe(karana?.next_karana),
+      meaning: safe(karana?.meaning),
+      special: safe(karana?.special),
+      summary: safe(karana?.summary),
+    },
+
+    varName: safe(adv?.vaara || raw?.day?.name || raw?.var_name),
+    masaName: safe(masa?.amanta_name || raw?.masa_name),
+    paksha: safe(masa?.paksha || raw?.paksha),
+    samvat: safe(years?.vikram_samvaat_name || raw?.samvat_name),
+
+    ayana: safe(masa?.ayana),
+    ritu: safe(masa?.ritu),
+    tamilMonth: safe(masa?.tamil_month),
+    tamilDay: num(masa?.tamil_day),
+    moonPhase: safe(masa?.moon_phase),
+
+    rasi: safe(raw?.rasi?.name),
+
+    ayanamsa: {
+      name: safe(raw?.ayanamsa?.name),
+      number: num(raw?.ayanamsa?.number),
+    },
+
+    sunPosition: {
+      zodiac: safe(raw?.sun_position?.zodiac),
+      nakshatra: safe(raw?.sun_position?.nakshatra),
+      rasiNo: num(raw?.sun_position?.rasi_no),
+      nakshatraNo: num(raw?.sun_position?.nakshatra_no),
+      sunDegreeAtRise: num(raw?.sun_position?.sun_degree_at_rise),
+    },
+
+    moonPosition: {
+      moonDegree: num(raw?.moon_position?.moon_degree),
+    },
+
+    nextFullMoon: safe(adv?.next_full_moon),
+    nextNewMoon: safe(adv?.next_new_moon),
+    dishaShool: safe(adv?.disha_shool),
+    moonYoginiNivas: safe(adv?.moon_yogini_nivas),
+    vaara: safe(adv?.vaara),
+
+    masaDetails: {
+      amantaNumber: num(masa?.amanta_number),
+      amantaDate: num(masa?.amanta_date),
+      amantaName: safe(masa?.amanta_name),
+      alternateAmantaName: safe(masa?.alternate_amanta_name),
+      amantaStart: safe(masa?.amanta_start),
+      amantaEnd: safe(masa?.amanta_end),
+      adhikMaasa:
+        typeof masa?.adhik_maasa === "boolean" ? masa.adhik_maasa : null,
+      ayana: safe(masa?.ayana),
+      realAyana: safe(masa?.real_ayana),
+      tamilMonthNum: num(masa?.tamil_month_num),
+      tamilMonth: safe(masa?.tamil_month),
+      tamilDay: num(masa?.tamil_day),
+      purnimantaDate: num(masa?.purnimanta_date),
+      purnimantaNumber: num(masa?.purnimanta_number),
+      purnimantaName: safe(masa?.purnimanta_name),
+      alternatePurnimantaName: safe(masa?.alternate_purnimanta_name),
+      purnimantaStart: safe(masa?.purnimanta_start),
+      purnimantaEnd: safe(masa?.purnimanta_end),
+      moonPhase: safe(masa?.moon_phase),
+      paksha: safe(masa?.paksha),
+      ritu: safe(masa?.ritu),
+      rituTamil: safe(masa?.ritu_tamil),
+    },
+
+    years: {
+      kali: num(years?.kali),
+      saka: num(years?.saka),
+      vikramSamvaat: num(years?.vikram_samvaat),
+      kaliSamvaatNumber: num(years?.kali_samvaat_number),
+      kaliSamvaatName: safe(years?.kali_samvaat_name),
+      vikramSamvaatNumber: num(years?.vikram_samvaat_number),
+      vikramSamvaatName: safe(years?.vikram_samvaat_name),
+      sakaSamvaatNumber: num(years?.saka_samvaat_number),
+      sakaSamvaatName: safe(years?.saka_samvaat_name),
+    },
+
+    ahargana: num(adv?.ahargana),
+    sourceDate: safe(raw?.date),
+  };
+}
+
+function buildMergedDocument({
+  locationName,
+  dateStr,
+  lang,
+  rawPanchang,
+  rawFestivals,
+}) {
+  const docId = `${dateStr}_${locationName}_${lang}`;
+
+  return {
+    docId,
     date: dateStr,
     location: locationName,
+    lang,
+    languageLabel: LANGUAGES[lang] || lang,
 
-    // ── Sun & Moon (from advanced_details)
-    sunrise: safe(adv.sun_rise),
-    sunset: safe(adv.sun_set),
-    moonrise: safe(adv.moon_rise),
-    moonset: safe(adv.moon_set),
+    normalized: buildNormalizedPanchang(rawPanchang),
 
-    // ── Tithi
-    tithi: {
-      name: safe(tithi.name),
-      lord: safe(tithi.lord),
-      endTime: safe(tithi.end),
-      special: safe(tithi.special),
-      summary: safe(tithi.summary),
-    },
+    festivals: normalizeFestivalList(rawFestivals?.festival_list),
+    yogas: normalizeYogaList(rawFestivals?.yogas),
 
-    // ── Nakshatra
-    nakshatra: {
-      name: safe(nakshatra.name),
-      lord: safe(nakshatra.lord),
-      endTime: safe(nakshatra.end),
-    },
+    rawPanchang,
+    rawFestivals,
 
-    // ── Yoga
-    yoga: {
-      name: safe(yoga.name),
-      lord: safe(yoga.lord),
-      endTime: safe(yoga.end),
-    },
-
-    // ── Karana
-    karana: {
-      name: safe(karana.name),
-      lord: safe(karana.lord),
-      endTime: safe(karana.end),
-    },
-
-    // ── Inauspicious Times (exact field names from confirmed API response)
-    rahuKalam: safe(raw.rahukaal),
-    yamagandam: safe(raw.yamakanta),
-    gulikaKalam: safe(raw.gulika),
-    abhijitMuhurta: (() => {
-      const a = adv?.abhijit_muhurta;
-      const start = safe(a?.start);
-      const end = safe(a?.end);
-      if (!start && !end) return null;
-      if (!end) return start;
-      if (!start) return end;
-      return `${start} - ${end}`;
-    })(),
-
-    // ── Calendar Context
-    varName: safe(raw.var_name),
-    masaName: safe(raw.masa_name),
-    paksha: safe(raw.paksha),
-    samvat: safe(raw.samvat_name),
-
-    // ── Metadata
     fetchedAt: Timestamp.now(),
     source: "vedicastroapi",
   };
 }
 
-/**
- * Stores a parsed Panchang document in Firestore.
- * Uses merge: true for safe upsert — never overwrites unrelated fields.
- *
- * @param {Object} data - Parsed document from parseAPIResponse()
- */
-async function storePanchang(data) {
+async function storeAstroData(data) {
   const docRef = db.collection("panchang").doc(data.docId);
   await docRef.set(data, { merge: true });
-  logger.info(`[Panchang] Stored → ${data.docId}`);
+  logger.info(`[Astro] Stored → ${data.docId}`);
 }
 
-/**
- * Logs a fetch error to Firestore for monitoring/alerting.
- *
- * @param {string} date
- * @param {string} location
- * @param {string} errorMessage
- */
-async function logError(date, location, errorMessage) {
+async function logError(date, location, lang, errorMessage) {
   try {
     await db.collection("panchang_errors").add({
       date,
       location,
+      lang,
       error: errorMessage,
       timestamp: Timestamp.now(),
     });
   } catch (logErr) {
-    // Swallow — never let error logging crash the main function
-    logger.warn("[Panchang] Failed to write error log:", logErr.message);
+    logger.warn("[Astro] Failed to write error log:", logErr.message);
   }
 }
 
-/**
- * Orchestrates fetch → parse → store for one location.
- * Returns a result object — never throws.
- *
- * @param {string} locationName
- * @param {string} dateStr
- * @param {string} apiKey
- * @returns {{ success: boolean, error?: string }}
- */
-async function processLocation(locationName, dateStr, apiKey) {
+async function processLocationLanguage(locationName, dateStr, lang, apiKey) {
   try {
-    const raw = await fetchPanchangFromAPI(locationName, dateStr, apiKey);
-    const parsed = parseAPIResponse(raw, locationName, dateStr);
-    await storePanchang(parsed);
-    return { success: true };
+    const [rawPanchang, rawFestivals] = await Promise.all([
+      fetchPanchangFromAPI(locationName, dateStr, lang, apiKey),
+      fetchFestivalsFromAPI(locationName, dateStr, lang, apiKey),
+    ]);
+
+    const merged = buildMergedDocument({
+      locationName,
+      dateStr,
+      lang,
+      rawPanchang,
+      rawFestivals,
+    });
+
+    await storeAstroData(merged);
+    return { success: true, docId: merged.docId };
   } catch (err) {
     const msg = err.message || String(err);
-    logger.error(`[Panchang] Failed → ${locationName} | ${dateStr}:`, msg);
-    await logError(dateStr, locationName, msg);
+    logger.error(
+      `[Astro] Failed → ${locationName} | ${dateStr} | ${lang}:`,
+      msg
+    );
+    await logError(dateStr, locationName, lang, msg);
     return { success: false, error: msg };
   }
 }
 
-// ── Exported Cloud Functions ─────────────────────────────────────────────────
-
-/**
- * fetchDailyPanchang
- *
- * CRON job — runs daily at 2:00 AM IST (20:30 UTC)
- * Fetches Panchang for Chennai, Bangalore, Kochi and stores in Firestore.
- * Skips any location where today's document already exists.
- */
 exports.fetchDailyPanchang = onSchedule(
   {
     schedule: "30 20 * * *",
     timeZone: "UTC",
     retryCount: 3,
-    memory: "256MiB",
-    timeoutSeconds: 120,
+    memory: "512MiB",
+    timeoutSeconds: 300,
     secrets: [VEDIC_API_KEY],
   },
   async (_event) => {
     const dateStr = getTodayIST();
     const apiKey = VEDIC_API_KEY.value();
 
-    logger.info(`[Panchang] CRON started → date: ${dateStr}`);
+    logger.info(`[Astro] CRON started → date: ${dateStr}`);
 
-    const summary = { date: dateStr, success: [], failed: [] };
+    const summary = {
+      date: dateStr,
+      success: [],
+      failed: [],
+    };
 
     for (const locationName of Object.keys(LOCATIONS)) {
-      // Idempotency check — skip if data already exists for today
-      const docId = `${dateStr}_${locationName}`;
-      const existing = await db.collection("panchang").doc(docId).get();
+      for (const lang of Object.keys(LANGUAGES)) {
+        const docId = `${dateStr}_${locationName}_${lang}`;
+        const existing = await db.collection("panchang").doc(docId).get();
 
-      if (existing.exists) {
-        logger.info(`[Panchang] Already exists, skipping → ${docId}`);
-        summary.success.push(locationName);
-        continue;
-      }
+        if (existing.exists) {
+          logger.info(`[Astro] Already exists, skipping → ${docId}`);
+          summary.success.push({ location: locationName, lang, skipped: true });
+          continue;
+        }
 
-      const result = await processLocation(locationName, dateStr, apiKey);
+        const result = await processLocationLanguage(
+          locationName,
+          dateStr,
+          lang,
+          apiKey
+        );
 
-      if (result.success) {
-        summary.success.push(locationName);
-      } else {
-        summary.failed.push({ location: locationName, error: result.error });
+        if (result.success) {
+          summary.success.push({ location: locationName, lang });
+        } else {
+          summary.failed.push({
+            location: locationName,
+            lang,
+            error: result.error,
+          });
+        }
       }
     }
 
-    // Write run summary for monitoring dashboard
     await db.collection("panchang_fetch_log").add({
       ...summary,
       timestamp: Timestamp.now(),
     });
 
-    logger.info("[Panchang] CRON complete →", summary);
+    logger.info("[Astro] CRON complete →", summary);
   }
 );
 
-/**
- * manualFetchPanchang
- *
- * HTTP POST — admin-only manual trigger for backfilling or testing.
- *
- * Headers:
- *   x-admin-key: <ADMIN_SECRET value>
- *
- * Body (all optional):
- *   { "date": "YYYY-MM-DD", "location": "Chennai" }
- *
- * - Omit date     → uses today (IST)
- * - Omit location → processes all 3 cities
- * - Always re-fetches (ignores existing docs)
- *
- * Response 200: all succeeded
- * Response 207: partial success
- */
 exports.manualFetchPanchang = onRequest(
   {
-    memory: "256MiB",
-    timeoutSeconds: 60,
+    memory: "512MiB",
+    timeoutSeconds: 180,
     secrets: [VEDIC_API_KEY, ADMIN_SECRET],
   },
   async (req, res) => {
-    // ── Method guard
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed. Use POST." });
     }
 
-    // ── Admin auth check
     const adminKey = req.headers["x-admin-key"];
     if (!adminKey || adminKey !== ADMIN_SECRET.value()) {
-      logger.warn("[Panchang] Unauthorized manual trigger attempt");
+      logger.warn("[Astro] Unauthorized manual trigger attempt");
       return res.status(401).json({ error: "Unauthorized." });
     }
 
-    // ── Parse + validate inputs
-    const { date, location } = req.body || {};
+    const { date, location, lang } = req.body || {};
     const dateStr = date || getTodayIST();
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
@@ -391,28 +491,43 @@ exports.manualFetchPanchang = onRequest(
       });
     }
 
-    const targets = location ? [location] : Object.keys(LOCATIONS);
+    if (lang && !LANGUAGES[lang]) {
+      return res.status(400).json({
+        error: `Unknown lang: "${lang}". Valid values: ${Object.keys(LANGUAGES).join(", ")}.`,
+      });
+    }
+
+    const targetLocations = location ? [location] : Object.keys(LOCATIONS);
+    const targetLangs = lang ? [lang] : Object.keys(LANGUAGES);
     const apiKey = VEDIC_API_KEY.value();
 
     logger.info(
-      `[Panchang] Manual trigger → date: ${dateStr} | locations: ${targets.join(", ")}`
+      `[Astro] Manual trigger → date: ${dateStr} | locations: ${targetLocations.join(", ")} | langs: ${targetLangs.join(", ")}`
     );
 
     const results = [];
 
-    for (const locationName of targets) {
-      const result = await processLocation(locationName, dateStr, apiKey);
-      results.push({
-        location: locationName,
-        docId: `${dateStr}_${locationName}`,
-        ...(result.success
-          ? { status: "success" }
-          : { status: "failed", error: result.error }),
-      });
+    for (const locationName of targetLocations) {
+      for (const langCode of targetLangs) {
+        const result = await processLocationLanguage(
+          locationName,
+          dateStr,
+          langCode,
+          apiKey
+        );
+
+        results.push({
+          location: locationName,
+          lang: langCode,
+          docId: `${dateStr}_${locationName}_${langCode}`,
+          ...(result.success
+            ? { status: "success" }
+            : { status: "failed", error: result.error }),
+        });
+      }
     }
 
     const allSuccess = results.every((r) => r.status === "success");
-
     return res.status(allSuccess ? 200 : 207).json({ date: dateStr, results });
   }
 );

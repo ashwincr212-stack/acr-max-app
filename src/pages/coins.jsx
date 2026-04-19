@@ -1,5 +1,4 @@
 export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
-  console.log("coinLogs in Coins:", coinLogs)
   const startOfToday = new Date().setHours(0, 0, 0, 0)
   const startOfYesterday = new Date(startOfToday - 86400000).getTime()
 
@@ -17,6 +16,10 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
 
   const predictionCoins = coinLogs
     .filter(log => log.source === 'prediction')
+    .reduce((sum, log) => sum + log.amount, 0)
+
+  const surpriseCoins = coinLogs
+    .filter(log => log.source === 'surprise')
     .reduce((sum, log) => sum + log.amount, 0)
 
   return (
@@ -68,7 +71,7 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-600">Surprises</span>
-              <span className="font-semibold text-slate-900">0</span>
+              <span className="font-semibold text-slate-900">{surpriseCoins}</span>
             </div>
           </div>
         </div>

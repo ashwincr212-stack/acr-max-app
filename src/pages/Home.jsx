@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-
+import AstroRouter from './AstroRouter'
 import IPLCricket from './IPLCricket'
 import SurprisesModal from './SurprisesModal'
 import SkillMachineModal from './SkillMachine'
@@ -134,7 +134,7 @@ function ProgressBar({ pct, color, height = 7 }) {
 /* ════════════════════════════════════════════
    MAIN HOME COMPONENT
 ════════════════════════════════════════════ */
-export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], overallTotal = 0, currentUser, onLogout, coins = 0, coinLogs, setCoinLogs }) {
+export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], overallTotal = 0, currentUser, onLogout, coins = 0, addCoinLog }) {
   const greeting = useGreeting()
   const [time, setTime]           = useState(new Date())
   const [clickedBtn, setClickedBtn] = useState(null)
@@ -278,6 +278,17 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
   const catColor = (cat) => {
     const map = { Food:'#f59e0b',Petrol:'#3b82f6',Smoke:'#6b7280',Liquor:'#a78bfa',Groceries:'#10b981','Mobile Recharge':'#0891b2','Electricity Bill':'#d97706','Water Bill':'#06b6d4','Hotel Food':'#f43f5e',CSD:'#7c3aed',Other:'#64748b' }
     return map[cat] || '#7c3aed'
+  }
+
+  if (activeTab === 'astro') {
+    return (
+      <AstroRouter
+        onBack={() => {
+          setPrevTab(activeTab)
+          setActiveTab('home')
+        }}
+      />
+    )
   }
 
   return (
@@ -732,14 +743,11 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
               coins={coins}
               onPredictionReward={(r) => {
                 if (r?.coins > 0) {
-                  setCoinLogs?.(prev => [
-                    ...prev,
-                    {
-                      amount: r.coins,
-                      source: 'prediction',
-                      createdAt: Date.now()
-                    }
-                  ])
+                  addCoinLog?.({
+                    amount: r.coins,
+                    source: 'prediction',
+                    createdAt: Date.now()
+                  })
                 }
               }}
             />
@@ -750,14 +758,11 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
       <SkillMachineModal userId={currentUser?.username} isOpen={skillOpen} onClose={()=>setSkillOpen(false)} coins={coins}
         onReward={async (r)=>{
           if(r?.coins>0) {
-            setCoinLogs?.(prev => [
-              ...prev,
-              {
-                amount: r.coins,
-                source: 'skill',
-                createdAt: Date.now()
-              }
-            ])
+            addCoinLog?.({
+              amount: r.coins,
+              source: 'skill',
+              createdAt: Date.now()
+            })
             if (currentUser?.username) {
               try {
                 await updateDoc(doc(db, 'acr_users', currentUser.username.toLowerCase()), {

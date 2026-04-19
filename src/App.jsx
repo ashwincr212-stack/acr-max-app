@@ -1,7 +1,7 @@
 
 import Home from './pages/Home'
 import Expense from './pages/Expense'
-import Astro from './pages/Astro'
+import AstroRouter from './pages/AstroRouter'
 import Space from './pages/Space'
 import Cricket from './pages/Cricket'
 import Profile from './pages/Profile'
@@ -9,10 +9,29 @@ import News from './pages/News'
 import Ledger from './pages/Ledger'
 import Login from './pages/Login'
 import Coins from './pages/coins'
-import { useState, useEffect, useRef } from 'react'
-import { saveUserLogs, loadUserLogs, subscribeUserLogs, db } from './firebase'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { saveUserLogs, subscribeUserLogs, db } from './firebase'
+import { collection, doc, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+
+const getUserDocId = (username) => username?.toLowerCase?.() || ''
+
+const normalizeLogCreatedAt = (value) => {
+  if (typeof value === 'number') return value
+  if (value?.toMillis) return value.toMillis()
+  if (typeof value?.seconds === 'number') return value.seconds * 1000
+  return 0
+}
+
+const normalizeCoinLogDoc = (docSnap) => {
+  const data = docSnap.data() || {}
+  return {
+    id: docSnap.id,
+    amount: Number(data.amount || 0),
+    source: data.source || 'unknown',
+    createdAt: normalizeLogCreatedAt(data.createdAt),
+  }
+}
 
 
 /* ── Animated Center Button — alternates logo ↔ ⚡ ACR MAX ─────────────────── */
@@ -135,7 +154,7 @@ function AppShell({ currentUser, onLogout }) {
   useEffect(() => {
     if (!currentUser?.username) return
 
-    const ref = doc(db, 'acr_users', currentUser.username.toLowerCase())
+    const ref = doc(db, 'acr_users', getUserDocId(currentUser.username))
 
     const unsubscribe = onSnapshot(ref, (snap) => {
       if (snap.exists()) {
@@ -149,6 +168,52 @@ function AppShell({ currentUser, onLogout }) {
 
     return () => unsubscribe()
   }, [currentUser.username])
+
+  useEffect(() => {
+    if (!currentUser?.username) {
+      setCoinLogs([])
+      return undefined
+    }
+
+    const logsQuery = query(
+      collection(db, 'acr_users', getUserDocId(currentUser.username), 'coinLogs'),
+      orderBy('createdAt', 'desc')
+    )
+
+    const unsubscribe = onSnapshot(logsQuery, (snap) => {
+      setCoinLogs(snap.docs.map(normalizeCoinLogDoc))
+    }, () => {
+      setCoinLogs([])
+    })
+
+    return () => unsubscribe()
+  }, [currentUser.username])
+
+  const addCoinLog = useCallback(async ({ amount, source, createdAt = Date.now() }) => {
+    const userId = getUserDocId(currentUser?.username)
+    const logAmount = Number(amount || 0)
+    if (!userId || logAmount <= 0 || !source) return
+
+    const logRef = doc(collection(db, 'acr_users', userId, 'coinLogs'))
+    const log = {
+      id: logRef.id,
+      amount: logAmount,
+      source,
+      createdAt: normalizeLogCreatedAt(createdAt) || Date.now(),
+    }
+
+    setCoinLogs(prev => [log, ...prev.filter(item => item.id !== log.id)])
+
+    try {
+      await setDoc(logRef, {
+        amount: log.amount,
+        source: log.source,
+        createdAt: log.createdAt,
+      })
+    } catch (error) {
+      console.error('Failed to save coin log:', error)
+    }
+  }, [currentUser?.username])
 
   useEffect(() => {
     console.log('GLOBAL COINS:', coins)
@@ -472,7 +537,7 @@ function AppShell({ currentUser, onLogout }) {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} coins={coins} coinLogs={coinLogs} setCoinLogs={setCoinLogs} />
+        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} coins={coins} addCoinLog={addCoinLog} />
       case 'expense':
         return (
           <Expense
@@ -489,8 +554,16 @@ function AppShell({ currentUser, onLogout }) {
           />
         )
       case 'astro':
-        return <Astro isProfileSaved={isProfileSaved} setIsProfileSaved={setIsProfileSaved} astroProfile={astroProfile} setAstroProfile={setAstroProfile} astroInsights={astroInsights} generateAstroData={generateAstroData} isAstroThinking={isAstroThinking} />
-      case 'space':
+  return (
+    <AstroRouter
+      onBack={() => {
+        setPrevTab(activeTab)
+        setActiveTab('home')
+      }}
+    />
+  )
+      
+        case 'space':
         return <Space issData={issData} issLocation={issLocation} nasaData={nasaData} />
       case 'cricket':
         return <Cricket />
@@ -505,7 +578,7 @@ function AppShell({ currentUser, onLogout }) {
       case 'profile':
         return <Profile logs={logs} setLogs={setLogs} overallTotal={overallTotal} summaryData={summaryData} currentUser={currentUser} onLogout={onLogout} />
       default:
-        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} coins={coins} coinLogs={coinLogs} setCoinLogs={setCoinLogs} />
+        return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} coins={coins} addCoinLog={addCoinLog} />
     }
   }
 
