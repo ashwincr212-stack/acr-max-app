@@ -328,6 +328,7 @@ function buildMergedDocument({
   lang,
   rawPanchang,
   rawFestivals,
+  normalized,
 }) {
   const docId = `${dateStr}_${locationName}_${lang}`;
 
@@ -338,7 +339,7 @@ function buildMergedDocument({
     lang,
     languageLabel: LANGUAGES[lang] || lang,
 
-    normalized: buildNormalizedPanchang(rawPanchang),
+    normalized,
 
     festivals: normalizeFestivalList(rawFestivals?.festival_list),
     yogas: normalizeYogaList(rawFestivals?.yogas),
@@ -371,32 +372,117 @@ async function logError(date, location, lang, errorMessage) {
   }
 }
 
-async function processLocationLanguage(locationName, dateStr, lang, apiKey) {
-  try {
-    const [rawPanchang, rawFestivals] = await Promise.all([
-      fetchPanchangFromAPI(locationName, dateStr, lang, apiKey),
-      fetchFestivalsFromAPI(locationName, dateStr, lang, apiKey),
-    ]);
+async function processLocationLanguages(
+  locationName,
+  dateStr,
+  targetLangs,
+  apiKey,
+  { skipExisting = false } = {}
+) {
+  const results = [];
+  const langsToProcess = [];
 
-    const merged = buildMergedDocument({
+  for (const lang of targetLangs) {
+    const docId = `${dateStr}_${locationName}_${lang}`;
+
+    if (skipExisting) {
+      const existing = await db.collection("panchang").doc(docId).get();
+      if (existing.exists) {
+        logger.info(`[Astro] Already exists, skipping → ${docId}`);
+        results.push({
+          success: true,
+          location: locationName,
+          lang,
+          docId,
+          skipped: true,
+        });
+        continue;
+      }
+    }
+
+    langsToProcess.push(lang);
+  }
+
+  if (!langsToProcess.length) return results;
+
+  let rawEnglishPanchang;
+  let normalized;
+
+  try {
+    rawEnglishPanchang = await fetchPanchangFromAPI(
       locationName,
       dateStr,
-      lang,
-      rawPanchang,
-      rawFestivals,
-    });
-
-    await storeAstroData(merged);
-    return { success: true, docId: merged.docId };
+      "en",
+      apiKey
+    );
+    normalized = buildNormalizedPanchang(rawEnglishPanchang);
   } catch (err) {
     const msg = err.message || String(err);
     logger.error(
-      `[Astro] Failed → ${locationName} | ${dateStr} | ${lang}:`,
+      `[Astro] English normalization fetch failed → ${locationName} | ${dateStr}:`,
       msg
     );
-    await logError(dateStr, locationName, lang, msg);
-    return { success: false, error: msg };
+
+    for (const lang of langsToProcess) {
+      await logError(dateStr, locationName, lang, msg);
+      results.push({
+        success: false,
+        location: locationName,
+        lang,
+        docId: `${dateStr}_${locationName}_${lang}`,
+        error: msg,
+      });
+    }
+
+    return results;
   }
+
+  for (const lang of langsToProcess) {
+    try {
+      const rawPanchangPromise =
+        lang === "en"
+          ? Promise.resolve(rawEnglishPanchang)
+          : fetchPanchangFromAPI(locationName, dateStr, lang, apiKey);
+
+      const [rawPanchang, rawFestivals] = await Promise.all([
+        rawPanchangPromise,
+        fetchFestivalsFromAPI(locationName, dateStr, lang, apiKey),
+      ]);
+
+      const merged = buildMergedDocument({
+        locationName,
+        dateStr,
+        lang,
+        rawPanchang,
+        rawFestivals,
+        normalized,
+      });
+
+      await storeAstroData(merged);
+      results.push({
+        success: true,
+        location: locationName,
+        lang,
+        docId: merged.docId,
+      });
+    } catch (err) {
+      const msg = err.message || String(err);
+      logger.error(
+        `[Astro] Failed → ${locationName} | ${dateStr} | ${lang}:`,
+        msg
+      );
+      await logError(dateStr, locationName, lang, msg);
+      results.push({
+        success: false,
+        location: locationName,
+        lang,
+        docId: `${dateStr}_${locationName}_${lang}`,
+        error: msg,
+      });
+    }
+  }
+
+  return results;
 }
 
 exports.fetchDailyPanchang = onSchedule(
@@ -421,29 +507,25 @@ exports.fetchDailyPanchang = onSchedule(
     };
 
     for (const locationName of Object.keys(LOCATIONS)) {
-      for (const lang of Object.keys(LANGUAGES)) {
-        const docId = `${dateStr}_${locationName}_${lang}`;
-        const existing = await db.collection("panchang").doc(docId).get();
+      const locationResults = await processLocationLanguages(
+        locationName,
+        dateStr,
+        Object.keys(LANGUAGES),
+        apiKey,
+        { skipExisting: true }
+      );
 
-        if (existing.exists) {
-          logger.info(`[Astro] Already exists, skipping → ${docId}`);
-          summary.success.push({ location: locationName, lang, skipped: true });
-          continue;
-        }
-
-        const result = await processLocationLanguage(
-          locationName,
-          dateStr,
-          lang,
-          apiKey
-        );
-
+      for (const result of locationResults) {
         if (result.success) {
-          summary.success.push({ location: locationName, lang });
+          summary.success.push({
+            location: result.location,
+            lang: result.lang,
+            skipped: result.skipped || false,
+          });
         } else {
           summary.failed.push({
-            location: locationName,
-            lang,
+            location: result.location,
+            lang: result.lang,
             error: result.error,
           });
         }
@@ -508,20 +590,20 @@ exports.manualFetchPanchang = onRequest(
     const results = [];
 
     for (const locationName of targetLocations) {
-      for (const langCode of targetLangs) {
-        const result = await processLocationLanguage(
-          locationName,
-          dateStr,
-          langCode,
-          apiKey
-        );
+      const locationResults = await processLocationLanguages(
+        locationName,
+        dateStr,
+        targetLangs,
+        apiKey
+      );
 
+      for (const result of locationResults) {
         results.push({
-          location: locationName,
-          lang: langCode,
-          docId: `${dateStr}_${locationName}_${langCode}`,
+          location: result.location,
+          lang: result.lang,
+          docId: result.docId,
           ...(result.success
-            ? { status: "success" }
+            ? { status: "success", skipped: result.skipped || false }
             : { status: "failed", error: result.error }),
         });
       }

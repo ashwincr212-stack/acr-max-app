@@ -27,7 +27,7 @@ export default function InboxView({ items, categories, onSchedule, onDelete }) {
     <div className="view-scroll">
       {items.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon">📥</div>
+          <div className="empty-state-icon">Inbox</div>
           <div className="empty-state-title">Inbox is clear</div>
           <div className="empty-state-sub">Tap + to capture a quick thought</div>
         </div>

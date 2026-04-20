@@ -566,7 +566,7 @@ function AppShell({ currentUser, onLogout }) {
     />
   )
       case 'planner':
-        return <Planner />
+        return <Planner currentUser={currentUser} />
         case 'space':
         return <Space issData={issData} issLocation={issLocation} nasaData={nasaData} />
       case 'cricket':

@@ -57,8 +57,8 @@ export default function AgendaView({ tasks, categories, onToggle, onDelete }) {
     return (
       <div className="view-scroll">
         <div className="empty-state">
-          <div className="empty-state-icon">📋</div>
-          <div className="empty-state-title">No upcoming tasks</div>
+          <div className="empty-state-icon">Agenda</div>
+          <div className="empty-state-title">No tasks yet</div>
           <div className="empty-state-sub">Tap + to schedule something</div>
         </div>
       </div>

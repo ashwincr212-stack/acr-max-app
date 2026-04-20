@@ -134,9 +134,9 @@ export default function TodayView({ tasks, overdueTasks, categories, onToggle, o
       {/* No tasks state */}
       {activeTasks.length === 0 && overdueTasks.length === 0 && (
         <div className="empty-state">
-          <div className="empty-state-icon">☀️</div>
-          <div className="empty-state-title">You're all clear</div>
-          <div className="empty-state-sub">Tap + to add something to today</div>
+          <div className="empty-state-icon">Today</div>
+          <div className="empty-state-title">No tasks yet</div>
+          <div className="empty-state-sub">Tap + to add your first task</div>
         </div>
       )}
 

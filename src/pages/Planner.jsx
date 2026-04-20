@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, writeBatch } from 'firebase/firestore';
+import { db } from '../firebase';
 import PlannerTabs from '../components/planner/PlannerTabs';
 import PlannerHeader from '../components/planner/PlannerHeader';
 import QuickAddSheet from '../components/planner/QuickAddSheet';
@@ -8,9 +10,10 @@ import MonthView from '../components/planner/MonthView';
 import AgendaView from '../components/planner/AgendaView';
 import InboxView from '../components/planner/InboxView';
 import DayDetailSheet from '../components/planner/DayDetailSheet';
+import { fmt } from '../utils/plannerUtils';
 import '../styles/planner.css';
 
-const SAMPLE_CATEGORIES = [
+const PLANNER_CATEGORIES = [
   { id: 'work', name: 'Work', color: '#1A6BFF' },
   { id: 'health', name: 'Health', color: '#3B6D11' },
   { id: 'personal', name: 'Personal', color: '#534AB7' },
@@ -20,24 +23,127 @@ const SAMPLE_CATEGORIES = [
 ];
 
 const today = new Date();
-const fmt = (d) => d.toISOString().split('T')[0];
-const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
 
-const SAMPLE_TASKS = [];
+const getUserDocId = (username) => username?.toLowerCase?.() || '';
 
-const SAMPLE_INBOX = [];
+const normalizeStringDate = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (value?.toDate) return value.toDate().toISOString();
+  if (typeof value?.seconds === 'number') return new Date(value.seconds * 1000).toISOString();
+  return '';
+};
 
-export default function Planner() {
+const normalizeTaskDoc = (docSnap) => {
+  const data = docSnap.data() || {};
+  return {
+    id: data.id || docSnap.id,
+    title: data.title || '',
+    date: data.date || '',
+    time: data.time || '',
+    duration: Number(data.duration || 30),
+    priority: data.priority || 'none',
+    category: data.category || 'work',
+    completed: Boolean(data.completed),
+    completedAt: normalizeStringDate(data.completedAt) || null,
+    isInbox: Boolean(data.isInbox),
+    notes: data.notes || '',
+    remindAt: data.remindAt || '',
+    subtasks: Array.isArray(data.subtasks) ? data.subtasks : [],
+    createdAt: normalizeStringDate(data.createdAt) || new Date().toISOString(),
+    updatedAt: normalizeStringDate(data.updatedAt) || '',
+  };
+};
+
+const normalizeInboxDoc = (docSnap) => {
+  const data = docSnap.data() || {};
+  return {
+    id: data.id || docSnap.id,
+    title: data.title || '',
+    notes: data.notes || '',
+    createdAt: normalizeStringDate(data.createdAt) || new Date().toISOString(),
+  };
+};
+
+const getReminderAt = (date, time, offsetMinutes) => {
+  if (!date || !time || offsetMinutes === '') return '';
+  const scheduled = new Date(`${date}T${time}:00`);
+  if (Number.isNaN(scheduled.getTime())) return '';
+  scheduled.setMinutes(scheduled.getMinutes() - Number(offsetMinutes || 0));
+  return scheduled.toISOString();
+};
+
+export default function Planner({ currentUser }) {
+  const userId = getUserDocId(currentUser?.username);
+
   const [activeTab, setActiveTab] = useState('today');
-  const [tasks, setTasks] = useState(SAMPLE_TASKS);
-  const [inboxItems, setInboxItems] = useState(SAMPLE_INBOX);
+  const [tasks, setTasks] = useState([]);
+  const [inboxItems, setInboxItems] = useState([]);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [dayDetailDate, setDayDetailDate] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
+  useEffect(() => {
+    if (!userId) {
+      setTasks([]);
+      setInboxItems([]);
+      return undefined;
+    }
+
+    const tasksQuery = query(
+      collection(db, 'acr_users', userId, 'plannerTasks'),
+      orderBy('createdAt', 'asc')
+    );
+    const inboxQuery = query(
+      collection(db, 'acr_users', userId, 'plannerInbox'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribeTasks = onSnapshot(tasksQuery, (snap) => {
+      setTasks(snap.docs.map(normalizeTaskDoc));
+    }, (error) => {
+      console.error('Planner tasks sync failed:', error);
+      setTasks([]);
+    });
+
+    const unsubscribeInbox = onSnapshot(inboxQuery, (snap) => {
+      setInboxItems(snap.docs.map(normalizeInboxDoc));
+    }, (error) => {
+      console.error('Planner inbox sync failed:', error);
+      setInboxItems([]);
+    });
+
+    return () => {
+      unsubscribeTasks();
+      unsubscribeInbox();
+    };
+  }, [userId]);
+
   const addTask = useCallback((taskData) => {
+    if (!userId) return;
+    const createdAt = new Date().toISOString();
+
+    if (taskData.isInbox) {
+      const inboxRef = doc(collection(db, 'acr_users', userId, 'plannerInbox'));
+      const inboxItem = {
+        id: inboxRef.id,
+        title: taskData.title,
+        notes: taskData.notes || '',
+        createdAt,
+      };
+
+      setInboxItems(prev => [inboxItem, ...prev]);
+      setDoc(inboxRef, inboxItem).catch(error => {
+        console.error('Failed to save planner inbox item:', error);
+        setInboxItems(prev => prev.filter(item => item.id !== inboxItem.id));
+      });
+      setQuickAddOpen(false);
+      return;
+    }
+
+    const taskRef = doc(collection(db, 'acr_users', userId, 'plannerTasks'));
     const newTask = {
-      id: Date.now().toString(),
+      id: taskRef.id,
       title: taskData.title,
       date: taskData.date || '',
       time: taskData.time || '',
@@ -45,37 +151,71 @@ export default function Planner() {
       priority: taskData.priority || 'none',
       category: taskData.category || 'work',
       completed: false,
+      completedAt: null,
       isInbox: taskData.isInbox || false,
       notes: taskData.notes || '',
-      remindAt: taskData.remindAt || '',
+      remindAt: getReminderAt(taskData.date, taskData.time, taskData.remindAt),
       subtasks: [],
-      createdAt: new Date().toISOString(),
+      createdAt,
+      updatedAt: createdAt,
     };
-    if (taskData.isInbox) {
-      setInboxItems(prev => [{ id: newTask.id, title: newTask.title, notes: newTask.notes, createdAt: newTask.createdAt }, ...prev]);
-    } else {
-      setTasks(prev => [...prev, newTask]);
-    }
+
+    setTasks(prev => [...prev, newTask]);
+    setDoc(taskRef, newTask).catch(error => {
+      console.error('Failed to save planner task:', error);
+      setTasks(prev => prev.filter(task => task.id !== newTask.id));
+    });
     setQuickAddOpen(false);
-  }, []);
+  }, [userId]);
 
   const toggleTask = useCallback((taskId) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : null } : t));
-  }, []);
+    if (!userId) return;
+    const existing = tasks.find(t => t.id === taskId);
+    if (!existing) return;
+    const updatedAt = new Date().toISOString();
+    const patch = {
+      completed: !existing.completed,
+      completedAt: !existing.completed ? updatedAt : null,
+      updatedAt,
+    };
+
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...patch } : t));
+    setDoc(doc(db, 'acr_users', userId, 'plannerTasks', taskId), patch, { merge: true }).catch(error => {
+      console.error('Failed to update planner task:', error);
+      setTasks(prev => prev.map(t => t.id === taskId ? existing : t));
+    });
+  }, [tasks, userId]);
 
   const deleteTask = useCallback((taskId) => {
+    if (!userId) return;
+    const previous = tasks.find(t => t.id === taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
-  }, []);
+    deleteDoc(doc(db, 'acr_users', userId, 'plannerTasks', taskId)).catch(error => {
+      console.error('Failed to delete planner task:', error);
+      if (previous) setTasks(prev => [...prev, previous]);
+    });
+  }, [tasks, userId]);
 
   const rescheduleTask = useCallback((taskId, newDate) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, date: newDate } : t));
-  }, []);
+    if (!userId) return;
+    const existing = tasks.find(t => t.id === taskId);
+    if (!existing) return;
+    const patch = { date: newDate, updatedAt: new Date().toISOString() };
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...patch } : t));
+    setDoc(doc(db, 'acr_users', userId, 'plannerTasks', taskId), patch, { merge: true }).catch(error => {
+      console.error('Failed to reschedule planner task:', error);
+      setTasks(prev => prev.map(t => t.id === taskId ? existing : t));
+    });
+  }, [tasks, userId]);
 
   const scheduleInboxItem = useCallback((itemId, taskData) => {
+    if (!userId) return;
     const item = inboxItems.find(i => i.id === itemId);
     if (!item) return;
-    setInboxItems(prev => prev.filter(i => i.id !== itemId));
-    setTasks(prev => [...prev, {
+    const updatedAt = new Date().toISOString();
+    const taskRef = doc(db, 'acr_users', userId, 'plannerTasks', itemId);
+    const inboxRef = doc(db, 'acr_users', userId, 'plannerInbox', itemId);
+    const scheduledTask = {
       id: itemId,
       title: item.title,
       date: taskData.date || fmt(today),
@@ -84,17 +224,37 @@ export default function Planner() {
       priority: taskData.priority || 'none',
       category: taskData.category || 'work',
       completed: false,
+      completedAt: null,
       isInbox: false,
       notes: item.notes || '',
-      remindAt: taskData.remindAt || '',
+      remindAt: getReminderAt(taskData.date, taskData.time, taskData.remindAt),
       subtasks: [],
       createdAt: item.createdAt,
-    }]);
-  }, [inboxItems]);
+      updatedAt,
+    };
+
+    setInboxItems(prev => prev.filter(i => i.id !== itemId));
+    setTasks(prev => [...prev, scheduledTask]);
+
+    const batch = writeBatch(db);
+    batch.set(taskRef, scheduledTask);
+    batch.delete(inboxRef);
+    batch.commit().catch(error => {
+      console.error('Failed to schedule planner inbox item:', error);
+      setInboxItems(prev => [item, ...prev]);
+      setTasks(prev => prev.filter(t => t.id !== itemId));
+    });
+  }, [inboxItems, userId]);
 
   const deleteInboxItem = useCallback((itemId) => {
+    if (!userId) return;
+    const previous = inboxItems.find(i => i.id === itemId);
     setInboxItems(prev => prev.filter(i => i.id !== itemId));
-  }, []);
+    deleteDoc(doc(db, 'acr_users', userId, 'plannerInbox', itemId)).catch(error => {
+      console.error('Failed to delete planner inbox item:', error);
+      if (previous) setInboxItems(prev => [previous, ...prev]);
+    });
+  }, [inboxItems, userId]);
 
   const openDayDetail = useCallback((date) => {
     setDayDetailDate(date);
@@ -113,7 +273,7 @@ export default function Planner() {
           <TodayView
             tasks={tasks}
             overdueTasks={overdueTasks}
-            categories={SAMPLE_CATEGORIES}
+            categories={PLANNER_CATEGORIES}
             onToggle={toggleTask}
             onDelete={deleteTask}
             onReschedule={rescheduleTask}
@@ -122,8 +282,10 @@ export default function Planner() {
         {activeTab === 'week' && (
           <WeekView
             tasks={tasks}
-            categories={SAMPLE_CATEGORIES}
+            categories={PLANNER_CATEGORIES}
             onToggle={toggleTask}
+            onDelete={deleteTask}
+            onReschedule={rescheduleTask}
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
             onDayPress={openDayDetail}
@@ -132,14 +294,14 @@ export default function Planner() {
         {activeTab === 'month' && (
           <MonthView
             tasks={tasks}
-            categories={SAMPLE_CATEGORIES}
+            categories={PLANNER_CATEGORIES}
             onDayPress={openDayDetail}
           />
         )}
         {activeTab === 'agenda' && (
           <AgendaView
             tasks={tasks}
-            categories={SAMPLE_CATEGORIES}
+            categories={PLANNER_CATEGORIES}
             onToggle={toggleTask}
             onDelete={deleteTask}
           />
@@ -147,7 +309,7 @@ export default function Planner() {
         {activeTab === 'inbox' && (
           <InboxView
             items={inboxItems}
-            categories={SAMPLE_CATEGORIES}
+            categories={PLANNER_CATEGORIES}
             onSchedule={scheduleInboxItem}
             onDelete={deleteInboxItem}
           />
@@ -160,7 +322,7 @@ export default function Planner() {
 
       {quickAddOpen && (
         <QuickAddSheet
-          categories={SAMPLE_CATEGORIES}
+          categories={PLANNER_CATEGORIES}
           onAdd={addTask}
           onClose={() => setQuickAddOpen(false)}
         />
@@ -170,7 +332,7 @@ export default function Planner() {
         <DayDetailSheet
           date={dayDetailDate}
           tasks={tasks.filter(t => t.date === fmt(dayDetailDate))}
-          categories={SAMPLE_CATEGORIES}
+          categories={PLANNER_CATEGORIES}
           onToggle={toggleTask}
           onClose={() => setDayDetailDate(null)}
           onAddTask={() => { setDayDetailDate(null); setQuickAddOpen(true); }}

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import TaskCard from './TaskCard';
 import { fmt, getWeekDays, getLoadLevel } from '../../utils/plannerUtils';
 
-export default function WeekView({ tasks, categories, onToggle, onDelete, selectedDate, setSelectedDate, onDayPress }) {
+export default function WeekView({ tasks, categories, onToggle, onDelete, onReschedule, selectedDate, setSelectedDate, onDayPress }) {
   const [weekOffset, setWeekOffset] = useState(0);
 
   const weekDays = useMemo(() => getWeekDays(new Date(), weekOffset), [weekOffset]);
@@ -25,6 +25,7 @@ export default function WeekView({ tasks, categories, onToggle, onDelete, select
   const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   const selectedDayTasks = getTasksForDay(selectedStr);
+  const weekTaskCount = weekDays.reduce((sum, day) => sum + getTasksForDay(fmt(day)).length, 0);
 
   return (
     <div className="view-scroll">
@@ -87,9 +88,12 @@ export default function WeekView({ tasks, categories, onToggle, onDelete, select
         </div>
 
         {selectedDayTasks.length === 0 ? (
-          <div className="week-empty">
-            <span>No tasks scheduled</span>
-            <span className="week-empty-sub">Tap + to add</span>
+          <div className="empty-state empty-state--compact">
+            <div className="empty-state-icon">{weekTaskCount === 0 ? 'Week' : 'Day'}</div>
+            <div className="empty-state-title">
+              {weekTaskCount === 0 ? 'Nothing scheduled this week' : 'No tasks on this day'}
+            </div>
+            <div className="empty-state-sub">Tap + to add your next task</div>
           </div>
         ) : (
           selectedDayTasks.map(task => (
@@ -98,8 +102,8 @@ export default function WeekView({ tasks, categories, onToggle, onDelete, select
               task={task}
               category={getCat(task.category)}
               onToggle={onToggle}
-              onDelete={() => {}}
-              onReschedule={() => {}}
+              onDelete={onDelete}
+              onReschedule={onReschedule}
             />
           ))
         )}

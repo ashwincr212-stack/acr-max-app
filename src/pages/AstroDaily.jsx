@@ -168,24 +168,25 @@ function normalizePanchangData(raw) {
   const ct = (v) => cleanTime(v);
   const cr = (v) => cleanRange(v);
 
-  // If backend has a `normalized` sub-object, merge it in as fallback
+  // Prefer backend-normalized English timing fields. Raw Panchang can be
+  // translated, so it is only a fallback for old documents.
   const n = raw.normalized || {};
+  const sourceRaw = raw.rawPanchang || raw;
 
   const normalizeDetail = (obj) => {
     if (!obj || typeof obj !== "object") return null;
     return {
       name:    obj.name    || obj.Name    || obj.title  || "",
       lord:    obj.lord    || obj.Lord    || obj.deity  || "",
-      endTime: ct(obj.endTime||obj.end_time||obj.EndTime||obj.ends||""),
+      endTime: ct(obj.endTime||obj.end_time||obj.EndTime||obj.ends||obj.end||""),
       special: obj.special || obj.Special || obj.note   || "",
       summary: obj.summary || obj.Summary || obj.desc   || "",
     };
   };
 
-  // Helper: pick from raw first, fall through to normalized sub-object
   const pick = (...keys) => {
     for (const k of keys) {
-      const v = raw[k] ?? n[k];
+      const v = n[k] ?? sourceRaw[k];
       if (v !== undefined && v !== null && v !== "") return v;
     }
     return "";
@@ -200,10 +201,10 @@ function normalizePanchangData(raw) {
     yamagandam:     cr(pick("yamagandam","yama_gandam","Yamagandam")),
     gulikaKalam:    cr(pick("gulikaKalam","gulika_kalam","gulikakalam")),
     abhijitMuhurta: cr(pick("abhijitMuhurta","abhijit_muhurta","abhijit")),
-    tithi:     normalizeDetail(raw.tithi     || raw.Tithi     || (typeof n.tithi==="object" ? n.tithi : null)),
-    nakshatra: normalizeDetail(raw.nakshatra || raw.Nakshatra || (typeof n.nakshatra==="object" ? n.nakshatra : null)),
-    yoga:      normalizeDetail(raw.yoga      || raw.Yoga      || (typeof n.yoga==="object" ? n.yoga : null)),
-    karana:    normalizeDetail(raw.karana    || raw.Karana    || (typeof n.karana==="object" ? n.karana : null)),
+    tithi:     normalizeDetail((typeof n.tithi==="object" ? n.tithi : null)         || sourceRaw.tithi     || sourceRaw.Tithi),
+    nakshatra: normalizeDetail((typeof n.nakshatra==="object" ? n.nakshatra : null) || sourceRaw.nakshatra || sourceRaw.Nakshatra),
+    yoga:      normalizeDetail((typeof n.yoga==="object" ? n.yoga : null)           || sourceRaw.yoga      || sourceRaw.Yoga),
+    karana:    normalizeDetail((typeof n.karana==="object" ? n.karana : null)       || sourceRaw.karana    || sourceRaw.Karana),
     varName:   pick("varName","var_name","dayName","vara"),
     masaName:  pick("masaName","masa_name","masa","month"),
     paksha:    pick("paksha","Paksha"),
@@ -295,15 +296,9 @@ const Stars = memo(() => {
 
 // ─── HERO (updated: back button instead of standalone location display) ───────
 
-const Hero = memo(({ location, today, status, onBack }) => {
-  const meta = LOCATION_META[location] || LOCATION_META.Chennai;
-  const heroBg = status?.type==="bad"
-    ? "linear-gradient(165deg,#10011a 0%,#1e0616 55%,#0a0010 100%)"
-    : status?.type==="neutral"
-    ? "linear-gradient(165deg,#0f0800 0%,#1c1100 55%,#080500 100%)"
-    : "linear-gradient(165deg,#010a14 0%,#030e1c 55%,#000608 100%)";
+const Hero = memo(({ location, today, onBack }) => {
   return (
-    <div style={{ ...H.hero, background:heroBg }}>
+    <div style={H.hero}>
       <div style={{ position:"absolute",inset:0,overflow:"hidden",borderRadius:"0 0 26px 26px" }}>
         <Stars/>
         <div style={H.orb1}/><div style={H.orb2}/><div style={H.orb3}/>
@@ -328,26 +323,8 @@ const Hero = memo(({ location, today, status, onBack }) => {
       </div>
       <div style={H.center}>
         <div style={H.dateLine}>{formatDateFull(today)}</div>
-        <div style={H.locLine}>
-          <span style={H.locEmoji}>{meta.emoji}</span>
-          <span style={H.locName}>{location}</span>
-          <span style={H.locTag}>{meta.tagline}</span>
-        </div>
+        <div style={H.locLine}>Celestial guidance for {location}</div>
       </div>
-      {status && (
-        <div style={{
-          ...H.ribbon,
-          background: status.type==="bad"?"rgba(255,107,107,0.09)":status.type==="neutral"?"rgba(255,159,67,0.09)":"rgba(46,213,115,0.09)",
-          borderTop:  status.type==="bad"?"1px solid rgba(255,107,107,0.16)":status.type==="neutral"?"1px solid rgba(255,159,67,0.16)":"1px solid rgba(46,213,115,0.16)",
-        }}>
-          <span style={{fontSize:16,lineHeight:1,flexShrink:0}}>{status.icon}</span>
-          <div style={H.ribbonMid}>
-            <span style={{...H.ribbonTitle,color:status.type==="bad"?"#ff8585":status.type==="neutral"?"#ffbe76":"#7bed9f"}}>{status.title}</span>
-            <span style={H.ribbonMsg}>{status.message}</span>
-          </div>
-          {status.extra && <span style={H.ribbonExtra}>{status.extra}</span>}
-        </div>
-      )}
     </div>
   );
 });
@@ -379,14 +356,14 @@ const StatusCard = memo(({ status, active, normalized, nowMs }) => {
     return Math.min(100, Math.max(0, Math.round((new Date(nowMs)-r.start)/(r.end-r.start)*100)));
   })() : 0;
   const PAL = {
-    bad:     { bg:"linear-gradient(140deg,#1c0505,#250a0a)",bdr:"rgba(255,107,107,0.2)", acc:"#ff6b6b",dim:"#b83232",track:"rgba(255,107,107,0.12)" },
-    neutral: { bg:"linear-gradient(140deg,#1a0f00,#261800)",bdr:"rgba(255,159,67,0.2)",  acc:"#ff9f43",dim:"#b86e2a",track:"rgba(255,159,67,0.12)"  },
-    good:    { bg:"linear-gradient(140deg,#001510,#002018)",bdr:"rgba(46,213,115,0.2)",   acc:"#2ed573",dim:"#1a8a4a",track:"rgba(46,213,115,0.12)"  },
+    bad:     { bg:"linear-gradient(140deg,#fff7ed,#fff1f2)",bdr:"rgba(220,38,38,0.16)", acc:"#dc2626",dim:"#b91c1c",track:"rgba(220,38,38,0.1)" },
+    neutral: { bg:"linear-gradient(140deg,#fffbeb,#fff7ed)",bdr:"rgba(217,119,6,0.18)",  acc:"#d97706",dim:"#b45309",track:"rgba(217,119,6,0.12)"  },
+    good:    { bg:"linear-gradient(140deg,#f0fdf4,#eff6ff)",bdr:"rgba(22,163,74,0.16)",   acc:"#16a34a",dim:"#15803d",track:"rgba(22,163,74,0.1)"  },
   };
   const pal = PAL[status.type] || PAL.good;
   const isLive = !!active;
   return (
-    <div style={{...C.statusCard,background:pal.bg,border:`1px solid ${pal.bdr}`,boxShadow:isLive?`0 0 40px ${pal.bdr},0 8px 40px rgba(0,0,0,0.5)`:"0 8px 32px rgba(0,0,0,0.35)",animation:isLive?"statusPulse 3s ease-in-out infinite,slideUp 0.45s ease both":"slideUp 0.45s ease both"}}>
+    <div style={{...C.statusCard,background:pal.bg,border:`1px solid ${pal.bdr}`,boxShadow:isLive?`0 18px 42px ${pal.bdr}`:"0 12px 30px rgba(15,23,42,0.08)",animation:isLive?"statusPulse 3s ease-in-out infinite,slideUp 0.45s ease both":"slideUp 0.45s ease both"}}>
       <div style={C.scTop}>
         <div style={C.scTL}>
           <span style={{fontSize:26,lineHeight:1}}>{status.icon}</span>
@@ -421,7 +398,7 @@ const StatusCard = memo(({ status, active, normalized, nowMs }) => {
       )}
       <div style={{...C.scGuide,borderColor:pal.bdr}}>
         <span style={{color:pal.dim,fontSize:11}}>✦</span>
-        <span style={{...C.scGuideText,color:"rgba(255,255,255,0.5)"}}>
+          <span style={{...C.scGuideText,color:"#64748b"}}>
           {status.type==="bad"?"Delay major decisions until this period ends":status.type==="neutral"?"Minor activities are fine. Stay mindful":"Great window for new beginnings and decisions"}
         </span>
       </div>
@@ -450,13 +427,13 @@ const PeriodTracker = memo(({ normalized, active, nowMs }) => {
           if (!rangeStr) return null;
           const range = parseRangeToDate(rangeStr, now);
           if (!range) return (
-            <div key={period.key} style={{...C.tRow,opacity:0.3,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.04)"}}>
+            <div key={period.key} style={{...C.tRow,opacity:0.55,background:"rgba(248,250,252,0.7)",border:"1px solid rgba(148,163,184,0.14)"}}>
               <div style={C.tRowMain}>
                 <div style={C.tL}>
                   <span style={{...C.tIcon,color:period.color}}>{period.icon}</span>
-                  <div><div style={{...C.tName,color:"rgba(255,255,255,0.4)"}}>{period.label}</div><div style={C.tTimes}>Times unavailable</div></div>
+                  <div><div style={{...C.tName,color:"#94a3b8"}}>{period.label}</div><div style={C.tTimes}>Times unavailable</div></div>
                 </div>
-                <span style={{...C.tPill,background:"rgba(255,255,255,0.04)",color:"#333"}}>—</span>
+                <span style={{...C.tPill,background:"rgba(148,163,184,0.12)",color:"#94a3b8"}}>—</span>
               </div>
             </div>
           );
@@ -464,15 +441,15 @@ const PeriodTracker = memo(({ normalized, active, nowMs }) => {
           const secsLeft=isLive?Math.max(0,Math.floor((range.end-now)/1000)):0;
           const secsUntil=isUpcoming?Math.max(0,Math.floor((range.start-now)/1000)):0;
           const prog=isLive?Math.min(100,Math.max(0,Math.round((now-range.start)/(range.end-range.start)*100))):0;
-          const PILLS={live:{bg:period.color,fg:"#000",txt:"LIVE"},upcoming:{bg:"rgba(255,255,255,0.07)",fg:"#999",txt:"SOON"},done:{bg:"rgba(255,255,255,0.03)",fg:"#444",txt:"DONE"}};
+          const PILLS={live:{bg:period.color,fg:"#fff",txt:"LIVE"},upcoming:{bg:"rgba(148,163,184,0.14)",fg:"#64748b",txt:"SOON"},done:{bg:"rgba(148,163,184,0.1)",fg:"#94a3b8",txt:"DONE"}};
           const state=isLive?"live":isDone?"done":"upcoming"; const pill=PILLS[state];
           return (
-            <div key={period.key} style={{...C.tRow,opacity:isDone?0.42:1,background:isLive?`linear-gradient(135deg,${period.color}12,${period.color}06)`:"rgba(255,255,255,0.02)",border:isLive?`1px solid ${period.color}28`:"1px solid rgba(255,255,255,0.05)",boxShadow:isLive?`0 0 20px ${period.color}15,0 4px 16px rgba(0,0,0,0.3)`:"0 2px 8px rgba(0,0,0,0.2)"}}>
+            <div key={period.key} style={{...C.tRow,opacity:isDone?0.52:1,background:isLive?`linear-gradient(135deg,${period.color}14,#ffffff)`:"rgba(248,250,252,0.78)",border:isLive?`1px solid ${period.color}35`:"1px solid rgba(148,163,184,0.14)",boxShadow:isLive?`0 12px 24px ${period.color}18`:"0 4px 12px rgba(15,23,42,0.04)"}}>
               <div style={C.tRowMain}>
                 <div style={C.tL}>
                   <span style={{...C.tIcon,color:period.color}}>{period.icon}</span>
                   <div>
-                    <div style={{...C.tName,color:isLive?period.color:"rgba(255,255,255,0.8)"}}>{period.label}</div>
+                    <div style={{...C.tName,color:isLive?period.color:"#1f2937"}}>{period.label}</div>
                     <div style={C.tTimes}>{range.startLabel} – {range.endLabel}</div>
                   </div>
                 </div>
@@ -707,27 +684,27 @@ const CSS = `
 @keyframes orbPulse{0%,100%{opacity:0.5}50%{opacity:0.88}}
 @keyframes skelIn{from{opacity:0}to{opacity:1}}
 *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
-select option{background:#0d0618;color:#e8e0f0}
+select option{background:#fffaf0;color:#111827}
 `;
 
 // ─── HERO STYLES (identical to original) ─────────────────────────────────────
 const H = {
-  hero:      { position:"relative",overflow:"hidden",borderRadius:"0 0 20px 20px" },
-  backBtn:   { position:"absolute",top:10,left:10,zIndex:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"5px 7px",color:"rgba(255,255,255,0.6)",cursor:"pointer",display:"flex",alignItems:"center",lineHeight:1 },
-  orb1:      { position:"absolute",top:-74,left:-52,width:170,height:170,borderRadius:"50%",background:"radial-gradient(circle,rgba(138,43,226,0.18) 0%,transparent 70%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
-  orb2:      { position:"absolute",top:-52,right:-62,width:150,height:150,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,211,42,0.09) 0%,transparent 70%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },
-  orb3:      { position:"absolute",bottom:8,right:18,width:82,height:82,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,107,107,0.07) 0%,transparent 70%)",animation:"orbPulse 7s ease-in-out infinite",pointerEvents:"none" },
-  topBar:    { position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 14px 0" },
+  hero:      { position:"relative",overflow:"hidden",borderRadius:"0 0 24px 24px",background:"linear-gradient(165deg,#fffaf0 0%,#f7fbff 52%,#fff4d8 100%)",borderBottom:"1px solid rgba(186,117,23,0.16)",boxShadow:"0 16px 42px rgba(186,117,23,0.12)" },
+  backBtn:   { position:"absolute",top:12,left:12,zIndex:10,background:"rgba(255,255,255,0.74)",border:"1px solid rgba(186,117,23,0.18)",borderRadius:10,padding:"6px 8px",color:"#7a4b08",cursor:"pointer",display:"flex",alignItems:"center",lineHeight:1,boxShadow:"0 8px 18px rgba(186,117,23,0.08)" },
+  orb1:      { position:"absolute",top:-80,left:-50,width:190,height:190,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,193,7,0.25) 0%,transparent 70%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
+  orb2:      { position:"absolute",top:-60,right:-58,width:170,height:170,borderRadius:"50%",background:"radial-gradient(circle,rgba(116,185,255,0.2) 0%,transparent 70%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },
+  orb3:      { position:"absolute",bottom:-18,right:22,width:110,height:110,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,145,77,0.14) 0%,transparent 70%)",animation:"orbPulse 7s ease-in-out infinite",pointerEvents:"none" },
+  topBar:    { position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px 0 54px" },
   appId:     { display:"flex",alignItems:"center",gap:7 },
-  om:        { fontFamily:"'Playfair Display',serif",fontSize:19,color:"#ffd32a",textShadow:"0 0 10px rgba(255,211,42,0.6)",lineHeight:1 },
-  appName:   { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.88)",letterSpacing:"0.04em",lineHeight:1.05 },
-  appSub:    { fontSize:7.5,color:"rgba(255,255,255,0.3)",letterSpacing:"0.07em",marginTop:0 },
-  livePill:  { display:"flex",alignItems:"center",gap:5,background:"rgba(46,213,115,0.09)",border:"1px solid rgba(46,213,115,0.25)",borderRadius:18,padding:"2px 8px" },
-  liveDot:   { display:"inline-block",width:5,height:5,borderRadius:"50%",background:"#2ed573",animation:"blink 1.3s ease-in-out infinite" },
-  liveText:  { fontSize:7.5,fontWeight:800,color:"#2ed573",letterSpacing:"0.11em" },
-  center:    { position:"relative",zIndex:2,textAlign:"center",padding:"5px 14px 6px" },
-  dateLine:  { fontFamily:"'Playfair Display',serif",fontSize:12.5,color:"rgba(255,255,255,0.68)",letterSpacing:"0.02em",marginBottom:3,lineHeight:1.2 },
-  locLine:   { display:"flex",alignItems:"center",justifyContent:"center",gap:4 },
+  om:        { fontFamily:"'Playfair Display',serif",fontSize:22,color:"#d97706",textShadow:"0 0 14px rgba(251,191,36,0.35)",lineHeight:1 },
+  appName:   { fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"#1f2937",letterSpacing:"0.035em",lineHeight:1.05 },
+  appSub:    { fontSize:8,color:"#9a6a16",letterSpacing:"0.08em",marginTop:1,fontWeight:700 },
+  livePill:  { display:"flex",alignItems:"center",gap:5,background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.22)",borderRadius:18,padding:"3px 9px" },
+  liveDot:   { display:"inline-block",width:5,height:5,borderRadius:"50%",background:"#16a34a",animation:"blink 1.3s ease-in-out infinite" },
+  liveText:  { fontSize:7.5,fontWeight:800,color:"#15803d",letterSpacing:"0.11em" },
+  center:    { position:"relative",zIndex:2,textAlign:"left",padding:"22px 18px 20px" },
+  dateLine:  { fontFamily:"'Playfair Display',serif",fontSize:27,color:"#111827",letterSpacing:"-0.02em",marginBottom:5,lineHeight:1.08,fontWeight:700 },
+  locLine:   { fontSize:12,color:"#64748b",fontWeight:700,letterSpacing:"0.02em" },
   locEmoji:  { fontSize:12 },
   locName:   { fontSize:11.5,fontWeight:700,color:"rgba(255,255,255,0.86)" },
   locTag:    { fontSize:9,color:"rgba(255,255,255,0.3)" },
@@ -741,14 +718,14 @@ const H = {
 // ─── CARD STYLES (identical to original) ─────────────────────────────────────
 const C = {
   chips:    { display:"flex",flexWrap:"wrap",gap:5,marginBottom:9,animation:"slideUp 0.33s ease both" },
-  chip:     { fontSize:9,fontWeight:700,background:"rgba(255,255,255,0.055)",border:"1px solid rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.55)",borderRadius:18,padding:"2px 9px",letterSpacing:"0.04em" },
+  chip:     { fontSize:9,fontWeight:800,background:"rgba(255,255,255,0.78)",border:"1px solid rgba(186,117,23,0.14)",color:"#8a5a10",borderRadius:18,padding:"3px 10px",letterSpacing:"0.04em",boxShadow:"0 5px 14px rgba(186,117,23,0.06)" },
   statusCard:{ borderRadius:18,padding:"12px 12px 10px",marginBottom:9,overflow:"hidden" },
   scTop:    { display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:9,marginBottom:9 },
   scTL:     { display:"flex",alignItems:"flex-start",gap:11 },
   scTitle:  { fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,display:"block",lineHeight:1.2 },
-  scMsg:    { fontSize:11,color:"rgba(255,255,255,0.42)",display:"block",marginTop:3 },
-  scLive:   { display:"inline-flex",alignItems:"center",gap:5,color:"#000",borderRadius:20,padding:"4px 10px",fontSize:9,fontWeight:900,letterSpacing:"0.1em",whiteSpace:"nowrap",flexShrink:0 },
-  scLiveDot:{ display:"inline-block",width:5,height:5,borderRadius:"50%",background:"rgba(0,0,0,0.4)",animation:"blink 1s infinite" },
+  scMsg:    { fontSize:11,color:"#64748b",display:"block",marginTop:3 },
+  scLive:   { display:"inline-flex",alignItems:"center",gap:5,color:"#fff",borderRadius:20,padding:"4px 10px",fontSize:9,fontWeight:900,letterSpacing:"0.1em",whiteSpace:"nowrap",flexShrink:0 },
+  scLiveDot:{ display:"inline-block",width:5,height:5,borderRadius:"50%",background:"rgba(255,255,255,0.85)",animation:"blink 1s infinite" },
   scPeriod: { marginBottom:10 },
   scPRow:   { display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 },
   scPName:  { fontSize:11,fontWeight:700,letterSpacing:"0.03em" },
@@ -756,73 +733,73 @@ const C = {
   scTrack:  { height:5,borderRadius:99,overflow:"hidden" },
   scFill:   { height:"100%",borderRadius:99,transition:"width 1s cubic-bezier(0.4,0,0.2,1)" },
   scTrackLbls:{ display:"flex",justifyContent:"space-between",marginTop:5 },
-  scTLbl:   { fontSize:9,color:"rgba(255,255,255,0.22)",fontWeight:600 },
+  scTLbl:   { fontSize:9,color:"#94a3b8",fontWeight:700 },
   scExtra:  { display:"flex",alignItems:"center",gap:7,marginTop:10,paddingTop:10,borderTop:"1px solid" },
   scExtraIcon:{ fontSize:13 },
   scExtraText:{ fontSize:11.5,fontWeight:700 },
   scGuide:  { display:"flex",alignItems:"center",gap:7,marginTop:9,paddingTop:9,borderTop:"1px solid" },
   scGuideText:{ fontSize:10.5,fontStyle:"italic" },
-  tracker:  { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:"11px 11px 9px",marginBottom:9,animation:"slideUp 0.48s 0.05s ease both" },
-  tHead:    { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,paddingBottom:6,borderBottom:"1px solid rgba(255,255,255,0.05)" },
-  tTitle:   { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.82)" },
-  tSub:     { fontSize:9.5,color:"rgba(255,255,255,0.26)" },
+  tracker:  { background:"rgba(255,255,255,0.82)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:18,padding:"11px 11px 9px",marginBottom:9,animation:"slideUp 0.48s 0.05s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
+  tHead:    { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,paddingBottom:6,borderBottom:"1px solid rgba(148,163,184,0.16)" },
+  tTitle:   { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:700,color:"#1f2937" },
+  tSub:     { fontSize:9.5,color:"#94a3b8" },
   tRow:     { borderRadius:12,padding:"8px 10px",transition:"all 0.25s ease" },
   tRowMain: { display:"flex",justifyContent:"space-between",alignItems:"center",gap:8 },
   tL:       { display:"flex",alignItems:"center",gap:10 },
   tIcon:    { fontSize:15,lineHeight:1,flexShrink:0,fontFamily:"serif" },
-  tName:    { fontSize:12,fontWeight:700,lineHeight:1.2,transition:"color 0.2s" },
-  tTimes:   { fontSize:10,color:"rgba(255,255,255,0.32)",fontWeight:500,marginTop:2,fontVariantNumeric:"tabular-nums" },
+  tName:    { fontSize:12,fontWeight:800,lineHeight:1.2,transition:"color 0.2s" },
+  tTimes:   { fontSize:10,color:"#64748b",fontWeight:600,marginTop:2,fontVariantNumeric:"tabular-nums" },
   tR:       { display:"flex",alignItems:"center",gap:7 },
-  tCdwn:    { fontSize:11.5,fontWeight:800,fontVariantNumeric:"tabular-nums",color:"rgba(255,255,255,0.42)" },
+  tCdwn:    { fontSize:11.5,fontWeight:800,fontVariantNumeric:"tabular-nums",color:"#64748b" },
   tPill:    { display:"inline-flex",alignItems:"center",gap:4,fontSize:8.5,fontWeight:800,letterSpacing:"0.07em",borderRadius:20,padding:"2px 8px",whiteSpace:"nowrap" },
   tDot:     { display:"inline-block",width:4,height:4,borderRadius:"50%",animation:"blink 1.2s infinite" },
-  tBar:     { height:3,borderRadius:99,background:"rgba(255,255,255,0.05)",marginTop:7,overflow:"hidden" },
+  tBar:     { height:3,borderRadius:99,background:"rgba(148,163,184,0.18)",marginTop:7,overflow:"hidden" },
   tBarFill: { height:"100%",borderRadius:99,transition:"width 1s cubic-bezier(0.4,0,0.2,1)" },
-  smCard:   { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:"9px 10px 10px",marginBottom:9,animation:"slideUp 0.48s 0.1s ease both" },
-  smHead:   { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:7,paddingBottom:5,borderBottom:"1px solid rgba(255,255,255,0.05)" },
-  smTitle:  { fontFamily:"'Playfair Display',serif",fontSize:12.5,fontWeight:600,color:"rgba(255,255,255,0.82)" },
-  smPhase:  { fontSize:8.5,color:"rgba(255,255,255,0.26)",fontWeight:600,letterSpacing:"0.05em" },
+  smCard:   { background:"rgba(255,255,255,0.82)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:18,padding:"9px 10px 10px",marginBottom:9,animation:"slideUp 0.48s 0.1s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
+  smHead:   { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:7,paddingBottom:5,borderBottom:"1px solid rgba(148,163,184,0.16)" },
+  smTitle:  { fontFamily:"'Playfair Display',serif",fontSize:12.5,fontWeight:700,color:"#1f2937" },
+  smPhase:  { fontSize:8.5,color:"#8a5a10",fontWeight:700,letterSpacing:"0.05em" },
   smGrid:   { display:"grid",gridTemplateColumns:"1fr 1fr",gap:6 },
   smCell:   { borderRadius:12,padding:"7px 8px 6px",display:"flex",flexDirection:"row",alignItems:"center",gap:7,transition:"opacity 0.3s",minHeight:54 },
   smRing:   { flexShrink:0 },
   smInfo:   { textAlign:"left",width:"100%",minWidth:0 },
   smLabel:  { fontSize:8.5,fontWeight:700,letterSpacing:"0.05em",display:"block",marginBottom:1,whiteSpace:"nowrap" },
-  smTime:   { fontSize:12.5,fontWeight:800,color:"rgba(255,255,255,0.88)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap" },
+  smTime:   { fontSize:12.5,fontWeight:800,color:"#111827",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap" },
   smCd:     { fontSize:8.5,fontWeight:600,marginTop:1,display:"block",whiteSpace:"nowrap" },
-  arcCard:  { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:"9px 10px 8px",marginBottom:9,animation:"slideUp 0.48s 0.15s ease both" },
+  arcCard:  { background:"rgba(255,255,255,0.82)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:18,padding:"9px 10px 8px",marginBottom:9,animation:"slideUp 0.48s 0.15s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
   arcInner: { display:"flex",alignItems:"center",gap:9 },
-  arcPct:   { position:"absolute",bottom:8,left:0,right:0,textAlign:"center",fontSize:14.5,fontWeight:800,color:"#ffd32a",fontVariantNumeric:"tabular-nums",fontFamily:"'Sora',sans-serif" },
-  arcPhase: { fontSize:8,fontWeight:700,color:"rgba(255,211,42,0.55)",textTransform:"uppercase",letterSpacing:"0.08em",textAlign:"center",marginTop:0 },
+  arcPct:   { position:"absolute",bottom:8,left:0,right:0,textAlign:"center",fontSize:14.5,fontWeight:800,color:"#d97706",fontVariantNumeric:"tabular-nums",fontFamily:"'Sora',sans-serif" },
+  arcPhase: { fontSize:8,fontWeight:800,color:"#b45309",textTransform:"uppercase",letterSpacing:"0.08em",textAlign:"center",marginTop:0 },
   arcTimes: { flex:1,display:"flex",flexDirection:"column",gap:0 },
   arcTimeItem:{ display:"flex",alignItems:"center",gap:8,padding:"4px 0" },
   arcIcon:  { fontSize:15,lineHeight:1,width:19,textAlign:"center" },
-  arcTLabel:{ fontSize:8.5,color:"rgba(255,255,255,0.32)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em" },
-  arcTVal:  { fontSize:12.5,fontWeight:800,color:"rgba(255,255,255,0.86)",fontVariantNumeric:"tabular-nums" },
-  panCard:  { background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:"11px 10px 11px",marginBottom:9,animation:"slideUp 0.48s 0.2s ease both" },
-  panHead:  { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,paddingBottom:6,borderBottom:"1px solid rgba(255,255,255,0.05)" },
-  panTitle: { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.82)" },
-  panSub:   { fontSize:9.5,color:"rgba(255,255,255,0.26)" },
+  arcTLabel:{ fontSize:8.5,color:"#94a3b8",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em" },
+  arcTVal:  { fontSize:12.5,fontWeight:800,color:"#111827",fontVariantNumeric:"tabular-nums" },
+  panCard:  { background:"rgba(255,255,255,0.84)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:18,padding:"11px 10px 11px",marginBottom:9,animation:"slideUp 0.48s 0.2s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
+  panHead:  { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,paddingBottom:6,borderBottom:"1px solid rgba(148,163,184,0.16)" },
+  panTitle: { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:700,color:"#1f2937" },
+  panSub:   { fontSize:9.5,color:"#94a3b8" },
   panGrid:  { display:"grid",gridTemplateColumns:"1fr 1fr",gap:6 },
-  panCell:  { background:"linear-gradient(145deg,rgba(138,43,226,0.1),rgba(255,211,42,0.055))",border:"1px solid rgba(255,255,255,0.07)",borderRadius:12,padding:"9px 10px",cursor:"default",transition:"all 0.2s ease",position:"relative",userSelect:"none" },
-  panCellOpen:{ background:"linear-gradient(145deg,rgba(138,43,226,0.18),rgba(255,211,42,0.09))",boxShadow:"0 0 0 1px rgba(138,43,226,0.28)" },
+  panCell:  { background:"linear-gradient(145deg,#fffaf0,#f8fbff)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:12,padding:"9px 10px",cursor:"default",transition:"all 0.2s ease",position:"relative",userSelect:"none" },
+  panCellOpen:{ background:"linear-gradient(145deg,#fff7ed,#eff6ff)",boxShadow:"0 0 0 1px rgba(217,119,6,0.22)" },
   panTop:   { display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 },
-  panLbl:   { fontSize:9,fontWeight:800,color:"rgba(138,43,226,0.85)",textTransform:"uppercase",letterSpacing:"0.09em" },
-  panEnd:   { fontSize:8.5,color:"rgba(255,255,255,0.28)",fontWeight:600 },
-  panName:  { fontSize:13.5,fontWeight:800,color:"rgba(255,255,255,0.86)",lineHeight:1.2,marginBottom:2 },
-  panLord:  { fontSize:9.5,color:"rgba(255,255,255,0.32)",fontWeight:500,marginTop:2 },
-  panCaret: { position:"absolute",bottom:8,right:10,fontSize:15,color:"rgba(138,43,226,0.65)",fontWeight:700,transition:"transform 0.2s ease",lineHeight:1 },
-  panExp:   { marginTop:8,paddingTop:7,borderTop:"1px solid rgba(255,255,255,0.07)" },
-  panExpLine:{ fontSize:10,color:"rgba(200,180,255,0.7)",fontWeight:500,lineHeight:1.55,marginBottom:3 },
-  skelCard: { background:"rgba(255,255,255,0.02)",borderRadius:18,padding:"13px 12px 14px",marginBottom:9,animation:"skelIn 0.4s ease both" },
-  skelLine: { borderRadius:6,background:"linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 75%)",backgroundSize:"800px 100%",animation:"shimmer 1.6s infinite linear" },
-  errCard:  { background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:22,padding:"38px 24px",textAlign:"center",animation:"slideUp 0.4s ease both" },
-  errTitle: { fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:600,color:"rgba(200,160,255,0.88)",marginBottom:8 },
-  errMsg:   { fontSize:12.5,color:"rgba(255,255,255,0.38)",lineHeight:1.65,marginBottom:22 },
-  errBtn:   { background:"linear-gradient(135deg,#6c3fd4,#b24eff)",color:"#fff",border:"none",borderRadius:28,padding:"10px 30px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Sora',sans-serif",boxShadow:"0 4px 16px rgba(138,43,226,0.35)" },
+  panLbl:   { fontSize:9,fontWeight:800,color:"#b45309",textTransform:"uppercase",letterSpacing:"0.09em" },
+  panEnd:   { fontSize:8.5,color:"#94a3b8",fontWeight:700 },
+  panName:  { fontSize:13.5,fontWeight:800,color:"#111827",lineHeight:1.2,marginBottom:2 },
+  panLord:  { fontSize:9.5,color:"#64748b",fontWeight:600,marginTop:2 },
+  panCaret: { position:"absolute",bottom:8,right:10,fontSize:15,color:"#d97706",fontWeight:700,transition:"transform 0.2s ease",lineHeight:1 },
+  panExp:   { marginTop:8,paddingTop:7,borderTop:"1px solid rgba(148,163,184,0.16)" },
+  panExpLine:{ fontSize:10,color:"#475569",fontWeight:600,lineHeight:1.55,marginBottom:3 },
+  skelCard: { background:"rgba(255,255,255,0.78)",borderRadius:18,padding:"13px 12px 14px",marginBottom:9,animation:"skelIn 0.4s ease both",border:"1px solid rgba(186,117,23,0.1)" },
+  skelLine: { borderRadius:6,background:"linear-gradient(90deg,rgba(148,163,184,0.12) 25%,rgba(255,255,255,0.9) 50%,rgba(148,163,184,0.12) 75%)",backgroundSize:"800px 100%",animation:"shimmer 1.6s infinite linear" },
+  errCard:  { background:"rgba(255,255,255,0.84)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:22,padding:"38px 24px",textAlign:"center",animation:"slideUp 0.4s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
+  errTitle: { fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#b45309",marginBottom:8 },
+  errMsg:   { fontSize:12.5,color:"#64748b",lineHeight:1.65,marginBottom:22 },
+  errBtn:   { background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#fff",border:"none",borderRadius:28,padding:"10px 30px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Sora',sans-serif",boxShadow:"0 8px 18px rgba(217,119,6,0.22)" },
 };
 
 const R = {
-  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100vh",background:"#080510",color:"rgba(255,255,255,0.85)",overflowX:"hidden",paddingBottom:64 },
-  body:   { maxWidth:480,margin:"0 auto",padding:"9px 10px 0",position:"relative",zIndex:1 },
-  footer: { textAlign:"center",fontSize:10,color:"rgba(255,255,255,0.18)",marginTop:10,fontStyle:"italic",letterSpacing:"0.03em" },
+  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100vh",background:"radial-gradient(circle at 18% -8%, rgba(251,191,36,0.24), transparent 34%), radial-gradient(circle at 100% 0%, rgba(116,185,255,0.22), transparent 32%), linear-gradient(180deg,#fffaf0 0%,#f8fbff 46%,#fff7e6 100%)",color:"#111827",overflowX:"hidden",paddingBottom:64,width:"100%" },
+  body:   { width:"100%",maxWidth:"none",margin:"0",padding:"12px 12px 0",position:"relative",zIndex:1 },
+  footer: { textAlign:"center",fontSize:10,color:"#9a6a16",marginTop:10,fontStyle:"italic",letterSpacing:"0.03em" },
 };

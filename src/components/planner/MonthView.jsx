@@ -25,6 +25,14 @@ export default function MonthView({ tasks, categories, onDayPress }) {
     return map;
   }, [tasks]);
 
+  const currentMonthTaskCount = useMemo(() => {
+    return tasks.filter(t => {
+      if (!t.date || t.isInbox) return false;
+      const d = new Date(t.date + 'T00:00:00');
+      return d.getFullYear() === year && d.getMonth() === month;
+    }).length;
+  }, [tasks, year, month]);
+
   const getCat = (id) => categories.find(c => c.id === id);
 
   // Build cells: prev month spillover + current month + next month spillover
@@ -113,6 +121,14 @@ export default function MonthView({ tasks, categories, onDayPress }) {
           );
         })}
       </div>
+
+      {currentMonthTaskCount === 0 && (
+        <div className="empty-state empty-state--compact month-empty-state">
+          <div className="empty-state-icon">Month</div>
+          <div className="empty-state-title">Nothing scheduled this month</div>
+          <div className="empty-state-sub">Tap + to add your first plan</div>
+        </div>
+      )}
 
       <div style={{ height: 100 }} />
     </div>
