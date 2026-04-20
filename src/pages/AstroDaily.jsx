@@ -212,6 +212,46 @@ function normalizePanchangData(raw) {
   };
 }
 
+function buildDisplayPanchangData(raw, normalized) {
+  if (!raw || typeof raw !== "object") return normalized;
+
+  const rawPanchang = raw.rawPanchang || raw;
+  const adv = rawPanchang.advanced_details || {};
+  const masa = adv.masa || {};
+
+  const firstText = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return "";
+  };
+
+  const displayDetail = (rawDetail, normalizedDetail) => {
+    const detail = rawDetail && typeof rawDetail === "object" ? rawDetail : {};
+    const fallback = normalizedDetail && typeof normalizedDetail === "object" ? normalizedDetail : {};
+
+    return {
+      name: firstText(detail.name, detail.Name, detail.title, fallback.name),
+      lord: firstText(detail.lord, detail.Lord, detail.deity, detail.diety, fallback.lord),
+      endTime: firstText(fallback.endTime, cleanTime(detail.end), cleanTime(detail.endTime), cleanTime(detail.ends)),
+      special: firstText(detail.special, detail.Special, detail.note, fallback.special),
+      summary: firstText(detail.summary, detail.Summary, detail.meaning, detail.desc, fallback.summary),
+    };
+  };
+
+  return {
+    ...normalized,
+    varName: firstText(adv.vaara, rawPanchang.day?.name, rawPanchang.var_name, normalized?.varName),
+    masaName: firstText(masa.amanta_name, rawPanchang.masa_name, normalized?.masaName),
+    paksha: firstText(masa.paksha, rawPanchang.paksha, normalized?.paksha),
+    samvat: firstText(adv.years?.vikram_samvaat_name, rawPanchang.samvat_name, normalized?.samvat),
+    tithi: displayDetail(rawPanchang.tithi || rawPanchang.Tithi, normalized?.tithi),
+    nakshatra: displayDetail(rawPanchang.nakshatra || rawPanchang.Nakshatra, normalized?.nakshatra),
+    yoga: displayDetail(rawPanchang.yoga || rawPanchang.Yoga, normalized?.yoga),
+    karana: displayDetail(rawPanchang.karana || rawPanchang.Karana, normalized?.karana),
+  };
+}
+
 // ─── LIVE COMPUTATIONS ───────────────────────────────────────────────────────
 
 function computeLiveState(normalized, nowMs) {
@@ -627,6 +667,7 @@ export default function AstroDaily({ location = "Chennai", lang = "en", onBack }
   const today = useMemo(() => getTodayIST(), []);
   const clock = useClock();
   const normalized = useMemo(() => normalizePanchangData(rawData), [rawData]);
+  const displayData = useMemo(() => buildDisplayPanchangData(rawData, normalized), [rawData, normalized]);
   const nowMs = clock.now.getTime();
   const { active, next } = useMemo(() => computeLiveState(normalized, nowMs), [normalized, nowMs]);
   const dayProg = useMemo(() => computeDayProgress(normalized, nowMs), [normalized, nowMs]);
@@ -659,12 +700,12 @@ export default function AstroDaily({ location = "Chennai", lang = "en", onBack }
         {loading && <Skel/>}
         {!loading && error && <Err msg={error} retry={load}/>}
         {!loading && normalized && <>
-          <MetaChips p={normalized}/>
+          <MetaChips p={displayData}/>
           <StatusCard status={status} active={active} normalized={normalized} nowMs={nowMs}/>
           <PeriodTracker normalized={normalized} active={active} nowMs={nowMs}/>
           <SunMoon normalized={normalized} dayProg={dayProg} nowMs={nowMs}/>
           {normalized.sunrise!=="—"&&normalized.sunset!=="—"&&<DayArc normalized={normalized} dayProg={dayProg}/>}
-          <PanDetails normalized={normalized}/>
+          <PanDetails normalized={displayData}/>
           <div style={R.footer}>✦ Refreshes daily at 2 AM IST · Vedic Astrology ✦</div>
         </>}
       </div>

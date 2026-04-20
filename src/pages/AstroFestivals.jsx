@@ -49,6 +49,12 @@ function normalizeYoga(item) {
   };
 }
 
+function asList(value) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object") return Object.values(value).flat();
+  return [];
+}
+
 // ─── FESTIVAL CARD ────────────────────────────────────────────────────────────
 
 const FestivalCard = memo(({ item }) => {
@@ -172,13 +178,20 @@ export default function AstroFestivals({ location = "Chennai", lang = "en", onBa
 
   useEffect(() => { load(); }, [location, lang]);
 
-  // Parse festivals
-  const rawFests = data?.festivals || data?.rawFestivals || [];
-  const rawYogas = data?.yogas || [];
-  const festivals = (Array.isArray(rawFests) ? rawFests : Object.values(rawFests))
-    .map(normalizeFestival).filter(f => f?.name);
-  const yogas = (Array.isArray(rawYogas) ? rawYogas : Object.values(rawYogas))
-    .map(normalizeYoga).filter(y => y?.name);
+  // Prefer selected-language API payloads for visible text. Canonical arrays
+  // remain a safe fallback for older docs or sparse language responses.
+  const rawFestivals = data?.rawFestivals || {};
+  const rawFestivalList = asList(rawFestivals?.festival_list);
+  const rawFestivalFallback = asList(rawFestivals?.festivals);
+  const rawYogaList = asList(rawFestivals?.yogas);
+  const festivalSource = rawFestivalList.length
+    ? rawFestivalList
+    : rawFestivalFallback.length
+      ? rawFestivalFallback
+      : asList(data?.festivals);
+  const yogaSource = rawYogaList.length ? rawYogaList : asList(data?.yogas);
+  const festivals = festivalSource.map(normalizeFestival).filter(f => f?.name);
+  const yogas = yogaSource.map(normalizeYoga).filter(y => y?.name);
 
   // Sort: highlighted first
   const sortedFests = [
