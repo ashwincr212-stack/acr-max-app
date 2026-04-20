@@ -229,13 +229,32 @@ function buildDisplayPanchangData(raw, normalized) {
   const displayDetail = (rawDetail, normalizedDetail) => {
     const detail = rawDetail && typeof rawDetail === "object" ? rawDetail : {};
     const fallback = normalizedDetail && typeof normalizedDetail === "object" ? normalizedDetail : {};
+    const nextValue = firstText(
+      detail.next_tithi,
+      detail.next_nakshatra,
+      detail.next_yoga,
+      detail.next_karana,
+      fallback.next
+    );
 
     return {
       name: firstText(detail.name, detail.Name, detail.title, fallback.name),
-      lord: firstText(detail.lord, detail.Lord, detail.deity, detail.diety, fallback.lord),
+      number: firstText(detail.number, fallback.number),
+      type: firstText(detail.type, fallback.type),
+      pada: firstText(detail.pada, fallback.pada),
+      lord: firstText(detail.lord, detail.Lord, fallback.lord),
+      deity: firstText(detail.deity, detail.diety, detail.Deity, fallback.deity),
+      startTime: firstText(fallback.startTime, cleanTime(detail.start), cleanTime(detail.startTime), cleanTime(detail.begins)),
       endTime: firstText(fallback.endTime, cleanTime(detail.end), cleanTime(detail.endTime), cleanTime(detail.ends)),
+      next: nextValue,
+      meaning: firstText(detail.meaning, detail.Meaning, fallback.meaning),
       special: firstText(detail.special, detail.Special, detail.note, fallback.special),
-      summary: firstText(detail.summary, detail.Summary, detail.meaning, detail.desc, fallback.summary),
+      summary: firstText(detail.summary, detail.Summary, detail.desc, fallback.summary),
+      auspiciousDisha: Array.isArray(detail.auspicious_disha)
+        ? detail.auspicious_disha
+        : Array.isArray(fallback.auspiciousDisha)
+          ? fallback.auspiciousDisha
+          : [],
     };
   };
 
@@ -336,7 +355,7 @@ const Stars = memo(() => {
 
 // ─── HERO (updated: back button instead of standalone location display) ───────
 
-const Hero = memo(({ location, today, onBack }) => {
+const Hero = memo(({ today, onBack }) => {
   return (
     <div style={H.hero}>
       <div style={{ position:"absolute",inset:0,overflow:"hidden",borderRadius:"0 0 26px 26px" }}>
@@ -363,7 +382,6 @@ const Hero = memo(({ location, today, onBack }) => {
       </div>
       <div style={H.center}>
         <div style={H.dateLine}>{formatDateFull(today)}</div>
-        <div style={H.locLine}>Celestial guidance for {location}</div>
       </div>
     </div>
   );
@@ -438,7 +456,7 @@ const StatusCard = memo(({ status, active, normalized, nowMs }) => {
       )}
       <div style={{...C.scGuide,borderColor:pal.bdr}}>
         <span style={{color:pal.dim,fontSize:11}}>✦</span>
-          <span style={{...C.scGuideText,color:"#64748b"}}>
+        <span style={{...C.scGuideText,color:"#64748b"}}>
           {status.type==="bad"?"Delay major decisions until this period ends":status.type==="neutral"?"Minor activities are fine. Stay mindful":"Great window for new beginnings and decisions"}
         </span>
       </div>
@@ -605,26 +623,61 @@ const DayArc = memo(({ normalized, dayProg }) => {
 
 // ─── PANCHANG DETAILS (identical to original) ─────────────────────────────────
 
-const PanCell = memo(({ label, name, lord, endTime, special, summary }) => {
-  const [open,setOpen] = useState(false);
-  const hasMore = !!(special||summary);
+const PanCell = memo(({ label, detail }) => {
+  const meta = [
+    detail?.type && { label:"Type", value:detail.type },
+    detail?.number && { label:"No.", value:detail.number },
+    detail?.pada && { label:"Pada", value:detail.pada },
+    detail?.lord && { label:"Lord", value:detail.lord },
+    detail?.deity && { label:"Deity", value:detail.deity },
+    detail?.startTime && detail.startTime !== EMPTY_TIME && { label:"Starts", value:detail.startTime },
+    detail?.endTime && detail.endTime !== EMPTY_TIME && { label:"Until", value:detail.endTime },
+    detail?.next && { label:"Next", value:detail.next },
+  ].filter(Boolean);
+  const textBlocks = [
+    detail?.meaning && { label:"Meaning", value:detail.meaning },
+    detail?.special && { label:"Special", value:detail.special },
+    detail?.summary && { label:"Summary", value:detail.summary },
+    detail?.auspiciousDisha?.length && { label:"Auspicious Direction", value:detail.auspiciousDisha.join(", ") },
+  ].filter(Boolean);
+
   return (
-    <div style={{...C.panCell,...(open?C.panCellOpen:{})}} onClick={()=>hasMore&&setOpen(o=>!o)} role={hasMore?"button":undefined} tabIndex={hasMore?0:undefined} onKeyDown={hasMore?(e=>e.key==="Enter"&&setOpen(o=>!o)):undefined}>
-      <div style={C.panTop}><span style={C.panLbl}>{label}</span>{endTime&&endTime!=="—"&&<span style={C.panEnd}>until {endTime}</span>}</div>
-      <div style={C.panName}>{name||"—"}</div>
-      {lord&&<div style={C.panLord}>{lord}</div>}
-      {hasMore&&<span style={{...C.panCaret,transform:open?"rotate(90deg)":"rotate(0)"}}>›</span>}
-      {open&&<div style={C.panExp}>{special&&<div style={C.panExpLine}>✦ {special}</div>}{summary&&<div style={C.panExpLine}>{summary}</div>}</div>}
+    <div style={C.panCell}>
+      <div style={C.panTop}>
+        <span style={C.panLbl}>{label}</span>
+        {detail?.endTime&&detail.endTime!==EMPTY_TIME&&<span style={C.panEnd}>until {detail.endTime}</span>}
+      </div>
+      <div style={C.panName}>{detail?.name||EMPTY_TIME}</div>
+      {meta.length > 0 && (
+        <div style={C.panMetaGrid}>
+          {meta.map((item) => (
+            <div key={`${label}-${item.label}`} style={C.panMetaItem}>
+              <span style={C.panMetaLabel}>{item.label}</span>
+              <span style={C.panMetaValue}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {textBlocks.length > 0 && (
+        <div style={C.panTextStack}>
+          {textBlocks.map((item) => (
+            <div key={`${label}-${item.label}`} style={C.panTextBlock}>
+              <div style={C.panTextLabel}>{item.label}</div>
+              <div style={C.panText}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
 
 const PanDetails = memo(({ normalized }) => (
   <div style={C.panCard}>
-    <div style={C.panHead}><span style={C.panTitle}>Panchang</span><span style={C.panSub}>Celestial positions</span></div>
+    <div style={C.panHead}><span style={C.panTitle}>Panchang Insights</span><span style={C.panSub}>Full daily details</span></div>
     <div style={C.panGrid}>
       {[{label:"Tithi",d:normalized?.tithi},{label:"Nakshatra",d:normalized?.nakshatra},{label:"Yoga",d:normalized?.yoga},{label:"Karana",d:normalized?.karana}].map(({label,d})=>(
-        <PanCell key={label} label={label} name={d?.name} lord={d?.lord} endTime={d?.endTime} special={d?.special} summary={d?.summary}/>
+        <PanCell key={label} label={label} detail={d}/>
       ))}
     </div>
   </div>
@@ -695,7 +748,7 @@ export default function AstroDaily({ location = "Chennai", lang = "en", onBack }
 
   return (
     <div style={R.root}>
-      <Hero location={location} today={today} status={status} onBack={onBack}/>
+      <Hero today={today} status={status} onBack={onBack}/>
       <div style={R.body}>
         {loading && <Skel/>}
         {!loading && error && <Err msg={error} retry={load}/>}
@@ -730,21 +783,21 @@ select option{background:#fffaf0;color:#111827}
 
 // ─── HERO STYLES (identical to original) ─────────────────────────────────────
 const H = {
-  hero:      { position:"relative",overflow:"hidden",borderRadius:"0 0 24px 24px",background:"linear-gradient(165deg,#fffaf0 0%,#f7fbff 52%,#fff4d8 100%)",borderBottom:"1px solid rgba(186,117,23,0.16)",boxShadow:"0 16px 42px rgba(186,117,23,0.12)" },
-  backBtn:   { position:"absolute",top:12,left:12,zIndex:10,background:"rgba(255,255,255,0.74)",border:"1px solid rgba(186,117,23,0.18)",borderRadius:10,padding:"6px 8px",color:"#7a4b08",cursor:"pointer",display:"flex",alignItems:"center",lineHeight:1,boxShadow:"0 8px 18px rgba(186,117,23,0.08)" },
-  orb1:      { position:"absolute",top:-80,left:-50,width:190,height:190,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,193,7,0.25) 0%,transparent 70%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
-  orb2:      { position:"absolute",top:-60,right:-58,width:170,height:170,borderRadius:"50%",background:"radial-gradient(circle,rgba(116,185,255,0.2) 0%,transparent 70%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },
-  orb3:      { position:"absolute",bottom:-18,right:22,width:110,height:110,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,145,77,0.14) 0%,transparent 70%)",animation:"orbPulse 7s ease-in-out infinite",pointerEvents:"none" },
-  topBar:    { position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px 0 54px" },
-  appId:     { display:"flex",alignItems:"center",gap:7 },
-  om:        { fontFamily:"'Playfair Display',serif",fontSize:22,color:"#d97706",textShadow:"0 0 14px rgba(251,191,36,0.35)",lineHeight:1 },
-  appName:   { fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"#1f2937",letterSpacing:"0.035em",lineHeight:1.05 },
-  appSub:    { fontSize:8,color:"#9a6a16",letterSpacing:"0.08em",marginTop:1,fontWeight:700 },
-  livePill:  { display:"flex",alignItems:"center",gap:5,background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.22)",borderRadius:18,padding:"3px 9px" },
+  hero:      { position:"relative",overflow:"hidden",borderRadius:"0 0 28px 28px",background:"linear-gradient(160deg,#fffdf6 0%,#f2fbff 48%,#fff1cd 100%)",borderBottom:"1px solid rgba(217,119,6,0.15)",boxShadow:"0 18px 46px rgba(217,119,6,0.13)" },
+  backBtn:   { position:"absolute",top:14,left:14,zIndex:10,background:"rgba(255,255,255,0.82)",border:"1px solid rgba(217,119,6,0.18)",borderRadius:12,padding:"7px 9px",color:"#7a4b08",cursor:"pointer",display:"flex",alignItems:"center",lineHeight:1,boxShadow:"0 10px 22px rgba(217,119,6,0.1)" },
+  orb1:      { position:"absolute",top:-82,left:-54,width:210,height:210,borderRadius:"50%",background:"radial-gradient(circle,rgba(251,191,36,0.28) 0%,rgba(251,191,36,0.12) 34%,transparent 72%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
+  orb2:      { position:"absolute",top:-64,right:-60,width:190,height:190,borderRadius:"50%",background:"radial-gradient(circle,rgba(125,211,252,0.24) 0%,rgba(186,230,253,0.13) 36%,transparent 74%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },
+  orb3:      { position:"absolute",bottom:-28,right:18,width:136,height:136,borderRadius:"50%",background:"radial-gradient(circle,rgba(251,146,60,0.18) 0%,rgba(251,191,36,0.08) 40%,transparent 72%)",animation:"orbPulse 7s ease-in-out infinite",pointerEvents:"none" },
+  topBar:    { position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px 0 58px" },
+  appId:     { display:"flex",alignItems:"center",gap:8 },
+  om:        { fontFamily:"'Playfair Display',serif",fontSize:24,color:"#d97706",textShadow:"0 0 18px rgba(251,191,36,0.4)",lineHeight:1 },
+  appName:   { fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#172033",letterSpacing:"0.02em",lineHeight:1.05 },
+  appSub:    { fontSize:8,color:"#9a6a16",letterSpacing:"0.08em",marginTop:2,fontWeight:800 },
+  livePill:  { display:"flex",alignItems:"center",gap:5,background:"rgba(22,163,74,0.1)",border:"1px solid rgba(22,163,74,0.22)",borderRadius:18,padding:"4px 10px",boxShadow:"0 8px 18px rgba(22,163,74,0.08)" },
   liveDot:   { display:"inline-block",width:5,height:5,borderRadius:"50%",background:"#16a34a",animation:"blink 1.3s ease-in-out infinite" },
   liveText:  { fontSize:7.5,fontWeight:800,color:"#15803d",letterSpacing:"0.11em" },
-  center:    { position:"relative",zIndex:2,textAlign:"left",padding:"22px 18px 20px" },
-  dateLine:  { fontFamily:"'Playfair Display',serif",fontSize:27,color:"#111827",letterSpacing:"-0.02em",marginBottom:5,lineHeight:1.08,fontWeight:700 },
+  center:    { position:"relative",zIndex:2,textAlign:"left",padding:"18px 18px 22px" },
+  dateLine:  { fontFamily:"'Playfair Display',serif",fontSize:25,color:"#111827",letterSpacing:"0",marginBottom:0,lineHeight:1.12,fontWeight:700,maxWidth:"92%" },
   locLine:   { fontSize:12,color:"#64748b",fontWeight:700,letterSpacing:"0.02em" },
   locEmoji:  { fontSize:12 },
   locName:   { fontSize:11.5,fontWeight:700,color:"rgba(255,255,255,0.86)" },
@@ -758,9 +811,9 @@ const H = {
 
 // ─── CARD STYLES (identical to original) ─────────────────────────────────────
 const C = {
-  chips:    { display:"flex",flexWrap:"wrap",gap:5,marginBottom:9,animation:"slideUp 0.33s ease both" },
-  chip:     { fontSize:9,fontWeight:800,background:"rgba(255,255,255,0.78)",border:"1px solid rgba(186,117,23,0.14)",color:"#8a5a10",borderRadius:18,padding:"3px 10px",letterSpacing:"0.04em",boxShadow:"0 5px 14px rgba(186,117,23,0.06)" },
-  statusCard:{ borderRadius:18,padding:"12px 12px 10px",marginBottom:9,overflow:"hidden" },
+  chips:    { display:"flex",flexWrap:"wrap",gap:6,marginBottom:10,animation:"slideUp 0.33s ease both" },
+  chip:     { fontSize:10,fontWeight:800,background:"rgba(255,255,255,0.9)",border:"1px solid rgba(217,119,6,0.14)",color:"#8a5a10",borderRadius:18,padding:"4px 10px",letterSpacing:"0.03em",boxShadow:"0 6px 16px rgba(217,119,6,0.07)" },
+  statusCard:{ borderRadius:20,padding:"14px 14px 12px",marginBottom:10,overflow:"hidden" },
   scTop:    { display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:9,marginBottom:9 },
   scTL:     { display:"flex",alignItems:"flex-start",gap:11 },
   scTitle:  { fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,display:"block",lineHeight:1.2 },
@@ -780,7 +833,7 @@ const C = {
   scExtraText:{ fontSize:11.5,fontWeight:700 },
   scGuide:  { display:"flex",alignItems:"center",gap:7,marginTop:9,paddingTop:9,borderTop:"1px solid" },
   scGuideText:{ fontSize:10.5,fontStyle:"italic" },
-  tracker:  { background:"rgba(255,255,255,0.82)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:18,padding:"11px 11px 9px",marginBottom:9,animation:"slideUp 0.48s 0.05s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
+  tracker:  { background:"rgba(255,255,255,0.88)",border:"1px solid rgba(217,119,6,0.12)",borderRadius:20,padding:"12px 12px 10px",marginBottom:10,animation:"slideUp 0.48s 0.05s ease both",boxShadow:"0 14px 34px rgba(15,23,42,0.07)" },
   tHead:    { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,paddingBottom:6,borderBottom:"1px solid rgba(148,163,184,0.16)" },
   tTitle:   { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:700,color:"#1f2937" },
   tSub:     { fontSize:9.5,color:"#94a3b8" },
@@ -796,7 +849,7 @@ const C = {
   tDot:     { display:"inline-block",width:4,height:4,borderRadius:"50%",animation:"blink 1.2s infinite" },
   tBar:     { height:3,borderRadius:99,background:"rgba(148,163,184,0.18)",marginTop:7,overflow:"hidden" },
   tBarFill: { height:"100%",borderRadius:99,transition:"width 1s cubic-bezier(0.4,0,0.2,1)" },
-  smCard:   { background:"rgba(255,255,255,0.82)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:18,padding:"9px 10px 10px",marginBottom:9,animation:"slideUp 0.48s 0.1s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
+  smCard:   { background:"rgba(255,255,255,0.88)",border:"1px solid rgba(217,119,6,0.12)",borderRadius:20,padding:"10px 11px 11px",marginBottom:10,animation:"slideUp 0.48s 0.1s ease both",boxShadow:"0 14px 34px rgba(15,23,42,0.07)" },
   smHead:   { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:7,paddingBottom:5,borderBottom:"1px solid rgba(148,163,184,0.16)" },
   smTitle:  { fontFamily:"'Playfair Display',serif",fontSize:12.5,fontWeight:700,color:"#1f2937" },
   smPhase:  { fontSize:8.5,color:"#8a5a10",fontWeight:700,letterSpacing:"0.05em" },
@@ -807,7 +860,7 @@ const C = {
   smLabel:  { fontSize:8.5,fontWeight:700,letterSpacing:"0.05em",display:"block",marginBottom:1,whiteSpace:"nowrap" },
   smTime:   { fontSize:12.5,fontWeight:800,color:"#111827",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap" },
   smCd:     { fontSize:8.5,fontWeight:600,marginTop:1,display:"block",whiteSpace:"nowrap" },
-  arcCard:  { background:"rgba(255,255,255,0.82)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:18,padding:"9px 10px 8px",marginBottom:9,animation:"slideUp 0.48s 0.15s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
+  arcCard:  { background:"rgba(255,255,255,0.88)",border:"1px solid rgba(217,119,6,0.12)",borderRadius:20,padding:"10px 11px 9px",marginBottom:10,animation:"slideUp 0.48s 0.15s ease both",boxShadow:"0 14px 34px rgba(15,23,42,0.07)" },
   arcInner: { display:"flex",alignItems:"center",gap:9 },
   arcPct:   { position:"absolute",bottom:8,left:0,right:0,textAlign:"center",fontSize:14.5,fontWeight:800,color:"#d97706",fontVariantNumeric:"tabular-nums",fontFamily:"'Sora',sans-serif" },
   arcPhase: { fontSize:8,fontWeight:800,color:"#b45309",textTransform:"uppercase",letterSpacing:"0.08em",textAlign:"center",marginTop:0 },
@@ -816,21 +869,24 @@ const C = {
   arcIcon:  { fontSize:15,lineHeight:1,width:19,textAlign:"center" },
   arcTLabel:{ fontSize:8.5,color:"#94a3b8",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em" },
   arcTVal:  { fontSize:12.5,fontWeight:800,color:"#111827",fontVariantNumeric:"tabular-nums" },
-  panCard:  { background:"rgba(255,255,255,0.84)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:18,padding:"11px 10px 11px",marginBottom:9,animation:"slideUp 0.48s 0.2s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
-  panHead:  { display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,paddingBottom:6,borderBottom:"1px solid rgba(148,163,184,0.16)" },
-  panTitle: { fontFamily:"'Playfair Display',serif",fontSize:13,fontWeight:700,color:"#1f2937" },
-  panSub:   { fontSize:9.5,color:"#94a3b8" },
-  panGrid:  { display:"grid",gridTemplateColumns:"1fr 1fr",gap:6 },
-  panCell:  { background:"linear-gradient(145deg,#fffaf0,#f8fbff)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:12,padding:"9px 10px",cursor:"default",transition:"all 0.2s ease",position:"relative",userSelect:"none" },
-  panCellOpen:{ background:"linear-gradient(145deg,#fff7ed,#eff6ff)",boxShadow:"0 0 0 1px rgba(217,119,6,0.22)" },
-  panTop:   { display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 },
-  panLbl:   { fontSize:9,fontWeight:800,color:"#b45309",textTransform:"uppercase",letterSpacing:"0.09em" },
-  panEnd:   { fontSize:8.5,color:"#94a3b8",fontWeight:700 },
-  panName:  { fontSize:13.5,fontWeight:800,color:"#111827",lineHeight:1.2,marginBottom:2 },
-  panLord:  { fontSize:9.5,color:"#64748b",fontWeight:600,marginTop:2 },
-  panCaret: { position:"absolute",bottom:8,right:10,fontSize:15,color:"#d97706",fontWeight:700,transition:"transform 0.2s ease",lineHeight:1 },
-  panExp:   { marginTop:8,paddingTop:7,borderTop:"1px solid rgba(148,163,184,0.16)" },
-  panExpLine:{ fontSize:10,color:"#475569",fontWeight:600,lineHeight:1.55,marginBottom:3 },
+  panCard:  { background:"rgba(255,255,255,0.9)",border:"1px solid rgba(217,119,6,0.12)",borderRadius:22,padding:"14px 12px 13px",marginBottom:10,animation:"slideUp 0.48s 0.2s ease both",boxShadow:"0 16px 38px rgba(15,23,42,0.08)" },
+  panHead:  { display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:10,marginBottom:12,paddingBottom:8,borderBottom:"1px solid rgba(148,163,184,0.16)" },
+  panTitle: { fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#172033" },
+  panSub:   { fontSize:10,color:"#8a5a10",fontWeight:800,letterSpacing:"0.04em",whiteSpace:"nowrap" },
+  panGrid:  { display:"grid",gridTemplateColumns:"1fr",gap:10 },
+  panCell:  { background:"linear-gradient(145deg,#fffdf7 0%,#f8fcff 58%,#fff7e6 100%)",border:"1px solid rgba(217,119,6,0.14)",borderRadius:18,padding:"14px 14px 13px",cursor:"default",transition:"all 0.2s ease",position:"relative",overflow:"hidden",boxShadow:"0 10px 24px rgba(15,23,42,0.06)" },
+  panTop:   { display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:8 },
+  panLbl:   { fontSize:10,fontWeight:900,color:"#b45309",textTransform:"uppercase",letterSpacing:"0.1em" },
+  panEnd:   { fontSize:10,color:"#64748b",fontWeight:800,background:"rgba(255,255,255,0.72)",border:"1px solid rgba(148,163,184,0.16)",borderRadius:16,padding:"3px 8px",whiteSpace:"nowrap" },
+  panName:  { fontFamily:"'Playfair Display',serif",fontSize:21,fontWeight:700,color:"#111827",lineHeight:1.18,marginBottom:11 },
+  panMetaGrid:{ display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:7,marginBottom:11 },
+  panMetaItem:{ background:"rgba(255,255,255,0.76)",border:"1px solid rgba(148,163,184,0.14)",borderRadius:12,padding:"7px 8px",minWidth:0 },
+  panMetaLabel:{ display:"block",fontSize:8.5,color:"#94a3b8",fontWeight:900,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:2 },
+  panMetaValue:{ display:"block",fontSize:11.5,color:"#243044",fontWeight:800,lineHeight:1.25,overflowWrap:"anywhere" },
+  panTextStack:{ display:"flex",flexDirection:"column",gap:8,borderTop:"1px solid rgba(148,163,184,0.16)",paddingTop:10 },
+  panTextBlock:{ background:"rgba(255,255,255,0.54)",borderRadius:12,padding:"9px 10px" },
+  panTextLabel:{ fontSize:9,color:"#b45309",fontWeight:900,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4 },
+  panText:{ fontSize:12.5,color:"#334155",fontWeight:600,lineHeight:1.62,whiteSpace:"pre-wrap",overflowWrap:"anywhere" },
   skelCard: { background:"rgba(255,255,255,0.78)",borderRadius:18,padding:"13px 12px 14px",marginBottom:9,animation:"skelIn 0.4s ease both",border:"1px solid rgba(186,117,23,0.1)" },
   skelLine: { borderRadius:6,background:"linear-gradient(90deg,rgba(148,163,184,0.12) 25%,rgba(255,255,255,0.9) 50%,rgba(148,163,184,0.12) 75%)",backgroundSize:"800px 100%",animation:"shimmer 1.6s infinite linear" },
   errCard:  { background:"rgba(255,255,255,0.84)",border:"1px solid rgba(186,117,23,0.12)",borderRadius:22,padding:"38px 24px",textAlign:"center",animation:"slideUp 0.4s ease both",boxShadow:"0 12px 30px rgba(15,23,42,0.07)" },
@@ -840,7 +896,7 @@ const C = {
 };
 
 const R = {
-  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100vh",background:"radial-gradient(circle at 18% -8%, rgba(251,191,36,0.24), transparent 34%), radial-gradient(circle at 100% 0%, rgba(116,185,255,0.22), transparent 32%), linear-gradient(180deg,#fffaf0 0%,#f8fbff 46%,#fff7e6 100%)",color:"#111827",overflowX:"hidden",paddingBottom:64,width:"100%" },
-  body:   { width:"100%",maxWidth:"none",margin:"0",padding:"12px 12px 0",position:"relative",zIndex:1 },
-  footer: { textAlign:"center",fontSize:10,color:"#9a6a16",marginTop:10,fontStyle:"italic",letterSpacing:"0.03em" },
+  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100svh",background:"radial-gradient(circle at 16% -6%, rgba(251,191,36,0.3), transparent 32%), radial-gradient(circle at 100% 2%, rgba(125,211,252,0.26), transparent 34%), radial-gradient(circle at 50% 42%, rgba(255,255,255,0.65), transparent 34%), linear-gradient(180deg,#fffdf6 0%,#f4fbff 44%,#fff7e6 100%)",color:"#111827",overflowX:"hidden",paddingBottom:"max(72px, env(safe-area-inset-bottom))",width:"100%" },
+  body:   { width:"100%",maxWidth:"none",margin:0,padding:"12px 12px 0",position:"relative",zIndex:1 },
+  footer: { textAlign:"center",fontSize:10,color:"#9a6a16",marginTop:12,fontStyle:"italic",letterSpacing:"0.03em" },
 };
