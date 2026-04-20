@@ -1,4 +1,4 @@
-
+import DayPlanner from './pages/DayPlanner'
 import Home from './pages/Home'
 import Expense from './pages/Expense'
 import AstroRouter from './pages/AstroRouter'
@@ -536,6 +536,8 @@ function AppShell({ currentUser, onLogout }) {
 
   const renderContent = () => {
     switch (activeTab) {
+      
+      
       case 'home':
         return <Home setActiveTab={setActiveTab} setPrevTab={setPrevTab} activeTab={activeTab} logs={logs} overallTotal={overallTotal} currentUser={currentUser} onLogout={onLogout} coins={coins} addCoinLog={addCoinLog} />
       case 'expense':
@@ -562,7 +564,8 @@ function AppShell({ currentUser, onLogout }) {
       }}
     />
   )
-      
+      case 'dayplanner':
+        return <DayPlanner />
         case 'space':
         return <Space issData={issData} issLocation={issLocation} nasaData={nasaData} />
       case 'cricket':
@@ -592,6 +595,7 @@ function AppShell({ currentUser, onLogout }) {
     { id: 'chat',    label: '🤖 AI Quick Chats' },
     { id: 'space',   label: '🚀 Space World' },
     { id: 'profile', label: '👤 Profile' },
+    { id: 'dayplanner', label: '🗓️ Day Planner' },
   ]
 
   return (
