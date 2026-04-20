@@ -1,4 +1,5 @@
-import DayPlanner from './pages/DayPlanner'
+import Planner from './pages/Planner'
+
 import Home from './pages/Home'
 import Expense from './pages/Expense'
 import AstroRouter from './pages/AstroRouter'
@@ -564,8 +565,8 @@ function AppShell({ currentUser, onLogout }) {
       }}
     />
   )
-      case 'dayplanner':
-        return <DayPlanner />
+      case 'planner':
+        return <Planner />
         case 'space':
         return <Space issData={issData} issLocation={issLocation} nasaData={nasaData} />
       case 'cricket':
@@ -595,7 +596,7 @@ function AppShell({ currentUser, onLogout }) {
     { id: 'chat',    label: '🤖 AI Quick Chats' },
     { id: 'space',   label: '🚀 Space World' },
     { id: 'profile', label: '👤 Profile' },
-    { id: 'dayplanner', label: '🗓️ Day Planner' },
+    { id: 'planner', label: '🗓️ Planner' },
   ]
 
   return (

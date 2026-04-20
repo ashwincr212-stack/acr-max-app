@@ -268,7 +268,7 @@ export default function Home({ setActiveTab, setPrevTab, activeTab, logs = [], o
     { id:'space',   icon:'🚀', label:'Space World',   sub:'ISS tracker',     bg:'#f0f9ff', border:'#bae6fd', accent:'#0ea5e9' },
     { id:'chat',    icon:'🤖', label:'AI Chat',       sub:'Ask anything',    bg:'#f0fdf4', border:'#bbf7d0', accent:'#16a34a' },
     { id:'profile', icon:'👤', label:'My Profile',    sub:'Settings & more', bg:'#fff1f2', border:'#fecdd3', accent:'#e11d48' },
-  { id:'dayplanner', icon:'🗓️', label:'Day Planner', sub:'Plan your day', bg:'#f5f3ff', border:'#ddd6fe', accent:'#7c3aed' },
+  { id:'planner', icon:'🗓️', label:'Planner', sub:'Today, week, month', bg:'#f5f3ff', border:'#ddd6fe', accent:'#7c3aed' },
   ]
 
   // Category icons
