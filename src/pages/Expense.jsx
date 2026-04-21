@@ -3,6 +3,8 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie, Legend, AreaChart, Area
 } from 'recharts'
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { SpeechRecognition } from '@capacitor-community/speech-recognition'
+import { Capacitor } from '@capacitor/core'
 
 const fmt = (n) => `₹${Number(n).toLocaleString('en-IN')}`
 
@@ -32,17 +34,44 @@ const TABS = [
   { id:'export',  label:'⬇ Export' },
 ]
 
-/* ── Animated counter ── */
+// ── Helpers ──────────────────────────────────────────────
+
+const normalizeText = (value='') =>
+  value.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()
+
+function getCategoryFromSpeech(text, categories) {
+  const n = normalizeText(text)
+  if (n.includes('food'))                                    return 'Food'
+  if (n.includes('petrol') || n.includes('fuel'))            return 'Petrol'
+  if (n.includes('smoke') || n.includes('cigarette'))        return 'Smoke'
+  if (n.includes('liquor') || n.includes('beer') || n.includes('alcohol')) return 'Liquor'
+  if (n.includes('electricity') || n.includes('current bill')) return 'Electricity Bill'
+  if (n.includes('water'))                                   return 'Water Bill'
+  if (n.includes('recharge') || n.includes('mobile'))        return 'Mobile Recharge'
+  if (n.includes('grocery') || n.includes('shopping'))       return 'Groceries'
+  if (n.includes('csd'))                                     return 'CSD'
+  if (n.includes('hotel'))                                   return 'Hotel Food'
+  return categories.find(c => n.includes(normalizeText(c))) || 'Other'
+}
+
+function parseVoice(text, categories) {
+  const words  = normalizeText(text).split(' ').filter(Boolean)
+  const amount = Number(words.find(w => !isNaN(w) && w !== '') || 0)
+  return { amount, category: getCategoryFromSpeech(text, categories) }
+}
+
+// ── Animated counter ──────────────────────────────────────
+
 function CountUp({ value, prefix='₹', duration=900 }) {
   const [d, setD] = useState(0)
   const raf = useRef(null)
   useEffect(() => {
     const end = Number(value); const t0 = performance.now()
     const step = (now) => {
-      const p = Math.min((now-t0)/duration, 1)
-      const e = 1 - Math.pow(1-p, 3)
-      setD(Math.round(end*e))
-      if (p<1) raf.current = requestAnimationFrame(step)
+      const p = Math.min((now - t0) / duration, 1)
+      const e = 1 - Math.pow(1 - p, 3)
+      setD(Math.round(end * e))
+      if (p < 1) raf.current = requestAnimationFrame(step)
     }
     raf.current = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf.current)
@@ -50,7 +79,8 @@ function CountUp({ value, prefix='₹', duration=900 }) {
   return <span>{prefix}{d.toLocaleString('en-IN')}</span>
 }
 
-/* ── Neumorphic card ── */
+// ── Neumorphic card ───────────────────────────────────────
+
 function NeuCard({ children, style={}, accent, pressed }) {
   return (
     <div style={{
@@ -64,7 +94,8 @@ function NeuCard({ children, style={}, accent, pressed }) {
   )
 }
 
-/* ── Section header ── */
+// ── Section header ────────────────────────────────────────
+
 function SectionHdr({ title, accent='#7c3aed', right }) {
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
@@ -77,7 +108,8 @@ function SectionHdr({ title, accent='#7c3aed', right }) {
   )
 }
 
-/* ── Progress bar ── */
+// ── Progress bar ──────────────────────────────────────────
+
 function NeuBar({ pct, color, height=8 }) {
   const [w, setW] = useState(0)
   useEffect(() => { const t=setTimeout(()=>setW(pct),250); return ()=>clearTimeout(t) }, [pct])
@@ -90,30 +122,29 @@ function NeuBar({ pct, color, height=8 }) {
   )
 }
 
-/* ── Smart summary card ── */
+// ── Smart summary card ────────────────────────────────────
+
 function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, avgTransaction }) {
   const msDay=86400000; const now=new Date()
   const todayTotal = logs.filter(l=>{const d=new Date(l.id);return d.getDate()===now.getDate()&&d.getMonth()===now.getMonth()}).reduce((s,l)=>s+l.amount,0)
-  const thisWeek = logs.filter(l=>(now-new Date(l.id))<7*msDay).reduce((s,l)=>s+l.amount,0)
-  const lastWeek = logs.filter(l=>{const d=now-new Date(l.id);return d>=7*msDay&&d<14*msDay}).reduce((s,l)=>s+l.amount,0)
+  const thisWeek   = logs.filter(l=>(now-new Date(l.id))<7*msDay).reduce((s,l)=>s+l.amount,0)
+  const lastWeek   = logs.filter(l=>{const d=now-new Date(l.id);return d>=7*msDay&&d<14*msDay}).reduce((s,l)=>s+l.amount,0)
   const weekChange = lastWeek>0?Math.round(((thisWeek-lastWeek)/lastWeek)*100):null
 
   const totalBudget = Object.values(BUDGET_DEFAULTS).reduce((s,v)=>s+v,0)
-  const budgetPct = totalBudget>0?Math.min(Math.round((overallTotal/totalBudget)*100),100):0
+  const budgetPct   = totalBudget>0?Math.min(Math.round((overallTotal/totalBudget)*100),100):0
 
   const contextMsg = alerts.length>0 ? `⚠️ ${alerts.length} categor${alerts.length>1?'ies':'y'} over budget`
-    : weekChange>10 ? '📈 High spending week — review budget'
-    : weekChange!==null&&weekChange<-10 ? '📉 Great! Spending reduced this week'
-    : logs.length===0 ? '🌱 Start logging to see insights'
+    : weekChange>10                   ? '📈 High spending week — review budget'
+    : weekChange!==null&&weekChange<-10?'📉 Great! Spending reduced this week'
+    : logs.length===0                 ? '🌱 Start logging to see insights'
     : '✅ Spending looks on track'
 
   return (
-    <div style={{ borderRadius:22, padding:'20px', marginBottom:14, background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 40%,#f2f2f2 100%)', border:'1.5px solid rgba(255,255,255,0.95)', boxShadow:'7px 7px 18px rgba(0,0,0,0.1),-4px -4px 12px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.95)', backgroundImage:'linear-gradient(135deg,rgba(255,255,255,0.6) 0%,transparent 45%,rgba(0,0,0,0.02) 100%)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
-      {/* Decorative silver orb */}
+    <div style={{ borderRadius:22, padding:'20px', marginBottom:14, background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 40%,#f2f2f2 100%)', border:'1.5px solid rgba(255,255,255,0.95)', boxShadow:'7px 7px 18px rgba(0,0,0,0.1),-4px -4px 12px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.95)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
       <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.7),transparent 65%)', pointerEvents:'none' }} />
       <div style={{ position:'absolute', bottom:-20, left:-10, width:80, height:80, borderRadius:'50%', background:'radial-gradient(circle,rgba(220,220,220,0.5),transparent 65%)', pointerEvents:'none' }} />
 
-      {/* Top row */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
         <div>
           <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Total Spent</p>
@@ -126,7 +157,6 @@ function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, 
         </div>
       </div>
 
-      {/* Budget progress */}
       <div style={{ marginBottom:12 }}>
         <div style={{ display:'flex', justifyContent:'space-between', marginBottom:7 }}>
           <span style={{ fontSize:10, fontWeight:700, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>Monthly Budget Used</span>
@@ -137,7 +167,6 @@ function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, 
         </div>
       </div>
 
-      {/* Context message + top cat */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
         <span style={{ padding:'5px 13px', borderRadius:20, fontSize:11, fontWeight:700, background:'linear-gradient(145deg,#f0f0f0,#e4e4e4)', border:'1px solid #d1d5db', color:'#374151', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>{contextMsg}</span>
         {topCategory!=='—' && (
@@ -150,7 +179,8 @@ function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, 
   )
 }
 
-/* ── Habit tracker ── */
+// ── Habit tracker ─────────────────────────────────────────
+
 function HabitTracker({ logs }) {
   const today = new Date()
   const last7 = Array.from({length:7},(_,i)=>{
@@ -158,8 +188,8 @@ function HabitTracker({ logs }) {
     const dayLogs = logs.filter(l=>{ const ld=new Date(l.id); return ld.getDate()===d.getDate()&&ld.getMonth()===d.getMonth() })
     return { day:d.toLocaleDateString('en-IN',{weekday:'short'}), hasLog:dayLogs.length>0, total:dayLogs.reduce((s,l)=>s+l.amount,0), isToday:i===6 }
   })
-  const streak = last7.filter(d=>d.hasLog).length
-  const loggedToday = last7[6].hasLog
+  const streak     = last7.filter(d=>d.hasLog).length
+  const loggedToday= last7[6].hasLog
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -175,12 +205,10 @@ function HabitTracker({ logs }) {
           {loggedToday?'✓ Done':'Pending'}
         </div>
       </div>
-
-      {/* 7-day dots */}
       <div style={{ display:'flex', gap:6, justifyContent:'space-between' }}>
         {last7.map((d,i) => (
           <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, flex:1 }}>
-            <div style={{ width:'100%', height:36, borderRadius:10, background: d.hasLog?`linear-gradient(145deg,${d.isToday?'#d97706':'#7c3aed'},${d.isToday?'#f59e0b':'#6d28d9'})`:'linear-gradient(145deg,#e8e8e8,#f5f5f5)', border: d.hasLog?`1.5px solid ${d.isToday?'#fde68a':'#ddd6fe'}`:'1.5px solid #e2e8f0', boxShadow: d.hasLog?`2px 2px 6px rgba(0,0,0,0.1),-1px -1px 3px rgba(255,255,255,0.8)`:'inset 1px 1px 3px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontSize: d.hasLog?14:12 }}>
+            <div style={{ width:'100%', height:36, borderRadius:10, background: d.hasLog?`linear-gradient(145deg,${d.isToday?'#d97706':'#7c3aed'},${d.isToday?'#f59e0b':'#6d28d9'})`:'linear-gradient(145deg,#e8e8e8,#f5f5f5)', border: d.hasLog?`1.5px solid ${d.isToday?'#fde68a':'#ddd6fe'}`:'1.5px solid #e2e8f0', boxShadow: d.hasLog?'2px 2px 6px rgba(0,0,0,0.1),-1px -1px 3px rgba(255,255,255,0.8)':'inset 1px 1px 3px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontSize: d.hasLog?14:12 }}>
               {d.hasLog ? (d.isToday?'🔥':'✓') : '·'}
             </div>
             <span style={{ fontSize:8, fontWeight:700, color: d.hasLog?'#374151':'#9ca3af', fontFamily:'Poppins,sans-serif' }}>{d.day.slice(0,2)}</span>
@@ -191,7 +219,8 @@ function HabitTracker({ logs }) {
   )
 }
 
-/* ── Smart alert card ── */
+// ── Smart alert card ──────────────────────────────────────
+
 function SmartAlertCard({ alert, onView }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:'linear-gradient(145deg,#fff1f2,#fff)', borderRadius:14, border:'1.5px solid #fca5a5', boxShadow:'3px 3px 8px rgba(220,38,38,0.07),-2px -2px 5px rgba(255,255,255,0.9)', marginBottom:9 }}>
@@ -200,14 +229,15 @@ function SmartAlertCard({ alert, onView }) {
       </div>
       <div style={{ flex:1, minWidth:0 }}>
         <p style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>{alert.cat} over budget</p>
-        <p style={{ fontSize:11, color:'#dc2626', margin:0, fontWeight:600, fontFamily:'Poppins,sans-serif' }}>₹{alert.over.toLocaleString('en-IN')} over limit — reduce by {Math.ceil(alert.over/1000)*1000 > alert.over ? Math.ceil(alert.over/500)*500 : alert.over}</p>
+        <p style={{ fontSize:11, color:'#dc2626', margin:0, fontWeight:600, fontFamily:'Poppins,sans-serif' }}>₹{alert.over.toLocaleString('en-IN')} over limit</p>
       </div>
       <button onClick={onView} style={{ padding:'5px 12px', borderRadius:10, background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)', fontSize:11, fontWeight:700, color:'#374151', cursor:'pointer', fontFamily:'Poppins,sans-serif', whiteSpace:'nowrap' }}>View →</button>
     </div>
   )
 }
 
-/* ── Quick add button ── */
+// ── Quick add button ──────────────────────────────────────
+
 function QuickAddBtn({ icon, label, color, bg, border, onClick }) {
   const [pressed, setPressed] = useState(false)
   return (
@@ -219,7 +249,8 @@ function QuickAddBtn({ icon, label, color, bg, border, onClick }) {
   )
 }
 
-/* ── AI Insight card ── */
+// ── AI Insight card ───────────────────────────────────────
+
 function AIInsightCard({ icon, text, sub, color, bg, border, delay=0 }) {
   return (
     <div style={{ display:'flex', gap:10, padding:'12px 14px', background:`linear-gradient(145deg,${bg},#fff)`, borderRadius:14, border:`1.5px solid ${border}`, boxShadow:'3px 3px 8px rgba(0,0,0,0.06),-2px -2px 5px rgba(255,255,255,0.9)', animation:`slideIn 0.4s ease-out ${delay}ms both` }}>
@@ -232,10 +263,11 @@ function AIInsightCard({ icon, text, sub, color, bg, border, delay=0 }) {
   )
 }
 
-/* ── Gamification badge ── */
+// ── Gamification badge ────────────────────────────────────
+
 function Badge({ icon, label, sub, unlocked, color }) {
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'12px 6px', background: unlocked?`linear-gradient(145deg,${color}10,#fff)`:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', borderRadius:14, border: unlocked?`1.5px solid ${color}30`:'1.5px solid #e5e7eb', boxShadow: unlocked?`3px 3px 8px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)`:'2px 2px 5px rgba(0,0,0,0.04)', opacity: unlocked?1:0.45, position:'relative', overflow:'hidden' }}>
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'12px 6px', background: unlocked?`linear-gradient(145deg,${color}10,#fff)`:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', borderRadius:14, border: unlocked?`1.5px solid ${color}30`:'1.5px solid #e5e7eb', boxShadow: unlocked?'3px 3px 8px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)':'2px 2px 5px rgba(0,0,0,0.04)', opacity: unlocked?1:0.45, position:'relative', overflow:'hidden' }}>
       {unlocked && <div style={{ position:'absolute', top:0, right:0, width:8, height:8, borderRadius:'0 14px 0 8px', background:color }} />}
       <span style={{ fontSize:22, filter: unlocked?'none':'grayscale(1)' }}>{icon}</span>
       <p style={{ fontSize:9, fontWeight:700, color: unlocked?'#1a1a1a':'#9ca3af', margin:0, textAlign:'center', fontFamily:'Poppins,sans-serif', lineHeight:1.3 }}>{label}</p>
@@ -244,7 +276,8 @@ function Badge({ icon, label, sub, unlocked, color }) {
   )
 }
 
-/* ── Tooltip ── */
+// ── Tooltip ───────────────────────────────────────────────
+
 const LightTooltip = ({ active, payload, label }) => {
   if (!active||!payload?.length) return null
   return (
@@ -255,9 +288,10 @@ const LightTooltip = ({ active, payload, label }) => {
   )
 }
 
-/* ── Budget bar ── */
+// ── Budget bar ────────────────────────────────────────────
+
 function BudgetBar({ spent, budget, color }) {
-  const pct = Math.min((spent/budget)*100, 100)
+  const pct  = Math.min((spent/budget)*100, 100)
   const over = spent>budget
   return (
     <div style={{ marginBottom:4 }}>
@@ -269,76 +303,185 @@ function BudgetBar({ spent, budget, color }) {
   )
 }
 
-/* ════════════════════════════════════════
-   MAIN EXPORT
-════════════════════════════════════════ */
+// ══════════════════════════════════════════════════════════
+//  VOICE CONFIRMATION MODAL
+// ══════════════════════════════════════════════════════════
+
+function VoiceConfirmModal({ parsed, rawText, onConfirm, onCancel }) {
+  if (!parsed) return null
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', justifyContent:'center', alignItems:'center', padding:20, zIndex:300, animation:'fadeIn 0.18s ease-out both' }}>
+      <div style={{ background:'#fff', padding:24, borderRadius:20, width:'80%', maxWidth:320, textAlign:'center', boxShadow:'0 12px 36px rgba(0,0,0,0.22)', animation:'popIn 0.22s cubic-bezier(.34,1.56,.64,1) both' }}>
+        <div style={{ fontSize:36, marginBottom:10 }}>{CAT_ICONS[parsed.category]||'💸'}</div>
+        <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#1a1a1a', margin:'0 0 4px' }}>
+          {parsed.category}
+        </p>
+        <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:26, color:'#b8860b', margin:'0 0 10px' }}>
+          {fmt(parsed.amount)}
+        </p>
+        <p style={{ fontSize:11, color:'#9ca3af', margin:'0 0 20px', fontFamily:'Poppins,sans-serif', fontStyle:'italic' }}>
+          "{rawText}"
+        </p>
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onCancel} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid #e5e7eb', background:'#fff', color:'#374151', cursor:'pointer', fontWeight:700, fontFamily:'Poppins,sans-serif', fontSize:14 }}>Cancel</button>
+          <button onClick={onConfirm} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', cursor:'pointer', fontWeight:700, fontFamily:'Poppins,sans-serif', fontSize:14, boxShadow:'0 6px 16px rgba(124,58,237,0.28)' }}>Add Expense</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════
+//  MAIN EXPORT
+// ══════════════════════════════════════════════════════════
+
 export default function Expense(props) {
   const {
     logs, customAmount, setCustomAmount, customCategory, setCustomCategory,
     categories, addExpense, addExpenseWithMeta, deleteExpense, filteredLogs,
     searchTerm, setSearchTerm, filterCategory, setFilterCategory, overallTotal,
     expenseTab, setExpenseTab, summaryData, aiInsights, generateAIAdvice,
-    isThinking, handleVoiceInput, isListening, triggerCamera, handleImageCapture, fileInputRef,
+    isThinking, triggerCamera, handleImageCapture, fileInputRef,
   } = props
 
-  const [budgets, setBudgets]         = useState(BUDGET_DEFAULTS)
+  const [budgets, setBudgets]             = useState(BUDGET_DEFAULTS)
   const [editingBudget, setEditingBudget] = useState(null)
-  const [budgetInput, setBudgetInput] = useState('')
-  const [noteInput, setNoteInput]     = useState('')
-  const [sortBy, setSortBy]           = useState('time')
-  const [justAdded, setJustAdded]     = useState(false)
-  const [deletingId, setDeletingId]   = useState(null)
+  const [budgetInput, setBudgetInput]     = useState('')
+  const [noteInput, setNoteInput]         = useState('')
+  const [sortBy, setSortBy]               = useState('time')
+  const [justAdded, setJustAdded]         = useState(false)
+  const [deletingId, setDeletingId]       = useState(null)
   const [showMobileForm, setShowMobileForm] = useState(false)
+
+  // ── Voice state (minimal) ──────────────────────────────
+  const [voiceConfirm, setVoiceConfirm] = useState(null) // { parsed, rawText }
 
   const categoryTotals = useMemo(() => logs.reduce((acc,l) => { acc[l.category]=(acc[l.category]||0)+l.amount; return acc }, {}), [logs])
   const topCategory    = useMemo(() => { const e=Object.entries(categoryTotals); return e.length?e.sort((a,b)=>b[1]-a[1])[0][0]:'—' }, [categoryTotals])
   const avgTransaction = logs.length?Math.round(overallTotal/logs.length):0
+  const alerts         = useMemo(() => Object.entries(categoryTotals).filter(([c,t])=>budgets[c]&&t>budgets[c]).map(([cat,total])=>({cat,over:total-budgets[cat]})), [categoryTotals, budgets])
+  const trendData      = useMemo(() => { const hours=Array.from({length:24},(_,i)=>({hour:`${i}h`,amount:0})); logs.forEach(l=>{const h=parseInt(l.time?.split(':')[0]||'0');if(!isNaN(h))hours[h].amount+=l.amount}); return hours.filter((_,i)=>i>=6&&i<=22) }, [logs])
+  const sortedLogs     = useMemo(() => { const b=[...filteredLogs]; if(sortBy==='amount')return b.sort((a,b)=>b.amount-a.amount); if(sortBy==='category')return b.sort((a,b)=>a.category.localeCompare(b.category)); return b }, [filteredLogs, sortBy])
 
-  const alerts = useMemo(() => Object.entries(categoryTotals).filter(([c,t])=>budgets[c]&&t>budgets[c]).map(([cat,total])=>({cat,over:total-budgets[cat]})), [categoryTotals, budgets])
+  const now            = new Date(); const msDay=86400000
+  const thisWeekTotal  = useMemo(()=>logs.filter(l=>(now-new Date(l.id))<7*msDay).reduce((s,l)=>s+l.amount,0),[logs])
+  const weekendTotal   = useMemo(()=>logs.filter(l=>{const d=new Date(l.id).getDay();return d===0||d===6}).reduce((s,l)=>s+l.amount,0),[logs])
+  const weekdayTotal   = useMemo(()=>logs.filter(l=>{const d=new Date(l.id).getDay();return d>0&&d<6}).reduce((s,l)=>s+l.amount,0),[logs])
+  const weekdayAvg     = weekdayTotal/5||0
+  const weekendAvg     = weekendTotal/2||0
 
-  const trendData = useMemo(() => {
-    const hours = Array.from({length:24},(_,i)=>({hour:`${i}h`,amount:0}))
-    logs.forEach(l=>{const h=parseInt(l.time?.split(':')[0]||'0');if(!isNaN(h))hours[h].amount+=l.amount})
-    return hours.filter((_,i)=>i>=6&&i<=22)
-  }, [logs])
+  // ── Expense add helpers ───────────────────────────────
 
-  const sortedLogs = useMemo(() => {
-    const b=[...filteredLogs]
-    if (sortBy==='amount') return b.sort((a,b)=>b.amount-a.amount)
-    if (sortBy==='category') return b.sort((a,b)=>a.category.localeCompare(b.category))
-    return b
-  }, [filteredLogs, sortBy])
-
-  // Week stats for AI insights
-  const now = new Date(); const msDay=86400000
-  const thisWeekTotal = useMemo(()=>logs.filter(l=>(now-new Date(l.id))<7*msDay).reduce((s,l)=>s+l.amount,0),[logs])
-  const weekendTotal  = useMemo(()=>logs.filter(l=>{const d=new Date(l.id).getDay();return d===0||d===6}).reduce((s,l)=>s+l.amount,0),[logs])
-  const weekdayTotal  = useMemo(()=>logs.filter(l=>{const d=new Date(l.id).getDay();return d>0&&d<6}).reduce((s,l)=>s+l.amount,0),[logs])
-  const weekdayAvg    = weekdayTotal/5||0; const weekendAvg=weekendTotal/2||0
-
-  const handleAdd = (cat=null) => {
-    const amt = cat ? null : (customAmount>0?customAmount:null)
-    if (cat) { setCustomCategory(cat) }
-    if (!customAmount||customAmount<=0) return
-    addExpenseWithMeta?addExpenseWithMeta(noteInput,[]):addExpense()
+  const handleAdd = () => {
+    if (!customAmount || customAmount <= 0) return
+    addExpenseWithMeta ? addExpenseWithMeta(noteInput, []) : addExpense()
     setJustAdded(true); setNoteInput('')
-    setTimeout(()=>setJustAdded(false), 900)
+    setTimeout(() => setJustAdded(false), 900)
   }
   const quickAdd = (cat) => { setCustomCategory(cat); setShowMobileForm(true) }
-
   const handleDelete = (id) => { setDeletingId(id); setTimeout(()=>{deleteExpense(id);setDeletingId(null)},350) }
-  const saveBudget = (cat) => { const v=parseFloat(budgetInput); if(!isNaN(v)&&v>0) setBudgets(p=>({...p,[cat]:v})); setEditingBudget(null); setBudgetInput('') }
+  const saveBudget = (cat) => { const v=parseFloat(budgetInput); if(!isNaN(v)&&v>0)setBudgets(p=>({...p,[cat]:v})); setEditingBudget(null); setBudgetInput('') }
+
+  // ── Voice flow ────────────────────────────────────────
+  //
+  //  APPROACH: pure Google popup. No custom UI, no partialResults,
+  //  no manual listeners. SpeechRecognition.start() with popup:true
+  //  blocks until the user finishes speaking and returns the transcript.
+
+  const handleMicClick = async () => {
+    if (Capacitor.getPlatform() !== 'android') {
+      alert('Voice input works only on the Android app')
+      return
+    }
+    await startVoiceFlow()
+  }
+
+  const startVoiceFlow = async () => {
+    try {
+      // STEP 1 — check / request permission
+      const perm = await SpeechRecognition.checkPermissions()
+      if (perm.speechRecognition !== 'granted') {
+        const req = await SpeechRecognition.requestPermissions()
+        if (req.speechRecognition !== 'granted') {
+          alert('Microphone permission is required for voice input')
+          return
+        }
+      }
+
+      // STEP 2 — open Google popup (awaits user speech, returns matches)
+      const result = await SpeechRecognition.start({
+        language:       'en-US',
+        maxResults:     1,
+        popup:          true,
+        // partialResults intentionally omitted — popup handles everything
+      })
+
+      if (!result?.matches?.length || !result.matches[0].trim()) {
+        alert('No speech detected — please try again')
+        return
+      }
+
+      const rawText = result.matches[0].trim()
+      const parsed  = parseVoice(rawText, categories)
+
+      if (!parsed.amount) {
+        alert(`Could not detect an amount in: "${rawText}"`)
+        return
+      }
+
+      // STEP 3 — show confirmation modal
+      setVoiceConfirm({ parsed, rawText })
+
+    } catch (error) {
+      console.error('Voice error:', error)
+      // Ignore user-cancelled (error code 'no-speech' or 'aborted')
+      const msg = error?.message || ''
+      if (!msg.includes('aborted') && !msg.includes('no-speech')) {
+        alert('Voice input failed — please try again')
+      }
+    }
+  }
+
+  const handleVoiceConfirm = () => {
+    if (!voiceConfirm) return
+    const { parsed } = voiceConfirm
+    setCustomCategory(parsed.category)
+    setCustomAmount(String(parsed.amount))
+    addExpense({ amount: parsed.amount, category: parsed.category })
+    setVoiceConfirm(null)
+  }
+
+  const handleVoiceCancel = () => setVoiceConfirm(null)
+
+  // ── Export helpers ────────────────────────────────────
 
   const exportCSV = () => {
-    const rows=[['ID','Category','Amount','Time','Note']]
-    logs.forEach(l=>rows.push([l.id,l.category,l.amount,l.time,l.note||'']))
-    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'})); a.download=`expenses_${new Date().toISOString().slice(0,10)}.csv`; a.click()
+    const rows = [['ID','Category','Amount','Time','Note']]
+    logs.forEach(l => rows.push([l.id, l.category, l.amount, l.time, l.note||'']))
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')], {type:'text/csv'}))
+    a.download = `expenses_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
   }
-  const exportJSON = () => { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(logs,null,2)],{type:'application/json'})); a.download=`expenses_${new Date().toISOString().slice(0,10)}.json`; a.click() }
-  const exportText = () => { let t=`ACR MAX Report\n${new Date().toLocaleDateString('en-IN')}\nTotal: ${fmt(overallTotal)}\n\n`; logs.forEach(l=>{t+=`[${l.time}] ${l.category}: ${fmt(l.amount)}${l.note?' — '+l.note:''}\n`}); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'})); a.download=`expenses_${new Date().toISOString().slice(0,10)}.txt`; a.click() }
+  const exportJSON = () => {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(logs,null,2)], {type:'application/json'}))
+    a.download = `expenses_${new Date().toISOString().slice(0,10)}.json`
+    a.click()
+  }
+  const exportText = () => {
+    let t = `ACR MAX Report\n${new Date().toLocaleDateString('en-IN')}\nTotal: ${fmt(overallTotal)}\n\n`
+    logs.forEach(l => { t += `[${l.time}] ${l.category}: ${fmt(l.amount)}${l.note?' — '+l.note:''}\n` })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([t], {type:'text/plain'}))
+    a.download = `expenses_${new Date().toISOString().slice(0,10)}.txt`
+    a.click()
+  }
 
-  const neu = { background:'linear-gradient(145deg,#f8fafc,#e8ecf0)', border:'1.5px solid #e2e8f0', borderRadius:16, padding:'12px 14px', boxShadow:'3px 3px 8px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)' }
-  const inputSt = { width:'100%', padding:'12px 14px', background:'linear-gradient(145deg,#e8e8e8,#ffffff)', boxShadow:'inset 3px 3px 6px rgba(0,0,0,0.09),inset -2px -2px 4px rgba(255,255,255,0.9)', border:'1.5px solid #e2e8f0', borderRadius:13, fontWeight:600, color:'#1a1a1a', fontSize:14, outline:'none', fontFamily:'Poppins,sans-serif', transition:'box-shadow 0.2s' }
+  // ── Style shortcuts ───────────────────────────────────
+
+  const neu      = { background:'linear-gradient(145deg,#f8fafc,#e8ecf0)', border:'1.5px solid #e2e8f0', borderRadius:16, padding:'12px 14px', boxShadow:'3px 3px 8px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)' }
+  const inputSt  = { width:'100%', padding:'12px 14px', background:'linear-gradient(145deg,#e8e8e8,#ffffff)', boxShadow:'inset 3px 3px 6px rgba(0,0,0,0.09),inset -2px -2px 4px rgba(255,255,255,0.9)', border:'1.5px solid #e2e8f0', borderRadius:13, fontWeight:600, color:'#1a1a1a', fontSize:14, outline:'none', fontFamily:'Poppins,sans-serif', transition:'box-shadow 0.2s' }
   const selectSt = { padding:'11px 14px', background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', boxShadow:'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 4px rgba(255,255,255,0.9)', border:'1.5px solid #e2e8f0', borderRadius:13, fontWeight:700, color:'#1a1a1a', fontSize:13, outline:'none', cursor:'pointer', fontFamily:'Poppins,sans-serif' }
 
   return (
@@ -364,6 +507,39 @@ export default function Expense(props) {
       input::placeholder{color:#9ca3af!important;}
     `}</style>
 
+    {/* ── Voice confirmation modal ── */}
+    {voiceConfirm && (
+      <VoiceConfirmModal
+        parsed={voiceConfirm.parsed}
+        rawText={voiceConfirm.rawText}
+        onConfirm={handleVoiceConfirm}
+        onCancel={handleVoiceCancel}
+      />
+    )}
+
+    {/* ── Floating mic button ── */}
+    <div style={{ position:'fixed', bottom:140, right:16, zIndex:200 }}>
+      <button
+        onClick={handleMicClick}
+        style={{
+          width:56, height:56, borderRadius:'50%',
+          background:'linear-gradient(135deg,#4facfe,#00f2fe)',
+          border:'none', outline:'none', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:22, color:'#fff',
+          boxShadow:'0 6px 18px rgba(79,172,254,0.35)',
+          WebkitTapHighlightColor:'transparent',
+          transition:'transform 0.15s',
+        }}
+        onMouseDown={e=>e.currentTarget.style.transform='scale(0.93)'}
+        onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}
+        onTouchStart={e=>e.currentTarget.style.transform='scale(0.93)'}
+        onTouchEnd={e=>e.currentTarget.style.transform='scale(1)'}
+      >
+        🎤
+      </button>
+    </div>
+
     {/* ── MOBILE FAB ── */}
     <div className="exp-fab" style={{ display:'none', position:'fixed', bottom:90, right:18, zIndex:200, flexDirection:'column', alignItems:'flex-end', gap:10 }}>
       {showMobileForm && (
@@ -387,12 +563,9 @@ export default function Expense(props) {
             <input type="text" value={noteInput} onChange={e=>setNoteInput(e.target.value)} placeholder="e.g. lunch" style={{ width:'100%', ...inputSt, fontSize:13 }} />
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={()=>{triggerCamera()}} style={{ padding:'11px 14px', borderRadius:12, fontSize:17, background:'linear-gradient(145deg,#ecfdf5,#d1fae5)', border:'1.5px solid #a7f3d0', cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>📷</button>
+            <button onClick={()=>{ triggerCamera() }} style={{ padding:'11px 14px', borderRadius:12, fontSize:17, background:'linear-gradient(145deg,#ecfdf5,#d1fae5)', border:'1.5px solid #a7f3d0', cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>📷</button>
             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} style={{ display:'none' }} onChange={handleImageCapture} />
-            <button onClick={handleVoiceInput} disabled={isListening} style={{ padding:'11px 14px', borderRadius:12, fontSize:17, background: isListening?'linear-gradient(145deg,#ede9fe,#ddd6fe)':'linear-gradient(145deg,#faf5ff,#ede9fe)', border:`1.5px solid ${isListening?'#7c3aed':'#ddd6fe'}`, cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)', position:'relative' }}>
-              🎤{isListening&&<span style={{ position:'absolute', top:-3, right:-3, width:8, height:8, borderRadius:'50%', background:'#7c3aed' }} />}
-            </button>
-            <button onClick={()=>{handleAdd();if(customAmount>0)setShowMobileForm(false)}} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, cursor:'pointer', boxShadow:'3px 3px 10px rgba(124,58,237,0.25),-1px -1px 3px rgba(255,255,255,0.5)' }}>
+            <button onClick={()=>{ handleAdd(); if(customAmount>0) setShowMobileForm(false) }} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, cursor:'pointer', boxShadow:'3px 3px 10px rgba(124,58,237,0.25),-1px -1px 3px rgba(255,255,255,0.5)' }}>
               {justAdded?'✓ Added!':'+ Add'}
             </button>
           </div>
@@ -441,13 +614,11 @@ export default function Expense(props) {
       {/* ════════ LOGS TAB ════════ */}
       {expenseTab==='daily' && (
         <div>
-          {/* Habit tracker */}
           <NeuCard style={{ marginBottom:14 }} accent="#d97706">
             <SectionHdr title="Daily Streak" accent="#d97706" />
             <HabitTracker logs={logs} />
           </NeuCard>
 
-          {/* Quick add shortcuts */}
           <NeuCard style={{ marginBottom:14 }} accent="#7c3aed">
             <SectionHdr title="Quick Add" accent="#7c3aed" />
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
@@ -460,14 +631,11 @@ export default function Expense(props) {
                 {icon:'🍺',label:'Liquor',    color:'#7c3aed',bg:'#faf5ff',border:'#ddd6fe',cat:'Liquor'},
                 {icon:'🏪',label:'CSD',       color:'#6d28d9',bg:'#faf5ff',border:'#ddd6fe',cat:'CSD'},
                 {icon:'💸',label:'Other',     color:'#475569',bg:'#f8fafc',border:'#e2e8f0',cat:'Other'},
-              ].map((q,i)=>(
-                <QuickAddBtn key={i} {...q} onClick={()=>quickAdd(q.cat)} />
-              ))}
+              ].map((q,i)=><QuickAddBtn key={i} {...q} onClick={()=>quickAdd(q.cat)} />)}
             </div>
             <p style={{ fontSize:10, color:'#9ca3af', textAlign:'center', margin:0, fontWeight:500 }}>Tap to pre-select category, then set amount</p>
           </NeuCard>
 
-          {/* Smart alerts */}
           {alerts.length>0 && (
             <NeuCard style={{ marginBottom:14 }} accent="#dc2626">
               <SectionHdr title="Budget Alerts" accent="#dc2626" />
@@ -475,7 +643,6 @@ export default function Expense(props) {
             </NeuCard>
           )}
 
-          {/* AI Insights */}
           {logs.length>=3 && (
             <NeuCard style={{ marginBottom:14 }} accent="#7c3aed">
               <SectionHdr title="AI Insights" accent="#7c3aed" />
@@ -488,7 +655,6 @@ export default function Expense(props) {
             </NeuCard>
           )}
 
-          {/* Badges */}
           <NeuCard style={{ marginBottom:14 }}>
             <SectionHdr title="Achievements" accent="#d97706" />
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
@@ -519,7 +685,6 @@ export default function Expense(props) {
             <div style={{ display:'flex', gap:10 }}>
               <button onClick={triggerCamera} style={{ padding:'11px 15px', borderRadius:13, fontSize:18, background:'linear-gradient(145deg,#ecfdf5,#d1fae5)', border:'1.5px solid #a7f3d0', cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>📷</button>
               <input type="file" accept="image/*" capture="environment" ref={fileInputRef} style={{ display:'none' }} onChange={handleImageCapture} />
-              <button onClick={handleVoiceInput} disabled={isListening} style={{ padding:'11px 15px', borderRadius:13, fontSize:18, background: isListening?'linear-gradient(145deg,#ede9fe,#ddd6fe)':'linear-gradient(145deg,#faf5ff,#ede9fe)', border:`1.5px solid ${isListening?'#7c3aed':'#ddd6fe'}`, cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>🎤</button>
               <button onClick={handleAdd} style={{ flex:1, padding:'12px', borderRadius:13, border:'none', cursor:'pointer', fontWeight:700, fontSize:14, color:'#fff', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow:'3px 3px 10px rgba(124,58,237,0.25)', transition:'all 0.25s' }}>
                 {justAdded?'✓ Added!':'+ Add Expense'}
               </button>
@@ -543,22 +708,14 @@ export default function Expense(props) {
             </select>
           </div>
 
-          {/* Timeline activity feed */}
+          {/* Activity feed */}
           {sortedLogs.length>0 && (
             <NeuCard>
               <SectionHdr title="Activity Timeline" accent="#7c3aed" />
               <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                {sortedLogs.length===0 ? (
-                  <div style={{ textAlign:'center', padding:'40px 0', color:'#9ca3af' }}>
-                    <div style={{ fontSize:48, marginBottom:12, animation:'floatY 4s ease-in-out infinite' }}>💸</div>
-                    <p style={{ fontWeight:700, fontSize:14, color:'#374151' }}>No expenses yet</p>
-                    <p style={{ fontSize:12, marginTop:4, color:'#9ca3af' }}>Add your first expense above!</p>
-                  </div>
-                ) : sortedLogs.map((log,i) => (
+                {sortedLogs.map((log,i) => (
                   <div key={log.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 13px', background: i%2===0?'linear-gradient(145deg,#f8f8f8,#f0f0f0)':'linear-gradient(145deg,#ffffff,#f5f5f5)', borderRadius:13, border:'1px solid #f1f1f1', boxShadow:'2px 2px 5px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)', animation:`slideIn 0.3s ease-out ${i*35}ms both`, opacity:deletingId===log.id?0:1, transition:'opacity 0.3s' }}>
-                    {/* Timeline dot */}
                     <div style={{ width:6, height:6, borderRadius:'50%', background:CAT_COLORS[log.category]||'#7c3aed', flexShrink:0, boxShadow:`0 0 0 3px ${(CAT_COLORS[log.category]||'#7c3aed')}20` }} />
-                    {/* Icon */}
                     <div style={{ width:34, height:34, borderRadius:10, background:`${CAT_COLORS[log.category]||'#7c3aed'}15`, border:`1px solid ${CAT_COLORS[log.category]||'#7c3aed'}25`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>
                       {CAT_ICONS[log.category]||'💸'}
                     </div>

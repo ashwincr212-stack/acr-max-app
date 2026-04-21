@@ -11,6 +11,10 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.14.0",
     "cheerio": "^1.2.0",

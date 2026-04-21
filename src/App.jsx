@@ -298,39 +298,7 @@ function AppShell({ currentUser, onLogout }) {
   const [moneySaved, setMoneySaved] = useState(0)
   const [motivation, setMotivation] = useState("")
 
-  const [isListening, setIsListening] = useState(false)
   const fileInputRef = useRef(null)
-
-  const handleVoiceInput = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) { alert("Your browser doesn't support voice input."); return }
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'en-IN'
-    recognition.onstart = () => setIsListening(true)
-    recognition.onresult = async (event) => {
-      const transcript = event.results[0][0].transcript
-      setIsListening(false)
-      setIsThinking(true)
-      try {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-        const genAI = new GoogleGenerativeAI(apiKey)
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
-        const prompt = `You are an expense parser. The user said: "${transcript}". Extract the amount (number only) and the best matching category from this list: [${categories.join(', ')}]. Return ONLY a raw JSON object like {"amount": 100, "category": "Food"}. Do not use markdown blocks.`
-        const result = await model.generateContent(prompt)
-        const parsedText = result.response.text().replace(/```json|```/g, '').trim()
-        const data = JSON.parse(parsedText)
-        if (data.amount) setCustomAmount(data.amount)
-        if (data.category && categories.includes(data.category)) setCustomCategory(data.category)
-      } catch (error) {
-        console.error("Voice parse error:", error)
-        alert("Couldn't parse that. Try saying: 'I spent 500 on Food'")
-      }
-      setIsThinking(false)
-    }
-    recognition.onerror = () => setIsListening(false)
-    recognition.onend = () => setIsListening(false)
-    recognition.start()
-  }
 
   const triggerCamera = () => fileInputRef.current.click()
   const handleImageCapture = (e) => {
@@ -363,21 +331,24 @@ function AppShell({ currentUser, onLogout }) {
     return map[category] || '#6B7280'
   }
 
-  const addExpense = () => {
-    if (!customAmount || customAmount <= 0) return
+  const addExpense = (override = null) => {
+    const amount = override?.amount ?? customAmount
+    const category = override?.category ?? customCategory
+    const note = override?.note ?? ''
+    const tags = override?.tags ?? []
+    if (!amount || amount <= 0) return
     const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    const newLog = { id: Date.now(), category: customCategory, amount: parseFloat(customAmount), time: currentTime, color: getCategoryColor(customCategory), note: '', tags: [] }
+    const newLog = { id: Date.now(), category, amount: parseFloat(amount), time: currentTime, color: getCategoryColor(category), note, tags }
     setLogs([newLog, ...logs])
     setCustomAmount('')
   }
 
-  const addExpenseWithMeta = (note = '', tags = []) => {
-    if (!customAmount || customAmount <= 0) return
-    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    const newLog = { id: Date.now(), category: customCategory, amount: parseFloat(customAmount), time: currentTime, color: getCategoryColor(customCategory), note: note.trim(), tags }
-    setLogs([newLog, ...logs])
-    setCustomAmount('')
-  }
+  const addExpenseWithMeta = (note = '', tags = [], override = null) => addExpense({
+    amount: override?.amount ?? customAmount,
+    category: override?.category ?? customCategory,
+    note: override?.note ?? note.trim(),
+    tags: override?.tags ?? tags,
+  })
 
   const deleteExpense = (id) => setLogs(logs.filter(log => log.id !== id))
 
@@ -552,7 +523,7 @@ function AppShell({ currentUser, onLogout }) {
             filterCategory={filterCategory} setFilterCategory={setFilterCategory}
             overallTotal={overallTotal} expenseTab={expenseTab} setExpenseTab={setExpenseTab}
             summaryData={summaryData} aiInsights={aiInsights} generateAIAdvice={generateAIAdvice}
-            isThinking={isThinking} handleVoiceInput={handleVoiceInput} isListening={isListening}
+            isThinking={isThinking}
             triggerCamera={triggerCamera} handleImageCapture={handleImageCapture} fileInputRef={fileInputRef}
           />
         )
