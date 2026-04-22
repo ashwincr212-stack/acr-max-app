@@ -1,5 +1,5 @@
 import Planner from './pages/Planner'
-
+import GlobalMic from './components/voice/GlobalMic'
 import Home from './pages/Home'
 import Expense from './pages/Expense'
 import AstroRouter from './pages/AstroRouter'
@@ -350,6 +350,81 @@ function AppShell({ currentUser, onLogout }) {
     tags: override?.tags ?? tags,
   })
 
+  const addLedgerEntry = useCallback(async (data) => {
+    const userId = getUserDocId(currentUser?.username)
+    if (!userId || !data?.person || !data?.amount) return
+
+    const entryId = Date.now()
+    const createdAt = new Date().toISOString()
+    const palette = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#60a5fa', '#a78bfa', '#f472b6', '#e879f9']
+    const entry = {
+      id: entryId,
+      type: data.type === 'lent' ? 'lent' : 'borrowed',
+      person: data.person.trim(),
+      amount: Number(data.amount),
+      category: data.category || 'Other',
+      date: data.date || createdAt.slice(0, 10),
+      dueDate: data.dueDate || '',
+      note: data.note || '',
+      phone: data.phone || '',
+      color: data.color || palette[entryId % palette.length],
+      settled: false,
+      createdAt,
+    }
+
+    const ledgerRef = doc(db, 'acr_ledger', userId)
+
+    try {
+      const entries = await new Promise((resolve) => {
+        const unsubscribe = onSnapshot(ledgerRef, (snap) => {
+          unsubscribe()
+          resolve(snap.exists() ? (snap.data().entries || []) : [])
+        }, () => {
+          unsubscribe()
+          resolve([])
+        })
+      })
+
+      await setDoc(ledgerRef, {
+        entries: [entry, ...entries],
+        updatedAt: Date.now(),
+      })
+    } catch (error) {
+      console.error('Failed to save voice ledger entry:', error)
+    }
+  }, [currentUser?.username])
+
+  const addPlannerTask = useCallback(async (data) => {
+    const userId = getUserDocId(currentUser?.username)
+    if (!userId || !data?.title) return
+
+    const taskRef = doc(collection(db, 'acr_users', userId, 'plannerTasks'))
+    const createdAt = new Date().toISOString()
+    const task = {
+      id: taskRef.id,
+      title: data.title.trim(),
+      date: data.date || createdAt.slice(0, 10),
+      time: data.time || '',
+      duration: Number(data.duration || 30),
+      priority: data.priority || 'none',
+      category: data.category || 'personal',
+      completed: false,
+      completedAt: null,
+      isInbox: false,
+      notes: data.note || data.notes || '',
+      remindAt: '',
+      subtasks: [],
+      createdAt,
+      updatedAt: createdAt,
+    }
+
+    try {
+      await setDoc(taskRef, task)
+    } catch (error) {
+      console.error('Failed to save voice planner task:', error)
+    }
+  }, [currentUser?.username])
+
   const deleteExpense = (id) => setLogs(logs.filter(log => log.id !== id))
 
   const filteredLogs = logs.filter(log => {
@@ -642,7 +717,11 @@ function AppShell({ currentUser, onLogout }) {
         {/* ANIMATED CENTER BUTTON */}
         <AnimatedCenterBtn onNavigateHome={() => { setPrevTab(activeTab); setActiveTab('home') }} />
       </div>
-      
+      <GlobalMic
+        onExpenseAdded={(data) => addExpense(data)}
+        onLedgerAdded={addLedgerEntry}
+        onPlannerAdded={addPlannerTask}
+      />
     </div>
   )
 }
