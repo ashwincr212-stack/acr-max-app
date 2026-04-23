@@ -175,50 +175,50 @@ function PersonCard({ account, onClick }) {
     <div onClick={onClick} style={{
       width:'100%',
       boxSizing:'border-box',
-      borderRadius:14,
+      borderRadius:12,
       background:'linear-gradient(135deg,#f8f8f8 0%,#e2e2e2 40%,#f0f0f0 100%)',
       boxShadow: isUrgent
-        ? '6px 6px 14px rgba(220,38,38,0.15),-3px -3px 8px rgba(255,255,255,0.9)'
-        : '6px 6px 14px rgba(0,0,0,0.1),-3px -3px 8px rgba(255,255,255,0.9)',
+        ? '4px 4px 10px rgba(220,38,38,0.12),-2px -2px 6px rgba(255,255,255,0.92)'
+        : '4px 4px 10px rgba(0,0,0,0.08),-2px -2px 6px rgba(255,255,255,0.92)',
       border:`1px solid ${isUrgent?'rgba(252,165,165,0.6)':'rgba(255,255,255,0.8)'}`,
-      borderLeft:`4px solid ${accent}`,
-      marginBottom:8, cursor:'pointer',
+      borderLeft:`3px solid ${accent}`,
+      marginBottom:6, cursor:'pointer',
       animation:'ldgSlideIn 0.3s ease-out both',
       transition:'transform 0.15s, box-shadow 0.15s',
     }}
-      onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='8px 8px 18px rgba(0,0,0,0.13),-3px -3px 8px rgba(255,255,255,0.9)'}}
-      onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=isUrgent?'6px 6px 14px rgba(220,38,38,0.15),-3px -3px 8px rgba(255,255,255,0.9)':'6px 6px 14px rgba(0,0,0,0.1),-3px -3px 8px rgba(255,255,255,0.9)'}}
+      onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='6px 6px 14px rgba(0,0,0,0.11),-2px -2px 6px rgba(255,255,255,0.92)'}}
+      onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=isUrgent?'4px 4px 10px rgba(220,38,38,0.12),-2px -2px 6px rgba(255,255,255,0.92)':'4px 4px 10px rgba(0,0,0,0.08),-2px -2px 6px rgba(255,255,255,0.92)'}}
     >
-      <div style={{ padding:'9px 10px', display:'flex', alignItems:'center', gap:8, width:'100%', boxSizing:'border-box' }}>
-        <Avatar name={account.name} color={account.color} size={38} />
+      <div style={{ minHeight:50, padding:'7px 9px', display:'flex', alignItems:'center', gap:8, width:'100%', boxSizing:'border-box' }}>
+        <Avatar name={account.name} color={account.color} size={34} />
         <div style={{ flex:'1 1 auto', minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', marginBottom:1 }}>
-            <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, color:'#1a1a1a', fontSize:13 }}>{account.name}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'nowrap', marginBottom:1, minWidth:0 }}>
+            <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, color:'#1a1a1a', fontSize:12.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 }}>{account.name}</span>
             {cardAlert && (
               <span style={{
-                padding:'2px 6px', borderRadius:12, fontSize:8.5, fontWeight:800, lineHeight:1.15,
+                padding:'1px 5px', borderRadius:10, fontSize:8, fontWeight:800, lineHeight:1.15,
                 background:cardAlert.bg, color:cardAlert.color, border:`1px solid ${cardAlert.border}`,
-                whiteSpace:'nowrap',
+                whiteSpace:'nowrap', flexShrink:0,
               }}>{cardAlert.label}</span>
             )}
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
-            <span style={{ fontSize:10, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>
+            <span style={{ fontSize:9.5, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>
               {account.totalEntries} entr{account.totalEntries===1?'y':'ies'}
             </span>
-            <span style={{ fontSize:10, color:'#d1d5db' }}>·</span>
-            <span style={{ fontSize:10, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>
+            <span style={{ fontSize:9.5, color:'#d1d5db' }}>·</span>
+            <span style={{ fontSize:9.5, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>
               {fmtDate(account.latestDate)}
             </span>
           </div>
         </div>
-        <div style={{ textAlign:'right', flex:'0 0 auto', minWidth:78 }}>
+        <div style={{ textAlign:'right', flex:'0 0 auto', minWidth:74 }}>
           {account.isFullySettled ? (
-            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:13, color:'#16a34a', margin:0 }}>All Clear</p>
+            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:12.5, color:'#16a34a', margin:0 }}>All Clear</p>
           ) : account.net !== 0 ? (
             <>
-              <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14, color:'#b8860b', margin:0 }}>{fmt(Math.abs(account.net))}</p>
-              <p style={{ fontSize:9, color: isReceivable?'#16a34a':'#dc2626', margin:'1px 0 0', fontWeight:800, fontFamily:'Poppins,sans-serif' }}>
+              <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:13, color:'#b8860b', margin:0, lineHeight:1.1 }}>{fmt(Math.abs(account.net))}</p>
+              <p style={{ fontSize:8.5, color: isReceivable?'#16a34a':'#dc2626', margin:'1px 0 0', fontWeight:800, fontFamily:'Poppins,sans-serif', lineHeight:1.1 }}>
                 {isReceivable ? '↑ you receive' : '↓ you pay'}
               </p>
             </>
@@ -877,15 +877,33 @@ export default function Ledger({ currentUser }) {
       select option       { background:#ffffff !important; color:#1a1a1a !important; }
       ::-webkit-scrollbar { width:3px; }
       ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
+      .ldg-sticky-panel {
+        position:sticky;
+        top:0;
+        z-index:5200;
+        background:linear-gradient(180deg,#f8f8f8 0%,#f3f4f6 72%,rgba(243,244,246,0.96) 100%);
+        padding:0 0 7px;
+        box-shadow:0 10px 18px rgba(15,23,42,0.05);
+      }
+      .ldg-list-scroll {
+        flex:1 1 auto;
+        min-height:0;
+        overflow-y:auto;
+        overflow-x:hidden;
+        padding:7px 2px 18px;
+        scroll-behavior:smooth;
+      }
       .ldg-mobile-pdf { display:none !important; }
       @media(max-width:640px){
         .ldg-desk-add{display:none!important;}
         .ldg-mobile-pdf{display:flex!important;}
         .ldg-root{padding-left:2px!important;padding-right:2px!important;}
+        .ldg-sticky-panel{padding-bottom:6px;}
+        .ldg-list-scroll{padding-top:6px;padding-bottom:14px;}
       }
     `}</style>
 
-    <div className="ldg-root" style={{ maxWidth:1180, margin:'0 auto', padding:'0 4px 92px', width:'100%', boxSizing:'border-box', overflow:'visible' }}>
+    <div className="ldg-root" style={{ maxWidth:1180, margin:'0 auto', padding:'0 4px', width:'100%', height:'calc(100dvh - 128px)', minHeight:420, boxSizing:'border-box', overflow:'hidden', display:'flex', flexDirection:'column' }}>
 
       {/* ── FLOATING ADD ── */}
       <div style={{
@@ -905,6 +923,7 @@ export default function Ledger({ currentUser }) {
         }}>＋</button>
       </div>
 
+      <div className="ldg-sticky-panel">
       {/* ── HEADER ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:12, animation:'ldgSlideUp 0.4s ease-out both', position:'relative', zIndex:1200, overflow:'visible' }}>
         <div style={{ display:'flex', alignItems:'center', gap:9, minWidth:0, flex:1 }}>
@@ -971,15 +990,15 @@ export default function Ledger({ currentUser }) {
           { label:'Net Balance',  value:(netBalance>=0?'+':'')+fmt(Math.abs(netBalance)), color:netBalance>=0?'#16a34a':'#dc2626', accent:netBalance>=0?'#bbf7d0':'#fca5a5' },
         ].map((s,i)=>(
           <div key={i} style={{
-            padding:'11px 8px',
+            padding:'10px 8px 11px',
             background:'linear-gradient(145deg,#f8f8f8,#d8d8d8)',
             border:`1.25px solid rgba(255,255,255,0.95)`,
             borderTop:`3px solid ${s.accent}`,
             borderRadius:13, textAlign:'center',
             boxShadow:'4px 4px 11px rgba(0,0,0,0.1),-2px -2px 7px rgba(255,255,255,0.98)',
           }}>
-            <p style={{ fontSize:8.5, fontWeight:800, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
-            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:15, color:'#b8860b', margin:0 }}>{s.value}</p>
+            <p style={{ fontSize:8.5, fontWeight:800, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
+            <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:19, lineHeight:1.05, color:'#b8860b', margin:0 }}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -1030,8 +1049,10 @@ export default function Ledger({ currentUser }) {
           <option value="az">A–Z</option>
         </select>
       </div>
+      </div>
 
       {/* ── PERSON ACCOUNTS LIST ── */}
+      <div className="ldg-list-scroll">
       {!loaded ? (
         <div style={{ textAlign:'center', padding:'48px 20px', color:'#9ca3af' }}>
           <div style={{ fontSize:40, marginBottom:12, animation:'ldgFloat 3s ease-in-out infinite' }}>🤝</div>
@@ -1062,6 +1083,7 @@ export default function Ledger({ currentUser }) {
           </p>
         </div>
       )}
+      </div>
 
       {/* ── MODALS ── */}
       {showModal && (
