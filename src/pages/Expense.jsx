@@ -3,8 +3,6 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie, Legend, AreaChart, Area
 } from 'recharts'
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { SpeechRecognition } from '@capacitor-community/speech-recognition'
-import { Capacitor } from '@capacitor/core'
 
 const fmt = (n) => `₹${Number(n).toLocaleString('en-IN')}`
 
@@ -307,29 +305,6 @@ function BudgetBar({ spent, budget, color }) {
 //  VOICE CONFIRMATION MODAL
 // ══════════════════════════════════════════════════════════
 
-function VoiceConfirmModal({ parsed, rawText, onConfirm, onCancel }) {
-  if (!parsed) return null
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', justifyContent:'center', alignItems:'center', padding:20, zIndex:300, animation:'fadeIn 0.18s ease-out both' }}>
-      <div style={{ background:'#fff', padding:24, borderRadius:20, width:'80%', maxWidth:320, textAlign:'center', boxShadow:'0 12px 36px rgba(0,0,0,0.22)', animation:'popIn 0.22s cubic-bezier(.34,1.56,.64,1) both' }}>
-        <div style={{ fontSize:36, marginBottom:10 }}>{CAT_ICONS[parsed.category]||'💸'}</div>
-        <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color:'#1a1a1a', margin:'0 0 4px' }}>
-          {parsed.category}
-        </p>
-        <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:26, color:'#b8860b', margin:'0 0 10px' }}>
-          {fmt(parsed.amount)}
-        </p>
-        <p style={{ fontSize:11, color:'#9ca3af', margin:'0 0 20px', fontFamily:'Poppins,sans-serif', fontStyle:'italic' }}>
-          "{rawText}"
-        </p>
-        <div style={{ display:'flex', gap:10 }}>
-          <button onClick={onCancel} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid #e5e7eb', background:'#fff', color:'#374151', cursor:'pointer', fontWeight:700, fontFamily:'Poppins,sans-serif', fontSize:14 }}>Cancel</button>
-          <button onClick={onConfirm} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', cursor:'pointer', fontWeight:700, fontFamily:'Poppins,sans-serif', fontSize:14, boxShadow:'0 6px 16px rgba(124,58,237,0.28)' }}>Add Expense</button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ══════════════════════════════════════════════════════════
 //  MAIN EXPORT
@@ -354,7 +329,6 @@ export default function Expense(props) {
   const [showMobileForm, setShowMobileForm] = useState(false)
 
   // ── Voice state (minimal) ──────────────────────────────
-  const [voiceConfirm, setVoiceConfirm] = useState(null) // { parsed, rawText }
 
   const categoryTotals = useMemo(() => logs.reduce((acc,l) => { acc[l.category]=(acc[l.category]||0)+l.amount; return acc }, {}), [logs])
   const topCategory    = useMemo(() => { const e=Object.entries(categoryTotals); return e.length?e.sort((a,b)=>b[1]-a[1])[0][0]:'—' }, [categoryTotals])
@@ -388,70 +362,6 @@ export default function Expense(props) {
   //  no manual listeners. SpeechRecognition.start() with popup:true
   //  blocks until the user finishes speaking and returns the transcript.
 
-  const handleMicClick = async () => {
-    if (Capacitor.getPlatform() !== 'android') {
-      alert('Voice input works only on the Android app')
-      return
-    }
-    await startVoiceFlow()
-  }
-
-  const startVoiceFlow = async () => {
-    try {
-      // STEP 1 — check / request permission
-      const perm = await SpeechRecognition.checkPermissions()
-      if (perm.speechRecognition !== 'granted') {
-        const req = await SpeechRecognition.requestPermissions()
-        if (req.speechRecognition !== 'granted') {
-          alert('Microphone permission is required for voice input')
-          return
-        }
-      }
-
-      // STEP 2 — open Google popup (awaits user speech, returns matches)
-      const result = await SpeechRecognition.start({
-        language:       'en-US',
-        maxResults:     1,
-        popup:          true,
-        // partialResults intentionally omitted — popup handles everything
-      })
-
-      if (!result?.matches?.length || !result.matches[0].trim()) {
-        alert('No speech detected — please try again')
-        return
-      }
-
-      const rawText = result.matches[0].trim()
-      const parsed  = parseVoice(rawText, categories)
-
-      if (!parsed.amount) {
-        alert(`Could not detect an amount in: "${rawText}"`)
-        return
-      }
-
-      // STEP 3 — show confirmation modal
-      setVoiceConfirm({ parsed, rawText })
-
-    } catch (error) {
-      console.error('Voice error:', error)
-      // Ignore user-cancelled (error code 'no-speech' or 'aborted')
-      const msg = error?.message || ''
-      if (!msg.includes('aborted') && !msg.includes('no-speech')) {
-        alert('Voice input failed — please try again')
-      }
-    }
-  }
-
-  const handleVoiceConfirm = () => {
-    if (!voiceConfirm) return
-    const { parsed } = voiceConfirm
-    setCustomCategory(parsed.category)
-    setCustomAmount(String(parsed.amount))
-    addExpense({ amount: parsed.amount, category: parsed.category })
-    setVoiceConfirm(null)
-  }
-
-  const handleVoiceCancel = () => setVoiceConfirm(null)
 
   // ── Export helpers ────────────────────────────────────
 
@@ -507,41 +417,9 @@ export default function Expense(props) {
       input::placeholder{color:#9ca3af!important;}
     `}</style>
 
-    {/* ── Voice confirmation modal ── */}
-    {voiceConfirm && (
-      <VoiceConfirmModal
-        parsed={voiceConfirm.parsed}
-        rawText={voiceConfirm.rawText}
-        onConfirm={handleVoiceConfirm}
-        onCancel={handleVoiceCancel}
-      />
-    )}
-
-    {/* ── Floating mic button ── */}
-    <div style={{ position:'fixed', bottom:140, right:16, zIndex:200 }}>
-      <button
-        onClick={handleMicClick}
-        style={{
-          width:56, height:56, borderRadius:'50%',
-          background:'linear-gradient(135deg,#4facfe,#00f2fe)',
-          border:'none', outline:'none', cursor:'pointer',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          fontSize:22, color:'#fff',
-          boxShadow:'0 6px 18px rgba(79,172,254,0.35)',
-          WebkitTapHighlightColor:'transparent',
-          transition:'transform 0.15s',
-        }}
-        onMouseDown={e=>e.currentTarget.style.transform='scale(0.93)'}
-        onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}
-        onTouchStart={e=>e.currentTarget.style.transform='scale(0.93)'}
-        onTouchEnd={e=>e.currentTarget.style.transform='scale(1)'}
-      >
-        🎤
-      </button>
-    </div>
 
     {/* ── MOBILE FAB ── */}
-    <div className="exp-fab" style={{ display:'none', position:'fixed', bottom:90, right:18, zIndex:200, flexDirection:'column', alignItems:'flex-end', gap:10 }}>
+    <div className="exp-fab" style={{ display:'none', position:'fixed', bottom:154, right:18, zIndex:200, flexDirection:'column', alignItems:'flex-end', gap:10 }}>
       {showMobileForm && (
         <div style={{ background:'linear-gradient(145deg,#ffffff,#f5f5f5)', border:'1px solid #e2e8f0', borderRadius:22, padding:18, width:'calc(100vw - 40px)', maxWidth:340, boxShadow:'6px 6px 20px rgba(0,0,0,0.12),-4px -4px 12px rgba(255,255,255,0.9)', animation:'slideUp 0.3s ease-out both' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
@@ -582,7 +460,7 @@ export default function Expense(props) {
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <img src="/logo.jpg" alt="" style={{ width:42, height:42, borderRadius:'50%', objectFit:'cover', border:'2px solid #e2e8f0', boxShadow:'3px 3px 8px rgba(0,0,0,0.1),-2px -2px 5px rgba(255,255,255,0.9)', flexShrink:0 }} />
             <div>
-              <h2 className="syne" style={{ fontFamily:'Syne,sans-serif', fontSize:20, fontWeight:800, margin:'0 0 1px', color:'#1a1a1a' }}>💰 Expenses</h2>
+              <h2 style={{ fontFamily:'Poppins,sans-serif', fontSize:20, fontWeight:800, margin:'0 0 1px', color:'#1a1a1a' }}>💰 Expenses</h2>
               <p style={{ fontSize:11, color:'#6b7280', margin:0, fontWeight:500 }}>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</p>
             </div>
           </div>

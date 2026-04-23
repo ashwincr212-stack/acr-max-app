@@ -12,6 +12,8 @@ const CATEGORIES = [
   'Water Bill',
   'Mobile Recharge',
   'Groceries',
+  'Vegetables',
+  'Snacks',
   'CSD',
   'Hotel Food',
   'Other',
@@ -20,8 +22,8 @@ const CATEGORIES = [
 export default function VoiceConfirmModalExpense({ data, onConfirm, onCancel }) {
   const [amount, setAmount] = useState(String(data.amount ?? ''));
   const [category, setCategory] = useState(data.category ?? 'Other');
-  const [note, setNote] = useState('');
-
+  const [note, setNote] = useState(data.note ?? '');
+  
   const handleConfirm = () => {
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {

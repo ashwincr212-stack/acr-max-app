@@ -318,13 +318,13 @@ function AppShell({ currentUser, onLogout }) {
   const [cricketMatches, setCricketMatches] = useState([])
   const [isCricketLive, setIsCricketLive] = useState(false)
 
-  const categories = ['Food', 'Petrol', 'Smoke', 'Liquor', 'Electricity Bill', 'Water Bill', 'Mobile Recharge', 'Groceries', 'CSD', 'Hotel Food', 'Other']
+  const categories = ['Food', 'Petrol', 'Smoke', 'Liquor', 'Electricity Bill', 'Water Bill', 'Mobile Recharge', 'Groceries', 'Vegetables', 'Snacks', 'CSD', 'Hotel Food', 'Other']
   const overallTotal = logs.reduce((sum, l) => sum + l.amount, 0)
 
   const getCategoryColor = (category) => {
     const map = {
       'Smoke': '#EF4444', 'Liquor': '#8B5CF6',
-      'Food': '#10B981', 'Groceries': '#10B981', 'Hotel Food': '#10B981',
+      'Food': '#10B981', 'Groceries': '#10B981', 'Vegetables': '#22c55e', 'Snacks': '#f97316', 'Hotel Food': '#10B981',
       'Petrol': '#F59E0B', 'Water Bill': '#3B82F6',
       'Electricity Bill': '#EAB308', 'CSD': '#14B8A6',
     }
