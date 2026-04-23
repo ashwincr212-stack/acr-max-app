@@ -96,7 +96,7 @@ function NeuCard({ children, style={}, accent, pressed }) {
 
 function SectionHdr({ title, accent='#7c3aed', right }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <div style={{ width:3, height:16, borderRadius:2, background:`linear-gradient(to bottom,${accent},${accent}50)` }} />
         <p style={{ fontSize:12, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.12em', margin:0, fontFamily:'Poppins,sans-serif' }}>{title}</p>
@@ -139,36 +139,36 @@ function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, 
     : '✅ Spending looks on track'
 
   return (
-    <div style={{ borderRadius:22, padding:'20px', marginBottom:14, background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 40%,#f2f2f2 100%)', border:'1.5px solid rgba(255,255,255,0.95)', boxShadow:'7px 7px 18px rgba(0,0,0,0.1),-4px -4px 12px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.95)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
+    <div style={{ borderRadius:18, padding:'14px 15px', marginBottom:10, background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 40%,#f2f2f2 100%)', border:'1.5px solid rgba(255,255,255,0.95)', boxShadow:'5px 5px 14px rgba(0,0,0,0.09),-3px -3px 9px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.95)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
       <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.7),transparent 65%)', pointerEvents:'none' }} />
       <div style={{ position:'absolute', bottom:-20, left:-10, width:80, height:80, borderRadius:'50%', background:'radial-gradient(circle,rgba(220,220,220,0.5),transparent 65%)', pointerEvents:'none' }} />
 
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
         <div>
-          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.14em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Total Spent</p>
-          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:30, color:'#b8860b', margin:0, lineHeight:1 }}><CountUp value={overallTotal} /></p>
-          <p style={{ fontSize:11, color:'#6b7280', margin:'5px 0 0', fontFamily:'Poppins,sans-serif' }}>{logs.length} entries total</p>
+          <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Total Spent</p>
+          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:26, color:'#b8860b', margin:0, lineHeight:1 }}><CountUp value={overallTotal} /></p>
+          <p style={{ fontSize:10, color:'#6b7280', margin:'3px 0 0', fontFamily:'Poppins,sans-serif' }}>{logs.length} entries total</p>
         </div>
         <div style={{ textAlign:'right' }}>
-          <p style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 4px', fontFamily:'Poppins,sans-serif' }}>Today</p>
-          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, color: todayTotal>0?'#d97706':'#16a34a', margin:0 }}>{fmt(todayTotal)}</p>
+          <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Today</p>
+          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:19, color: todayTotal>0?'#d97706':'#16a34a', margin:0 }}>{fmt(todayTotal)}</p>
         </div>
       </div>
 
-      <div style={{ marginBottom:12 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:7 }}>
+      <div style={{ marginBottom:9 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
           <span style={{ fontSize:10, fontWeight:700, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>Monthly Budget Used</span>
           <span style={{ fontSize:11, fontWeight:800, color: budgetPct>80?'#dc2626':'#16a34a', fontFamily:'Poppins,sans-serif' }}>{budgetPct}%</span>
         </div>
-        <div style={{ height:8, borderRadius:8, background:'linear-gradient(145deg,#d8d8d8,#efefef)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.1),inset -1px -1px 3px rgba(255,255,255,0.9)', overflow:'hidden' }}>
-          <div style={{ height:'100%', width:`${budgetPct}%`, borderRadius:8, background: budgetPct>80?'linear-gradient(90deg,#dc2626,#ef4444)':'linear-gradient(90deg,#16a34a,#22c55e)', transition:'width 1.2s ease-out', boxShadow:'1px 0 6px rgba(0,0,0,0.1)' }} />
+        <div style={{ height:7, borderRadius:7, background:'linear-gradient(145deg,#d8d8d8,#efefef)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.1),inset -1px -1px 3px rgba(255,255,255,0.9)', overflow:'hidden' }}>
+          <div style={{ height:'100%', width:`${budgetPct}%`, borderRadius:7, background: budgetPct>80?'linear-gradient(90deg,#dc2626,#ef4444)':'linear-gradient(90deg,#16a34a,#22c55e)', transition:'width 1.2s ease-out', boxShadow:'1px 0 6px rgba(0,0,0,0.1)' }} />
         </div>
       </div>
 
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        <span style={{ padding:'5px 13px', borderRadius:20, fontSize:11, fontWeight:700, background:'linear-gradient(145deg,#f0f0f0,#e4e4e4)', border:'1px solid #d1d5db', color:'#374151', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>{contextMsg}</span>
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        <span style={{ padding:'4px 10px', borderRadius:18, fontSize:10, fontWeight:700, background:'linear-gradient(145deg,#f0f0f0,#e4e4e4)', border:'1px solid #d1d5db', color:'#374151', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>{contextMsg}</span>
         {topCategory!=='—' && (
-          <span style={{ padding:'5px 13px', borderRadius:20, fontSize:11, fontWeight:700, background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', border:'1px solid #ddd6fe', color:'#7c3aed', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+          <span style={{ padding:'4px 10px', borderRadius:18, fontSize:10, fontWeight:700, background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', border:'1px solid #ddd6fe', color:'#7c3aed', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
             {CAT_ICONS[topCategory]||'💸'} Most: {topCategory}
           </span>
         )}
@@ -190,23 +190,23 @@ function HabitTracker({ logs }) {
   const loggedToday= last7[6].hasLog
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ fontSize:20 }}>🔥</span>
           <div>
-            <p style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', margin:0, fontFamily:'Poppins,sans-serif' }}>{streak} Day Logging Streak</p>
+            <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:0, fontFamily:'Poppins,sans-serif' }}>{streak} Day Logging Streak</p>
             <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif' }}>{loggedToday?'✅ Logged today — great!':'❌ Not logged today yet'}</p>
           </div>
         </div>
-        <div style={{ padding:'4px 12px', borderRadius:20, background: loggedToday?'#dcfce7':'#fff1f2', border:`1px solid ${loggedToday?'#bbf7d0':'#fecdd3'}`, fontSize:11, fontWeight:700, color: loggedToday?'#16a34a':'#dc2626', fontFamily:'Poppins,sans-serif' }}>
+        <div style={{ padding:'3px 10px', borderRadius:16, background: loggedToday?'#dcfce7':'#fff1f2', border:`1px solid ${loggedToday?'#bbf7d0':'#fecdd3'}`, fontSize:10, fontWeight:700, color: loggedToday?'#16a34a':'#dc2626', fontFamily:'Poppins,sans-serif' }}>
           {loggedToday?'✓ Done':'Pending'}
         </div>
       </div>
-      <div style={{ display:'flex', gap:6, justifyContent:'space-between' }}>
+      <div style={{ display:'flex', gap:5, justifyContent:'space-between' }}>
         {last7.map((d,i) => (
-          <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, flex:1 }}>
-            <div style={{ width:'100%', height:36, borderRadius:10, background: d.hasLog?`linear-gradient(145deg,${d.isToday?'#d97706':'#7c3aed'},${d.isToday?'#f59e0b':'#6d28d9'})`:'linear-gradient(145deg,#e8e8e8,#f5f5f5)', border: d.hasLog?`1.5px solid ${d.isToday?'#fde68a':'#ddd6fe'}`:'1.5px solid #e2e8f0', boxShadow: d.hasLog?'2px 2px 6px rgba(0,0,0,0.1),-1px -1px 3px rgba(255,255,255,0.8)':'inset 1px 1px 3px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontSize: d.hasLog?14:12 }}>
+          <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, flex:1 }}>
+            <div style={{ width:'100%', height:25, borderRadius:8, background: d.hasLog?`linear-gradient(145deg,${d.isToday?'#d97706':'#7c3aed'},${d.isToday?'#f59e0b':'#6d28d9'})`:'linear-gradient(145deg,#e8e8e8,#f5f5f5)', border: d.hasLog?`1px solid ${d.isToday?'#fde68a':'#ddd6fe'}`:'1px solid #e2e8f0', boxShadow: d.hasLog?'2px 2px 5px rgba(0,0,0,0.09),-1px -1px 3px rgba(255,255,255,0.8)':'inset 1px 1px 3px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontSize: d.hasLog?12:10 }}>
               {d.hasLog ? (d.isToday?'🔥':'✓') : '·'}
             </div>
             <span style={{ fontSize:8, fontWeight:700, color: d.hasLog?'#374151':'#9ca3af', fontFamily:'Poppins,sans-serif' }}>{d.day.slice(0,2)}</span>
@@ -235,6 +235,45 @@ function SmartAlertCard({ alert, onView }) {
 }
 
 // ── Quick add button ──────────────────────────────────────
+
+function ExpenseAlertsSheet({ alerts, onClose, onViewBudgets }) {
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:5000, background:'rgba(15,23,42,0.38)',
+      backdropFilter:'blur(8px)', display:'flex', alignItems:'flex-end', justifyContent:'center',
+      animation:'fadeIn 0.18s ease-out',
+    }} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{
+        width:'100%', maxWidth:460, margin:'0 10px 12px',
+        borderRadius:20, padding:'12px',
+        background:'linear-gradient(160deg,#ffffff,#f1f5f9)',
+        border:'1px solid rgba(255,255,255,0.95)',
+        boxShadow:'0 18px 48px rgba(15,23,42,0.28)',
+        fontFamily:'Poppins,sans-serif',
+      }}>
+        <div style={{ width:36, height:4, borderRadius:4, background:'#d1d5db', margin:'0 auto 10px' }} />
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:10 }}>
+          <div>
+            <p style={{ margin:0, fontSize:14, fontWeight:800, color:'#111827' }}>Expense alerts</p>
+            <p style={{ margin:'2px 0 0', fontSize:10.5, fontWeight:600, color:'#64748b' }}>
+              {alerts.length ? `${alerts.length} budget ${alerts.length>1?'limits':'limit'} need attention` : 'No budget alerts right now'}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ width:30, height:30, borderRadius:10, border:'1px solid #e2e8f0', background:'linear-gradient(145deg,#f8fafc,#e5e7eb)', color:'#64748b', fontWeight:800, cursor:'pointer' }}>×</button>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:'55vh', overflowY:'auto', paddingRight:2 }}>
+          {alerts.length ? alerts.map(a => (
+            <SmartAlertCard key={a.cat} alert={a} onView={onViewBudgets} />
+          )) : (
+            <div style={{ padding:'16px 12px', borderRadius:14, textAlign:'center', background:'linear-gradient(145deg,#f8fafc,#eef2f7)', border:'1px solid #e2e8f0', color:'#64748b', fontSize:12, fontWeight:700 }}>
+              Spending is within your current budget limits.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function QuickAddBtn({ icon, label, color, bg, border, onClick }) {
   const [pressed, setPressed] = useState(false)
@@ -327,6 +366,7 @@ export default function Expense(props) {
   const [justAdded, setJustAdded]         = useState(false)
   const [deletingId, setDeletingId]       = useState(null)
   const [showMobileForm, setShowMobileForm] = useState(false)
+  const [showAlertsSheet, setShowAlertsSheet] = useState(false)
 
   // ── Voice state (minimal) ──────────────────────────────
 
@@ -452,6 +492,14 @@ export default function Expense(props) {
       <button onClick={()=>setShowMobileForm(s=>!s)} style={{ width:56, height:56, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.8)', background:'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontSize:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'4px 4px 14px rgba(124,58,237,0.3),-2px -2px 6px rgba(255,255,255,0.7)', transition:'all 0.2s', transform:showMobileForm?'rotate(45deg)':'rotate(0)' }}>+</button>
     </div>
 
+    {showAlertsSheet && (
+      <ExpenseAlertsSheet
+        alerts={alerts}
+        onClose={()=>setShowAlertsSheet(false)}
+        onViewBudgets={()=>{ setShowAlertsSheet(false); setExpenseTab('budget') }}
+      />
+    )}
+
     <div className="exp-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:100, color:'#1a1a1a', position:'relative', background:'transparent' }}>
 
       {/* ── HEADER ── */}
@@ -465,9 +513,9 @@ export default function Expense(props) {
             </div>
           </div>
           {alerts.length>0 && (
-            <div style={{ background:'linear-gradient(145deg,#fff1f2,#fee2e2)', border:'1.5px solid #fca5a5', color:'#dc2626', padding:'6px 12px', borderRadius:10, fontSize:12, fontWeight:700, display:'flex', alignItems:'center', gap:5, boxShadow:'2px 2px 6px rgba(220,38,38,0.1),-1px -1px 3px rgba(255,255,255,0.9)' }}>
+            <button onClick={()=>setShowAlertsSheet(true)} style={{ background:'linear-gradient(145deg,#fff1f2,#fee2e2)', border:'1.5px solid #fca5a5', color:'#dc2626', padding:'6px 12px', borderRadius:10, fontSize:12, fontWeight:700, display:'flex', alignItems:'center', gap:5, boxShadow:'2px 2px 6px rgba(220,38,38,0.1),-1px -1px 3px rgba(255,255,255,0.9)', cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>
               🚨 {alerts.length} Alert{alerts.length>1?'s':''}
-            </div>
+            </button>
           )}
         </div>
       </div>
@@ -492,7 +540,7 @@ export default function Expense(props) {
       {/* ════════ LOGS TAB ════════ */}
       {expenseTab==='daily' && (
         <div>
-          <NeuCard style={{ marginBottom:14 }} accent="#d97706">
+          <NeuCard style={{ marginBottom:10, padding:12, borderRadius:16 }} accent="#d97706">
             <SectionHdr title="Daily Streak" accent="#d97706" />
             <HabitTracker logs={logs} />
           </NeuCard>
@@ -514,14 +562,7 @@ export default function Expense(props) {
             <p style={{ fontSize:10, color:'#9ca3af', textAlign:'center', margin:0, fontWeight:500 }}>Tap to pre-select category, then set amount</p>
           </NeuCard>
 
-          {alerts.length>0 && (
-            <NeuCard style={{ marginBottom:14 }} accent="#dc2626">
-              <SectionHdr title="Budget Alerts" accent="#dc2626" />
-              {alerts.map(a=><SmartAlertCard key={a.cat} alert={a} onView={()=>setExpenseTab('budget')} />)}
-            </NeuCard>
-          )}
-
-          {logs.length>=3 && (
+          {false && logs.length>=3 && (
             <NeuCard style={{ marginBottom:14 }} accent="#7c3aed">
               <SectionHdr title="AI Insights" accent="#7c3aed" />
               <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
@@ -533,7 +574,7 @@ export default function Expense(props) {
             </NeuCard>
           )}
 
-          <NeuCard style={{ marginBottom:14 }}>
+          {false && <NeuCard style={{ marginBottom:14 }}>
             <SectionHdr title="Achievements" accent="#d97706" />
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
               <Badge icon="🌱" label="First Log"    sub="Logged 1+"  unlocked={logs.length>=1}   color="#16a34a" />
@@ -541,7 +582,7 @@ export default function Expense(props) {
               <Badge icon="⚡" label="Power User"   sub="10+ entries" unlocked={logs.length>=10}  color="#7c3aed" />
               <Badge icon="🏆" label="Super Saver"  sub="20+ entries" unlocked={logs.length>=20}  color="#0891b2" />
             </div>
-          </NeuCard>
+          </NeuCard>}
 
           {/* Desktop add form */}
           <div className="exp-add-form" style={{ ...neu, borderTop:'3px solid #7c3aed', marginBottom:14, animation:'slideUp 0.45s ease-out 0.1s both' }}>
