@@ -261,11 +261,24 @@ export default function Planner({ currentUser }) {
   }, []);
 
   const todayStr = fmt(today);
-  const overdueTasks = tasks.filter(t => !t.completed && !t.isInbox && t.date && t.date < todayStr);
+  const plannedTasks = tasks.filter(t => !t.isInbox);
+  const overdueTasks = plannedTasks.filter(t => !t.completed && t.date && t.date < todayStr);
+  const remainingTasks = plannedTasks.filter(t => !t.completed);
+  const doneTasks = plannedTasks.filter(t => t.completed);
+  const todayTasks = plannedTasks.filter(t => t.date === todayStr);
+  const plannerStats = {
+    total: plannedTasks.length,
+    remaining: remainingTasks.length,
+    done: doneTasks.length,
+    overdue: overdueTasks.length,
+    today: todayTasks.length,
+    inbox: inboxItems.length,
+    completionPct: plannedTasks.length ? Math.round((doneTasks.length / plannedTasks.length) * 100) : 0,
+  };
 
   return (
     <div className="planner-root">
-      <PlannerHeader activeTab={activeTab} />
+      <PlannerHeader activeTab={activeTab} stats={plannerStats} />
       <PlannerTabs activeTab={activeTab} setActiveTab={setActiveTab} inboxCount={inboxItems.length} />
 
       <div className="planner-content">

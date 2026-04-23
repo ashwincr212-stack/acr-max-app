@@ -72,10 +72,16 @@ export default function TaskCard({ task, category, onToggle, onDelete, onResched
         <div className="task-card-body">
           <div className="task-card-title-row">
             <span className={`task-card-title${task.completed ? ' done' : ''}`}>{task.title}</span>
+            {overdue && !task.completed && <span className="task-state-badge task-state-badge--overdue">Overdue</span>}
+            {task.completed && <span className="task-state-badge task-state-badge--done">Done</span>}
           </div>
           <div className="task-card-meta">
-            <span className="task-cat-dot" style={{ background: catColor }} />
-            {category && <span className="task-meta-text">{category.name}</span>}
+            {category && (
+              <span className="task-meta-pill" style={{ color: catColor, background: `${catColor}14`, borderColor: `${catColor}26` }}>
+                <span className="task-cat-dot" style={{ background: catColor }} />
+                {category.name}
+              </span>
+            )}
             {task.time && <span className="task-meta-text">· {formatTime(task.time)}</span>}
             {task.duration > 0 && <span className="task-meta-text">· {task.duration < 60 ? `${task.duration}m` : `${task.duration/60}h`}</span>}
             {priority && (
