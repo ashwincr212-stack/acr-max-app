@@ -71,6 +71,34 @@ function pctText(current, base, suffix) {
   return `${pct >= 0 ? '+' : ''}${pct}% vs ${suffix}`
 }
 
+function normalizeTimeValue(value) {
+  if (!value) return ''
+  if (typeof value !== 'string') return ''
+  const match = value.match(/(\d{1,2}):(\d{2})/)
+  if (!match) return ''
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return ''
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+function formatShortTime(value) {
+  const normalized = normalizeTimeValue(value)
+  if (!normalized) return '—'
+  const [hourText, minuteText] = normalized.split(':')
+  const hour = Number(hourText)
+  const suffix = hour >= 12 ? 'PM' : 'AM'
+  const displayHour = hour % 12 || 12
+  return `${displayHour}:${minuteText} ${suffix}`
+}
+
+function toMinutes(value) {
+  const normalized = normalizeTimeValue(value)
+  if (!normalized) return null
+  const [hour, minute] = normalized.split(':').map(Number)
+  return hour * 60 + minute
+}
+
 function extractAstroSummary(data) {
   const rawFestivals = data?.rawFestivals || {}
   const festivalList = [
@@ -100,10 +128,53 @@ function extractAstroSummary(data) {
     title: summaryTitle,
     window: goodWindow || 'No key window today',
     festival: festivalName,
+    sunrise: data?.sunrise || data?.sun_rise || data?.sunRise || '',
+    sunset: data?.sunset || data?.sun_set || data?.sunSet || '',
   }
 }
 
-function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, animated, primaryPrefix = '' }) {
+function MiniTrend({ accent, points = [] }) {
+  const safePoints = points.length ? points : [25, 45, 35, 60]
+  const path = safePoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${index * 18} ${34 - point * 0.34}`).join(' ')
+  return (
+    <div className="home-mini-visual home-mini-visual--spark">
+      <svg viewBox="0 0 54 34" className="home-mini-spark-svg">
+        <path d={path} fill="none" stroke={accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  )
+}
+
+function MiniDots({ accent, values = [] }) {
+  const safeValues = values.length ? values : [1, 0, 0]
+  return (
+    <div className="home-mini-visual home-mini-visual--dots">
+      {safeValues.map((value, index) => (
+        <span
+          key={index}
+          className="home-status-dot"
+          style={{
+            background: value ? accent : `${accent}20`,
+            opacity: value ? 1 : 0.55,
+            transform: value ? 'scale(1)' : 'scale(0.82)',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function MiniProgress({ accent, pct = 0 }) {
+  return (
+    <div className="home-mini-visual home-mini-visual--progress">
+      <div className="home-mini-progress-track">
+        <div className="home-mini-progress-fill" style={{ width: `${Math.max(8, pct)}%`, background: accent }} />
+      </div>
+    </div>
+  )
+}
+
+function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, animated, primaryPrefix = '', microVisual }) {
   const [pressed, setPressed] = useState(false)
 
   return (
@@ -134,6 +205,7 @@ function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, anima
       <div className="home-card-primary" style={{ color: accent }}>
         {animated ? <CountUp value={primary} prefix={primaryPrefix} /> : primary}
       </div>
+      {microVisual}
       <div className="home-card-lines">
         {lines.map((line, index) => (
           <p key={index}>{line}</p>
@@ -179,6 +251,8 @@ export default function Home({
     title: 'Daily Panchang',
     window: 'No key window today',
     festival: 'No festival today',
+    sunrise: '',
+    sunset: '',
   })
 
   const username = currentUser?.username?.toLowerCase?.() || ''
@@ -254,6 +328,8 @@ export default function Home({
         title: summary.title,
         window: summary.window,
         festival: summary.festival,
+        sunrise: summary.sunrise,
+        sunset: summary.sunset,
       })
     }
 
@@ -296,6 +372,11 @@ export default function Home({
       : avgDaily > 0
         ? pctText(todaySpend, avgDaily, 'avg')
         : 'No comparison yet'
+    const expenseTrendBars = [
+      Math.min(100, Math.max(14, avgDaily ? (todaySpend / Math.max(avgDaily, 1)) * 42 : todaySpend ? 32 : 16)),
+      Math.min(100, Math.max(12, yesterdaySpend ? (yesterdaySpend / Math.max(todaySpend || yesterdaySpend, 1)) * 38 : 18)),
+      Math.min(100, Math.max(18, todayLogs.length * 12)),
+    ]
 
     const activeLedger = ledgerEntries.filter((entry) => !entry.settled)
     const totalReceivable = activeLedger
@@ -327,6 +408,17 @@ export default function Home({
       else break
     }
 
+    const completedPlannerCount = plannedTasks.filter((task) => task.completed).length
+    const plannerPct = plannedTasks.length ? Math.round((completedPlannerCount / plannedTasks.length) * 100) : 0
+
+    const sunriseMinutes = toMinutes(astroSnapshot.sunrise)
+    const sunsetMinutes = toMinutes(astroSnapshot.sunset)
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    let astroDayPct = 0
+    if (sunriseMinutes !== null && sunsetMinutes !== null && sunsetMinutes > sunriseMinutes) {
+      astroDayPct = Math.max(0, Math.min(100, ((nowMinutes - sunriseMinutes) / (sunsetMinutes - sunriseMinutes)) * 100))
+    }
+
     return {
       expenses: {
         value: todaySpend,
@@ -335,6 +427,7 @@ export default function Home({
           `Top: ${topTodayCategory}`,
           todayLogs.length ? expenseTrend : 'No entries today',
         ],
+        trendBars: expenseTrendBars,
       },
       ledger: {
         value: totalReceivable,
@@ -343,6 +436,7 @@ export default function Home({
           overdueCount ? `${overdueCount} overdue` : 'No overdue items',
           dueTodayCount ? `${dueTodayCount} due today` : 'Nothing due today',
         ],
+        dots: [totalReceivable > 0 ? 1 : 0, overdueCount > 0 ? 1 : 0, dueTodayCount > 0 ? 1 : 0],
       },
       planner: {
         value: `${pendingToday} pending`,
@@ -351,6 +445,7 @@ export default function Home({
           `Next: ${nextTask?.title || 'No next task'}`,
           streak ? `${streak}-day streak` : 'No streak yet',
         ],
+        pct: plannerPct,
       },
       astro: {
         value: astroSnapshot.title,
@@ -359,6 +454,9 @@ export default function Home({
           astroSnapshot.location,
           astroSnapshot.festival,
         ],
+        sunrise: formatShortTime(astroSnapshot.sunrise),
+        sunset: formatShortTime(astroSnapshot.sunset),
+        dayPct: astroDayPct,
       },
     }
   }, [logs, ledgerEntries, plannerTasks, astroSnapshot])
@@ -381,17 +479,17 @@ export default function Home({
           width:100%;
           max-width:760px;
           margin:0 auto;
-          padding:8px 10px 26px;
+          padding:8px 12px 22px;
           background:
             radial-gradient(circle at 10% -10%, rgba(124,58,237,0.12), transparent 26%),
             radial-gradient(circle at 100% 0%, rgba(14,165,233,0.10), transparent 24%),
             linear-gradient(180deg,#FCFDFE 0%,#F4F7FB 42%,#EEF3F8 100%);
           color:#0f172a;
         }
-        .home-shell { display:flex; flex-direction:column; gap:12px; }
+        .home-shell { display:flex; flex-direction:column; gap:10px; }
         .home-header {
           display:flex; align-items:center; justify-content:space-between; gap:10px;
-          padding:8px 2px 2px;
+          padding:6px 0 0;
         }
         .home-brand {
           display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto;
@@ -415,35 +513,94 @@ export default function Home({
           box-shadow:0 10px 22px rgba(217,119,6,0.12), inset 0 1px 0 rgba(255,255,255,0.8);
         }
         .home-dashboard-grid {
-          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
+          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
         }
         .home-dashboard-card {
-          width:100%; border-radius:22px; padding:12px 12px 13px; border:none; text-align:left;
+          width:100%; border-radius:20px; padding:10px 10px 10px; border:none; text-align:left;
           transition:transform 0.16s ease, box-shadow 0.16s ease; cursor:pointer;
+          min-height:152px;
         }
-        .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+        .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
         .home-card-icon {
-          width:34px; height:34px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-          font-size:17px; font-weight:800;
+          width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+          font-size:15px; font-weight:800;
         }
-        .home-card-chev { font-size:21px; font-weight:700; line-height:1; opacity:0.75; }
-        .home-card-title { font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }
+        .home-card-chev { font-size:18px; font-weight:700; line-height:1; opacity:0.75; }
+        .home-card-title { font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px; }
         .home-card-primary {
-          font-size:22px; font-weight:800; line-height:1.05; margin-bottom:8px;
+          font-size:19px; font-weight:800; line-height:1.02; margin-bottom:5px;
         }
-        .home-card-lines { display:flex; flex-direction:column; gap:4px; }
+        .home-card-lines { display:flex; flex-direction:column; gap:3px; }
         .home-card-lines p {
-          margin:0; font-size:10.5px; line-height:1.3; color:#64748b; font-weight:650;
+          margin:0; font-size:10px; line-height:1.24; color:#64748b; font-weight:650;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .home-mini-visual {
+          margin-bottom:6px;
+        }
+        .home-mini-visual--spark {
+          height:26px; display:flex; align-items:center;
+        }
+        .home-mini-spark-svg {
+          width:56px; height:26px; overflow:visible;
+          filter: drop-shadow(0 3px 8px rgba(15,23,42,0.08));
+        }
+        .home-mini-visual--dots {
+          display:flex; align-items:center; gap:5px; min-height:18px;
+        }
+        .home-status-dot {
+          width:8px; height:8px; border-radius:999px; transition:all 0.18s ease;
+          box-shadow:0 0 0 3px rgba(255,255,255,0.75);
+        }
+        .home-mini-visual--progress {
+          min-height:18px; display:flex; align-items:center;
+        }
+        .home-mini-progress-track {
+          width:64px; height:6px; border-radius:999px; background:rgba(148,163,184,0.18); overflow:hidden;
+        }
+        .home-mini-progress-fill {
+          height:100%; border-radius:999px; transition:width 0.4s ease;
+        }
+        .home-astro-strip {
+          display:flex; align-items:center; gap:10px; padding:8px 10px;
+          border-radius:18px;
+          background:linear-gradient(145deg,rgba(255,255,255,0.86),rgba(240,247,255,0.92));
+          border:1px solid rgba(37,99,235,0.12);
+          box-shadow:0 10px 24px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
+        }
+        .home-astro-strip-icon {
+          width:30px; height:30px; border-radius:10px; flex-shrink:0;
+          display:flex; align-items:center; justify-content:center;
+          background:linear-gradient(145deg,#FFF7CC,#FDE68A); color:#B45309; font-size:15px;
+          box-shadow:0 8px 18px rgba(217,119,6,0.14);
+        }
+        .home-astro-strip-copy {
+          min-width:0; flex:1 1 auto; display:flex; flex-direction:column; gap:2px;
+        }
+        .home-astro-strip-copy p {
+          margin:0; font-size:10px; color:#64748b; font-weight:700;
+        }
+        .home-astro-strip-copy .home-astro-strip-title {
+          font-size:10px; color:#2563EB; text-transform:uppercase; letter-spacing:0.08em; font-weight:800;
+        }
+        .home-astro-strip-copy .home-astro-strip-times {
+          font-size:11px; color:#0f172a; font-weight:800;
+        }
+        .home-astro-strip-progress {
+          width:100%; height:5px; border-radius:999px; background:rgba(37,99,235,0.12); overflow:hidden; margin-top:2px;
+        }
+        .home-astro-strip-progress > span {
+          display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#F59E0B,#2563EB);
         }
         .home-feature-row {
-          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
+          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
         }
         .home-feature-card {
           width:100%; border:none; cursor:pointer; text-align:left;
-          border-radius:20px; padding:12px 12px; color:#fff;
+          border-radius:18px; padding:11px 11px; color:#fff;
           background:linear-gradient(145deg,#0f172a,#14233f 58%,#1e3a5f 100%);
           box-shadow:0 18px 34px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.06);
-          display:flex; align-items:center; gap:10px; min-height:86px;
+          display:flex; align-items:center; gap:10px; min-height:80px;
           transition:transform 0.16s ease, box-shadow 0.16s ease;
         }
         .home-feature-card:active, .home-quick-card:active { transform:scale(0.98); }
@@ -463,22 +620,22 @@ export default function Home({
         .home-section {
           background:linear-gradient(145deg,rgba(255,255,255,0.88),rgba(244,247,251,0.9));
           border:1px solid rgba(148,163,184,0.16);
-          border-radius:22px; padding:12px;
+          border-radius:20px; padding:11px;
           box-shadow:0 12px 28px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.92);
         }
         .home-section-head {
-          display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;
+          display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;
         }
         .home-section-head p {
           margin:0; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em;
         }
-        .home-quick-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+        .home-quick-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
         .home-quick-card {
-          border:none; cursor:pointer; text-align:left; border-radius:18px; padding:11px;
+          border:none; cursor:pointer; text-align:left; border-radius:16px; padding:10px;
           background:#fff; box-shadow:0 10px 24px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
           transition:transform 0.16s ease, box-shadow 0.16s ease;
         }
-        .home-quick-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+        .home-quick-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
         .home-quick-icon {
           width:34px; height:34px; border-radius:12px; display:flex; align-items:center; justify-content:center;
           font-size:17px; font-weight:800;
@@ -486,9 +643,11 @@ export default function Home({
         .home-quick-title { margin:0; font-size:13px; font-weight:800; color:#0f172a; }
         .home-quick-sub { margin:3px 0 0; font-size:10.5px; font-weight:650; color:#64748b; }
         @media (max-width: 640px) {
-          .home-premium-root { padding:8px 8px 22px; }
-          .home-card-primary { font-size:20px; }
-          .home-feature-card { min-height:80px; padding:11px; }
+          .home-premium-root { padding:8px 10px 20px; }
+          .home-card-primary { font-size:18px; }
+          .home-dashboard-card { min-height:146px; }
+          .home-feature-card { min-height:76px; padding:10px; }
+          .home-shell { gap:9px; }
         }
       `}</style>
 
@@ -524,6 +683,7 @@ export default function Home({
               primaryPrefix="₹"
               animated
               lines={dashboardSnapshot.expenses.lines}
+              microVisual={<MiniTrend accent="#D97706" points={dashboardSnapshot.expenses.trendBars} />}
               onClick={() => navigate('expense')}
             />
             <DashboardCard
@@ -535,6 +695,7 @@ export default function Home({
               primaryPrefix="₹"
               animated
               lines={dashboardSnapshot.ledger.lines}
+              microVisual={<MiniDots accent="#059669" values={dashboardSnapshot.ledger.dots} />}
               onClick={() => navigate('ledger')}
             />
             <DashboardCard
@@ -544,6 +705,7 @@ export default function Home({
               bg="#F7F4FF"
               primary={dashboardSnapshot.planner.value}
               lines={dashboardSnapshot.planner.lines}
+              microVisual={<MiniProgress accent="#7C3AED" pct={dashboardSnapshot.planner.pct} />}
               onClick={() => navigate('planner')}
             />
             <DashboardCard
@@ -553,8 +715,20 @@ export default function Home({
               bg="#F2F7FF"
               primary={dashboardSnapshot.astro.value}
               lines={dashboardSnapshot.astro.lines}
+              microVisual={<MiniProgress accent="#2563EB" pct={dashboardSnapshot.astro.dayPct} />}
               onClick={() => navigate('astro')}
             />
+          </div>
+
+          <div className="home-astro-strip">
+            <div className="home-astro-strip-icon">☀️</div>
+            <div className="home-astro-strip-copy">
+              <p className="home-astro-strip-title">Sun Cycle</p>
+              <p className="home-astro-strip-times">{dashboardSnapshot.astro.sunrise} sunrise · {dashboardSnapshot.astro.sunset} sunset</p>
+              <div className="home-astro-strip-progress">
+                <span style={{ width: `${Math.max(4, dashboardSnapshot.astro.dayPct)}%` }} />
+              </div>
+            </div>
           </div>
 
           <div className="home-feature-row">
