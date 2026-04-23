@@ -3,7 +3,7 @@ import SurprisesModal from './SurprisesModal'
 import SkillMachineModal from './SkillMachine'
 import { db } from '../firebase'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore'
-import { fetchAstroDoc, getTodayIST } from './astroHelpers'
+import { fetchAstroDoc, getTodayIST, LOCATIONS, LOCATION_META } from './astroHelpers'
 
 function useGreeting() {
   const h = new Date().getHours()
@@ -174,6 +174,89 @@ function MiniProgress({ accent, pct = 0 }) {
   )
 }
 
+function AstroCard({ snapshot, onOpen, onLocationChange }) {
+  const [pressed, setPressed] = useState(false)
+  const meta = LOCATION_META[snapshot.location] || LOCATION_META.Chennai || { emoji: '✦', tagline: 'Panchang' }
+
+  return (
+    <button
+      onClick={onOpen}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onMouseLeave={() => setPressed(false)}
+      onTouchStart={() => setPressed(true)}
+      onTouchEnd={() => setPressed(false)}
+      className="home-dashboard-card home-dashboard-card--astro home-astro-card"
+      style={{
+        background: CARD_TONES.astro.surface,
+        border: `1px solid ${CARD_TONES.astro.border}`,
+        boxShadow: pressed
+          ? 'inset 2px 2px 7px rgba(15,23,42,0.08), inset -1px -1px 4px rgba(255,255,255,0.85)'
+          : CARD_TONES.astro.shadow,
+        transform: pressed ? 'scale(0.98)' : 'translateY(0)',
+      }}
+    >
+      <span className="home-card-glow" style={{ background: CARD_TONES.astro.glow }} />
+      <span className="home-card-haze" style={{ background: CARD_TONES.astro.haze }} />
+      <span className="home-card-gloss" style={{ background: CARD_TONES.astro.gloss }} />
+      <span className="home-card-stars" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+
+      <div className="home-card-top">
+        <div className="home-card-icon home-astro-card-icon" style={{ background: CARD_TONES.astro.iconBg, color: '#4F46E5' }}>
+          ✦
+        </div>
+        <div className="home-astro-card-top-right">
+          <span className="home-astro-live-pill">Live</span>
+          <div className="home-card-chev" style={{ color: '#4F46E5' }}>›</div>
+        </div>
+      </div>
+
+      <div className="home-astro-card-heading">
+        <div>
+          <div className="home-card-title">Astro</div>
+          <div className="home-astro-primary">{snapshot.value || 'Daily Panchang'}</div>
+        </div>
+        <div className="home-astro-meta-badge">
+          <span>{meta.emoji}</span>
+          <small>{meta.tagline}</small>
+        </div>
+      </div>
+
+      <div className="home-astro-card-window">{snapshot.window || 'No key window today'}</div>
+
+      <div className="home-astro-card-inline">
+        <div className="home-astro-card-chip">
+          <span>Festival</span>
+          <strong>{snapshot.festival || 'No festival today'}</strong>
+        </div>
+        <div className="home-astro-card-chip">
+          <span>Daylight</span>
+          <strong>{Math.round(snapshot.dayPct || 0)}%</strong>
+        </div>
+      </div>
+
+      <div className="home-astro-card-footer" onClick={(event) => event.stopPropagation()}>
+        <label className="home-astro-location-wrap">
+          <span className="home-astro-location-label">Location</span>
+          <select
+            className="home-astro-location-select"
+            value={snapshot.location}
+            onChange={(event) => onLocationChange(event.target.value)}
+          >
+            {LOCATIONS.map((location) => (
+              <option key={location} value={location}>{location}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </button>
+  )
+}
+
 const CARD_TONES = {
   expenses: {
     surface: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(255,249,240,0.98) 42%, rgba(255,239,213,0.96) 100%)',
@@ -307,6 +390,7 @@ export default function Home({
 
   const username = currentUser?.username?.toLowerCase?.() || ''
   const displayName = currentUser?.name || currentUser?.username || 'User'
+  const astroLang = localStorage.getItem('acr_astro_lang') || 'en'
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -368,13 +452,11 @@ export default function Home({
     let ignore = false
 
     const loadAstro = async () => {
-      const location = localStorage.getItem('acr_astro_location') || 'Chennai'
-      const lang = localStorage.getItem('acr_astro_lang') || 'en'
-      const result = await fetchAstroDoc(location, lang, getTodayIST())
+      const result = await fetchAstroDoc(astroSnapshot.location, astroLang, getTodayIST())
       if (ignore) return
       const summary = extractAstroSummary(result?.data || null)
       setAstroSnapshot({
-        location,
+        location: astroSnapshot.location,
         title: summary.title,
         window: summary.window,
         festival: summary.festival,
@@ -385,7 +467,7 @@ export default function Home({
 
     loadAstro()
     return () => { ignore = true }
-  }, [])
+  }, [astroSnapshot.location, astroLang])
 
   const navigate = (tab) => {
     setPrevTab(activeTab)
@@ -499,6 +581,9 @@ export default function Home({
       },
       astro: {
         value: astroSnapshot.title,
+        window: astroSnapshot.window,
+        festival: astroSnapshot.festival,
+        location: astroSnapshot.location,
         lines: [
           astroSnapshot.window,
           astroSnapshot.location,
@@ -510,6 +595,14 @@ export default function Home({
       },
     }
   }, [logs, ledgerEntries, plannerTasks, astroSnapshot])
+
+  const handleAstroLocationChange = (location) => {
+    localStorage.setItem('acr_astro_location', location)
+    setAstroSnapshot((prev) => ({
+      ...prev,
+      location,
+    }))
+  }
 
   const quickActions = [
     { id: 'market', icon: '📰', label: 'News', sub: 'Briefing', accent: '#2563EB', bg: '#EEF4FF' },
@@ -595,11 +688,80 @@ export default function Home({
         .home-card-stars i:nth-child(1) { top:16px; right:46px; }
         .home-card-stars i:nth-child(2) { top:34px; right:22px; width:3px; height:3px; opacity:0.75; }
         .home-card-stars i:nth-child(3) { top:54px; right:58px; width:2px; height:2px; opacity:0.7; }
+        .home-astro-card {
+          min-height:152px;
+        }
+        .home-astro-card::after {
+          content:''; position:absolute; inset:auto 14px 14px auto; width:62px; height:62px; border-radius:999px;
+          background:radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%);
+          opacity:0.8; pointer-events:none; z-index:0;
+        }
         .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
         .home-card-icon {
           width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center;
           font-size:15px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,0.88), 0 10px 20px rgba(255,255,255,0.24);
         }
+        .home-astro-card-icon {
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.94), 0 8px 18px rgba(99,102,241,0.10);
+        }
+        .home-astro-card-top-right {
+          display:flex; align-items:center; gap:6px;
+        }
+        .home-astro-live-pill {
+          padding:4px 7px; border-radius:999px; font-size:9px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase;
+          color:#4F46E5; background:rgba(255,255,255,0.68); border:1px solid rgba(99,102,241,0.12);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.92);
+        }
+        .home-astro-card-heading {
+          display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:5px;
+        }
+        .home-astro-primary {
+          font-size:18px; line-height:1.05; font-weight:800; color:#312E81;
+        }
+        .home-astro-meta-badge {
+          flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:2px;
+          min-width:54px; padding:6px 7px; border-radius:14px;
+          background:rgba(255,255,255,0.62); border:1px solid rgba(99,102,241,0.12);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.94);
+        }
+        .home-astro-meta-badge span { font-size:13px; line-height:1; }
+        .home-astro-meta-badge small {
+          font-size:8.5px; line-height:1.15; color:#6366F1; font-weight:800; text-align:center;
+        }
+        .home-astro-card-window {
+          margin:0 0 6px; font-size:10.5px; line-height:1.3; font-weight:700; color:#475569;
+          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+        }
+        .home-astro-card-inline {
+          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-bottom:7px;
+        }
+        .home-astro-card-chip {
+          display:flex; flex-direction:column; gap:2px; padding:6px 7px; border-radius:12px;
+          background:rgba(255,255,255,0.58); border:1px solid rgba(99,102,241,0.10);
+        }
+        .home-astro-card-chip span {
+          font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#818CF8;
+        }
+        .home-astro-card-chip strong {
+          font-size:10px; line-height:1.2; color:#334155; font-weight:750;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .home-astro-card-footer {
+          display:flex; align-items:center; justify-content:flex-start;
+        }
+        .home-astro-location-wrap {
+          display:flex; align-items:center; gap:6px; min-width:0;
+          padding:5px 7px; border-radius:12px; background:rgba(255,255,255,0.62);
+          border:1px solid rgba(99,102,241,0.12); box-shadow:inset 0 1px 0 rgba(255,255,255,0.94);
+        }
+        .home-astro-location-label {
+          font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#818CF8;
+        }
+        .home-astro-location-select {
+          border:none; background:transparent; color:#312E81; font-size:10px; font-weight:800; outline:none;
+          max-width:90px; appearance:none; cursor:pointer;
+        }
+        .home-astro-location-select option { color:#0f172a; }
         .home-card-chev { font-size:18px; font-weight:700; line-height:1; opacity:0.75; }
         .home-card-title { font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px; }
         .home-card-primary {
@@ -637,6 +799,7 @@ export default function Home({
           height:100%; border-radius:999px; transition:width 0.4s ease;
         }
         .home-astro-strip {
+          position:relative; overflow:hidden;
           display:flex; align-items:center; gap:10px; padding:8px 10px;
           border-radius:18px;
           background:
@@ -645,11 +808,16 @@ export default function Home({
           border:1px solid rgba(99,102,241,0.1);
           box-shadow:0 10px 24px rgba(99,102,241,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
         }
+        .home-astro-strip::before {
+          content:''; position:absolute; left:-10px; top:-14px; width:72px; height:72px; border-radius:999px;
+          background:radial-gradient(circle, rgba(191,219,254,0.22), rgba(191,219,254,0) 70%);
+          pointer-events:none;
+        }
         .home-astro-strip-icon {
           width:30px; height:30px; border-radius:10px; flex-shrink:0;
           display:flex; align-items:center; justify-content:center;
-          background:linear-gradient(145deg,#FFF7CC,#FDE68A); color:#B45309; font-size:15px;
-          box-shadow:0 8px 18px rgba(217,119,6,0.14);
+          background:linear-gradient(145deg,#FFFFFF,#EEF2FF); color:#4F46E5; font-size:15px;
+          box-shadow:0 8px 18px rgba(99,102,241,0.12);
         }
         .home-astro-strip-copy {
           min-width:0; flex:1 1 auto; display:flex; flex-direction:column; gap:2px;
@@ -658,16 +826,16 @@ export default function Home({
           margin:0; font-size:10px; color:#64748b; font-weight:700;
         }
         .home-astro-strip-copy .home-astro-strip-title {
-          font-size:10px; color:#2563EB; text-transform:uppercase; letter-spacing:0.08em; font-weight:800;
+          font-size:10px; color:#6366F1; text-transform:uppercase; letter-spacing:0.08em; font-weight:800;
         }
         .home-astro-strip-copy .home-astro-strip-times {
           font-size:11px; color:#0f172a; font-weight:800;
         }
         .home-astro-strip-progress {
-          width:100%; height:5px; border-radius:999px; background:rgba(37,99,235,0.12); overflow:hidden; margin-top:2px;
+          width:100%; height:5px; border-radius:999px; background:rgba(99,102,241,0.12); overflow:hidden; margin-top:2px;
         }
         .home-astro-strip-progress > span {
-          display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#F59E0B,#2563EB);
+          display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#A78BFA,#60A5FA);
         }
         .home-feature-row {
           display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
@@ -723,6 +891,8 @@ export default function Home({
           .home-premium-root { padding:8px 10px 20px; }
           .home-card-primary { font-size:18px; }
           .home-dashboard-card { min-height:146px; }
+          .home-astro-primary { font-size:17px; }
+          .home-astro-location-select { max-width:82px; }
           .home-feature-card { min-height:76px; padding:10px; }
           .home-shell { gap:9px; }
         }
@@ -788,6 +958,12 @@ export default function Home({
               tone="planner"
               onClick={() => navigate('planner')}
             />
+            <AstroCard
+              snapshot={dashboardSnapshot.astro}
+              onOpen={() => navigate('astro')}
+              onLocationChange={handleAstroLocationChange}
+            />
+{/*
             <DashboardCard
               title="Astro"
               icon="✦"
@@ -799,12 +975,13 @@ export default function Home({
               tone="astro"
               onClick={() => navigate('astro')}
             />
+*/}
           </div>
 
           <div className="home-astro-strip">
-            <div className="home-astro-strip-icon">☀️</div>
+            <div className="home-astro-strip-icon">✦</div>
             <div className="home-astro-strip-copy">
-              <p className="home-astro-strip-title">Sun Cycle</p>
+              <p className="home-astro-strip-title">Sun Cycle · {dashboardSnapshot.astro.location}</p>
               <p className="home-astro-strip-times">{dashboardSnapshot.astro.sunrise} sunrise · {dashboardSnapshot.astro.sunset} sunset</p>
               <div className="home-astro-strip-progress">
                 <span style={{ width: `${Math.max(4, dashboardSnapshot.astro.dayPct)}%` }} />
