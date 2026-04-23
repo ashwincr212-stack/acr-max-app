@@ -174,6 +174,19 @@ function MiniProgress({ accent, pct = 0 }) {
   )
 }
 
+function AstroDayMeter({ pct = 0 }) {
+  const safePct = Math.max(0, Math.min(100, Math.round(pct || 0)))
+  return (
+    <div className="home-astro-day-meter" aria-hidden="true">
+      <span className="home-astro-day-meter-label">Day</span>
+      <div className="home-astro-day-meter-track">
+        <div className="home-astro-day-meter-fill" style={{ width: `${Math.max(10, safePct)}%` }} />
+      </div>
+      <strong>{safePct}%</strong>
+    </div>
+  )
+}
+
 function AstroCard({ snapshot, onOpen, onLocationChange }) {
   const [pressed, setPressed] = useState(false)
   const meta = LOCATION_META[snapshot.location] || LOCATION_META.Chennai || { emoji: '✦', tagline: 'Panchang' }
@@ -211,6 +224,7 @@ function AstroCard({ snapshot, onOpen, onLocationChange }) {
         </div>
         <div className="home-astro-card-top-right">
           <span className="home-astro-live-pill">Live</span>
+          <AstroDayMeter pct={snapshot.dayPct} />
           <div className="home-card-chev" style={{ color: '#4F46E5' }}>›</div>
         </div>
       </div>
@@ -296,7 +310,7 @@ const CARD_TONES = {
   },
 }
 
-function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, animated, primaryPrefix = '', microVisual, tone = 'expenses' }) {
+function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, animated, primaryPrefix = '', microVisual, tone = 'expenses', className = '' }) {
   const [pressed, setPressed] = useState(false)
   const toneConfig = CARD_TONES[tone] || CARD_TONES.expenses
 
@@ -308,7 +322,7 @@ function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, anima
       onMouseLeave={() => setPressed(false)}
       onTouchStart={() => setPressed(true)}
       onTouchEnd={() => setPressed(false)}
-      className={`home-dashboard-card home-dashboard-card--${tone}`}
+      className={`home-dashboard-card home-dashboard-card--${tone} ${className}`.trim()}
       style={{
         background: toneConfig.surface || `linear-gradient(145deg, #ffffff 0%, ${bg} 100%)`,
         border: `1px solid ${toneConfig.border || `${accent}22`}`,
@@ -656,13 +670,13 @@ export default function Home({
           box-shadow:0 10px 22px rgba(217,119,6,0.12), inset 0 1px 0 rgba(255,255,255,0.8);
         }
         .home-dashboard-grid {
-          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px;
+          display:grid; grid-template-columns:minmax(0,0.97fr) minmax(0,1.03fr); gap:7px;
         }
         .home-dashboard-card {
           position:relative; overflow:hidden;
-          width:100%; border-radius:18px; padding:8px 8px 8px; border:none; text-align:left;
+          width:100%; border-radius:18px; padding:7px 7px 6px; border:none; text-align:left;
           transition:transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease; cursor:pointer;
-          min-height:132px;
+          min-height:120px;
         }
         .home-dashboard-card:hover { filter:saturate(1.04); }
         .home-dashboard-card > * { position:relative; z-index:1; }
@@ -688,15 +702,31 @@ export default function Home({
         .home-card-stars i:nth-child(1) { top:14px; right:38px; }
         .home-card-stars i:nth-child(2) { top:28px; right:18px; width:3px; height:3px; opacity:0.75; }
         .home-card-stars i:nth-child(3) { top:44px; right:48px; width:2px; height:2px; opacity:0.7; }
+        .home-astro-card .home-card-stars i:nth-child(1) { animation:homeStarFloat 4.8s ease-in-out infinite; }
+        .home-astro-card .home-card-stars i:nth-child(2) { animation:homeStarFloat 5.6s ease-in-out infinite 0.8s; }
+        .home-astro-card .home-card-stars i:nth-child(3) { animation:homeStarFloat 4.2s ease-in-out infinite 1.4s; }
+        @keyframes homeStarFloat {
+          0%,100% { transform:translateY(0); opacity:0.65; }
+          50% { transform:translateY(-2px); opacity:1; }
+        }
+        @keyframes homeAstroPulse {
+          0%,100% { box-shadow:0 14px 32px rgba(99,102,241,0.09), 0 1px 0 rgba(255,255,255,0.96) inset; }
+          50% { box-shadow:0 16px 36px rgba(99,102,241,0.14), 0 1px 0 rgba(255,255,255,0.96) inset; }
+        }
+        @keyframes homeLiveBlink {
+          0%,100% { transform:translateY(0); box-shadow:inset 0 1px 0 rgba(255,255,255,0.92), 0 0 0 rgba(99,102,241,0); }
+          50% { transform:translateY(-0.5px); box-shadow:inset 0 1px 0 rgba(255,255,255,0.92), 0 0 0 3px rgba(99,102,241,0.06); }
+        }
         .home-astro-card {
-          min-height:132px;
+          min-height:126px;
+          animation:homeAstroPulse 6.8s ease-in-out infinite;
         }
         .home-astro-card::after {
           content:''; position:absolute; inset:auto 12px 12px auto; width:54px; height:54px; border-radius:999px;
           background:radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%);
           opacity:0.8; pointer-events:none; z-index:0;
         }
-        .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+        .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
         .home-card-icon {
           width:27px; height:27px; border-radius:9px; display:flex; align-items:center; justify-content:center;
           font-size:14px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,0.88), 0 8px 16px rgba(255,255,255,0.24);
@@ -711,6 +741,26 @@ export default function Home({
           padding:3px 6px; border-radius:999px; font-size:8px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase;
           color:#4F46E5; background:rgba(255,255,255,0.68); border:1px solid rgba(99,102,241,0.12);
           box-shadow:inset 0 1px 0 rgba(255,255,255,0.92);
+          animation:homeLiveBlink 2.8s ease-in-out infinite;
+        }
+        .home-astro-day-meter {
+          min-width:48px; padding:3px 5px 4px; border-radius:11px;
+          background:rgba(255,255,255,0.72); border:1px solid rgba(99,102,241,0.14);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.95), 0 6px 14px rgba(99,102,241,0.08);
+        }
+        .home-astro-day-meter-label {
+          display:block; margin-bottom:2px; font-size:7px; line-height:1; font-weight:800;
+          text-transform:uppercase; letter-spacing:0.06em; color:#818CF8;
+        }
+        .home-astro-day-meter-track {
+          width:100%; height:4px; border-radius:999px; overflow:hidden; background:rgba(129,140,248,0.12);
+        }
+        .home-astro-day-meter-fill {
+          height:100%; border-radius:999px; background:linear-gradient(90deg,#A78BFA,#60A5FA);
+          box-shadow:0 0 10px rgba(96,165,250,0.34);
+        }
+        .home-astro-day-meter strong {
+          display:block; margin-top:2px; font-size:8px; line-height:1; color:#4338CA; font-weight:800;
         }
         .home-astro-card-heading {
           display:flex; align-items:flex-start; justify-content:space-between; gap:6px; margin-bottom:4px;
@@ -765,13 +815,18 @@ export default function Home({
         .home-card-chev { font-size:16px; font-weight:700; line-height:1; opacity:0.75; }
         .home-card-title { font-size:9px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:2px; }
         .home-card-primary {
-          font-size:17px; font-weight:800; line-height:1.02; margin-bottom:4px;
+          font-size:16px; font-weight:800; line-height:1.02; margin-bottom:3px;
         }
         .home-card-lines { display:flex; flex-direction:column; gap:2px; }
         .home-card-lines p {
-          margin:0; font-size:9px; line-height:1.18; color:#64748b; font-weight:650;
+          margin:0; font-size:8.5px; line-height:1.14; color:#64748b; font-weight:650;
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
+        .home-dashboard-card--compact .home-card-top { margin-bottom:3px; }
+        .home-dashboard-card--compact .home-card-primary { margin-bottom:2px; }
+        .home-dashboard-card--compact .home-card-lines { gap:1px; }
+        .home-dashboard-card--compact .home-card-lines p { font-size:8px; line-height:1.12; }
+        .home-dashboard-card--compact .home-mini-visual { margin-bottom:2px; }
         .home-mini-visual {
           margin-bottom:4px;
         }
@@ -894,11 +949,11 @@ export default function Home({
           .home-time { font-size:9px; }
           .home-coin-pill { padding:6px 9px; font-size:10px; }
           .home-dashboard-grid, .home-feature-row, .home-quick-grid { gap:6px; }
-          .home-dashboard-card { min-height:126px; padding:8px 7px; }
-          .home-astro-card { min-height:126px; }
-          .home-card-primary { font-size:16px; }
-          .home-card-lines p { font-size:8.5px; }
-          .home-astro-primary { font-size:15px; }
+          .home-dashboard-card { min-height:116px; padding:7px 6px 6px; }
+          .home-astro-card { min-height:122px; }
+          .home-card-primary { font-size:15px; }
+          .home-card-lines p { font-size:8px; }
+          .home-astro-primary { font-size:14px; }
           .home-astro-location-select { max-width:72px; }
           .home-feature-card { min-height:62px; padding:8px; }
           .home-section { padding:8px; }
@@ -964,6 +1019,7 @@ export default function Home({
               lines={dashboardSnapshot.planner.lines}
               microVisual={<MiniProgress accent="#7C3AED" pct={dashboardSnapshot.planner.pct} />}
               tone="planner"
+              className="home-dashboard-card--compact"
               onClick={() => navigate('planner')}
             />
             <AstroCard
