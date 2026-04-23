@@ -8,11 +8,18 @@ const fmtDate = (d) => {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-function buildDoc(title, rows, summary, generatedFor = null) {
-  // Dynamic import so bundle only loads when actually used
-  return import('jspdf').then(({ jsPDF }) =>
-    import('jspdf-autotable').then(() => {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+async function buildDoc(title, rows, summary, generatedFor = null) {
+  // Dynamic imports keep PDF libraries out of the main mobile bundle.
+  const [{ jsPDF }, autoTableModule] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
+  const autoTable = autoTableModule.default || autoTableModule.autoTable;
+  if (typeof autoTable !== 'function') {
+    throw new Error('jspdf-autotable did not expose an autoTable function');
+  }
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pageW = doc.internal.pageSize.getWidth();
 
       // ── Header bar
@@ -62,7 +69,7 @@ function buildDoc(title, rows, summary, generatedFor = null) {
       }
 
       // ── Table
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [['#', 'Person', 'Type', 'Amount', 'Date', 'Due Date', 'Status', 'Note']],
         body: rows,
@@ -116,8 +123,49 @@ function buildDoc(title, rows, summary, generatedFor = null) {
       }
 
       return doc;
-    })
-  );
+}
+
+async function isNativePdfContext() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    return Boolean(Capacitor?.isNativePlatform?.());
+  } catch (error) {
+    console.error('Unable to detect Capacitor platform for PDF export:', error);
+    return false;
+  }
+}
+
+async function saveNativePdf(doc, filename) {
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+
+    const dataUri = doc.output('datauristring');
+    const base64Data = dataUri.split(',')[1];
+    if (!base64Data) throw new Error('jsPDF did not return valid base64 PDF data');
+
+    const safeName = filename.replace(/[^\w.-]+/g, '_');
+    const saved = await Filesystem.writeFile({
+      path: safeName,
+      data: base64Data,
+      directory: Directory.Cache,
+      recursive: true,
+    });
+
+    return { platform: 'native', filename: safeName, uri: saved.uri };
+  } catch (error) {
+    console.error('Native PDF export failed:', error);
+    throw error;
+  }
+}
+
+async function savePdf(doc, filename) {
+  if (!(await isNativePdfContext())) {
+    doc.save(filename);
+    return { platform: 'web', filename };
+  }
+
+  return saveNativePdf(doc, filename);
 }
 
 function entryStatus(entry) {
@@ -156,20 +204,20 @@ function buildSummary(entries) {
 /* ── Public API ── */
 
 export async function exportAllLedger(entries) {
-  const rows = entriesToRows([...entries].sort((a, b) => new Date(b.date) - new Date(a.date)));
+  const rows = entriesToRows([...entries].sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)));
   const summary = buildSummary(entries);
   const doc = await buildDoc('Full Ledger Export', rows, summary);
-  doc.save(`ACR_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`);
+  return savePdf(doc, `ACR_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 export async function exportPersonLedger(personName, entries) {
   const personEntries = entries
     .filter(e => e.person.trim().toLowerCase() === personName.trim().toLowerCase())
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
   const rows = entriesToRows(personEntries);
   const summary = buildSummary(personEntries);
   const doc = await buildDoc('Person Ledger Statement', rows, summary, personName);
-  doc.save(`ACR_Ledger_${personName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  return savePdf(doc, `ACR_Ledger_${personName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 export async function exportPendingLedger(entries) {
@@ -183,5 +231,20 @@ export async function exportPendingLedger(entries) {
   const rows = entriesToRows(pending);
   const summary = buildSummary(entries);
   const doc = await buildDoc('Pending / Overdue Ledger', rows, summary);
-  doc.save(`ACR_Ledger_Pending_${new Date().toISOString().slice(0, 10)}.pdf`);
+  return savePdf(doc, `ACR_Ledger_Pending_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+export async function shareNativeLedgerPdf(file) {
+  try {
+    const { Share } = await import('@capacitor/share');
+    await Share.share({
+      title: 'ACR MAX Ledger PDF',
+      text: 'Open or share your ledger PDF.',
+      url: file.uri,
+      dialogTitle: 'Share ledger PDF',
+    });
+  } catch (error) {
+    console.error('Native PDF share failed:', error);
+    throw error;
+  }
 }
