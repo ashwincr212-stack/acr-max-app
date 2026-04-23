@@ -622,47 +622,47 @@ export default function Home({
           width:100%;
           max-width:760px;
           margin:0 auto;
-          padding:8px 12px 22px;
+          padding:6px 10px 16px;
           background:
             radial-gradient(circle at 10% -10%, rgba(124,58,237,0.12), transparent 26%),
             radial-gradient(circle at 100% 0%, rgba(14,165,233,0.10), transparent 24%),
             linear-gradient(180deg,#FCFDFE 0%,#F4F7FB 42%,#EEF3F8 100%);
           color:#0f172a;
         }
-        .home-shell { display:flex; flex-direction:column; gap:10px; }
+        .home-shell { display:flex; flex-direction:column; gap:8px; }
         .home-header {
           display:flex; align-items:center; justify-content:space-between; gap:10px;
-          padding:6px 0 0;
+          padding:4px 0 0;
         }
         .home-brand {
-          display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto;
+          display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 auto;
         }
         .home-brand img {
-          width:38px; height:38px; border-radius:14px; object-fit:cover;
+          width:34px; height:34px; border-radius:12px; object-fit:cover;
           border:1px solid rgba(124,58,237,0.18);
           box-shadow:0 10px 20px rgba(124,58,237,0.12);
           flex-shrink:0;
         }
-        .home-brand-title { font-size:15px; font-weight:800; color:#0f172a; margin:0; line-height:1.05; }
-        .home-brand-sub { font-size:10px; color:#64748b; margin:2px 0 0; font-weight:600; }
-        .home-header-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .home-brand-title { font-size:14px; font-weight:800; color:#0f172a; margin:0; line-height:1.05; }
+        .home-brand-sub { font-size:9.5px; color:#64748b; margin:1px 0 0; font-weight:600; }
+        .home-header-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
         .home-time {
-          font-size:11px; font-weight:700; color:#64748b; text-align:right; line-height:1.2;
+          font-size:10px; font-weight:700; color:#64748b; text-align:right; line-height:1.15;
         }
         .home-coin-pill {
-          border:none; cursor:pointer; border-radius:999px; padding:8px 12px;
+          border:none; cursor:pointer; border-radius:999px; padding:7px 10px;
           background:linear-gradient(135deg,#FFF7CC,#FDE68A);
-          color:#92400e; font-size:12px; font-weight:800;
+          color:#92400e; font-size:11px; font-weight:800;
           box-shadow:0 10px 22px rgba(217,119,6,0.12), inset 0 1px 0 rgba(255,255,255,0.8);
         }
         .home-dashboard-grid {
-          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
+          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px;
         }
         .home-dashboard-card {
           position:relative; overflow:hidden;
-          width:100%; border-radius:20px; padding:10px 10px 10px; border:none; text-align:left;
+          width:100%; border-radius:18px; padding:8px 8px 8px; border:none; text-align:left;
           transition:transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease; cursor:pointer;
-          min-height:152px;
+          min-height:132px;
         }
         .home-dashboard-card:hover { filter:saturate(1.04); }
         .home-dashboard-card > * { position:relative; z-index:1; }
@@ -670,13 +670,13 @@ export default function Home({
           position:absolute; pointer-events:none; z-index:0;
         }
         .home-card-glow {
-          width:88px; height:88px; left:-16px; top:-14px; border-radius:999px; filter:blur(2px);
+          width:76px; height:76px; left:-14px; top:-12px; border-radius:999px; filter:blur(2px);
         }
         .home-card-haze {
-          width:84px; height:84px; right:-18px; top:-10px; border-radius:999px; filter:blur(1px);
+          width:72px; height:72px; right:-16px; top:-8px; border-radius:999px; filter:blur(1px);
         }
         .home-card-gloss {
-          left:8px; right:8px; top:0; height:44px; border-radius:18px 18px 28px 28px; opacity:0.82;
+          left:6px; right:6px; top:0; height:36px; border-radius:16px 16px 24px 24px; opacity:0.82;
         }
         .home-card-stars {
           position:absolute; inset:0; pointer-events:none; z-index:0;
@@ -685,65 +685,65 @@ export default function Home({
           position:absolute; width:4px; height:4px; border-radius:999px;
           background:rgba(255,255,255,0.95); box-shadow:0 0 10px rgba(191,219,254,0.9);
         }
-        .home-card-stars i:nth-child(1) { top:16px; right:46px; }
-        .home-card-stars i:nth-child(2) { top:34px; right:22px; width:3px; height:3px; opacity:0.75; }
-        .home-card-stars i:nth-child(3) { top:54px; right:58px; width:2px; height:2px; opacity:0.7; }
+        .home-card-stars i:nth-child(1) { top:14px; right:38px; }
+        .home-card-stars i:nth-child(2) { top:28px; right:18px; width:3px; height:3px; opacity:0.75; }
+        .home-card-stars i:nth-child(3) { top:44px; right:48px; width:2px; height:2px; opacity:0.7; }
         .home-astro-card {
-          min-height:152px;
+          min-height:132px;
         }
         .home-astro-card::after {
-          content:''; position:absolute; inset:auto 14px 14px auto; width:62px; height:62px; border-radius:999px;
+          content:''; position:absolute; inset:auto 12px 12px auto; width:54px; height:54px; border-radius:999px;
           background:radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%);
           opacity:0.8; pointer-events:none; z-index:0;
         }
-        .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
+        .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
         .home-card-icon {
-          width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-          font-size:15px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,0.88), 0 10px 20px rgba(255,255,255,0.24);
+          width:27px; height:27px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+          font-size:14px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,0.88), 0 8px 16px rgba(255,255,255,0.24);
         }
         .home-astro-card-icon {
           box-shadow:inset 0 1px 0 rgba(255,255,255,0.94), 0 8px 18px rgba(99,102,241,0.10);
         }
         .home-astro-card-top-right {
-          display:flex; align-items:center; gap:6px;
+          display:flex; align-items:center; gap:5px;
         }
         .home-astro-live-pill {
-          padding:4px 7px; border-radius:999px; font-size:9px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase;
+          padding:3px 6px; border-radius:999px; font-size:8px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase;
           color:#4F46E5; background:rgba(255,255,255,0.68); border:1px solid rgba(99,102,241,0.12);
           box-shadow:inset 0 1px 0 rgba(255,255,255,0.92);
         }
         .home-astro-card-heading {
-          display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:5px;
+          display:flex; align-items:flex-start; justify-content:space-between; gap:6px; margin-bottom:4px;
         }
         .home-astro-primary {
-          font-size:18px; line-height:1.05; font-weight:800; color:#312E81;
+          font-size:16px; line-height:1.02; font-weight:800; color:#312E81;
         }
         .home-astro-meta-badge {
           flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:2px;
-          min-width:54px; padding:6px 7px; border-radius:14px;
+          min-width:48px; padding:5px 6px; border-radius:12px;
           background:rgba(255,255,255,0.62); border:1px solid rgba(99,102,241,0.12);
           box-shadow:inset 0 1px 0 rgba(255,255,255,0.94);
         }
-        .home-astro-meta-badge span { font-size:13px; line-height:1; }
+        .home-astro-meta-badge span { font-size:12px; line-height:1; }
         .home-astro-meta-badge small {
-          font-size:8.5px; line-height:1.15; color:#6366F1; font-weight:800; text-align:center;
+          font-size:8px; line-height:1.1; color:#6366F1; font-weight:800; text-align:center;
         }
         .home-astro-card-window {
-          margin:0 0 6px; font-size:10.5px; line-height:1.3; font-weight:700; color:#475569;
+          margin:0 0 5px; font-size:9.5px; line-height:1.22; font-weight:700; color:#475569;
           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
         }
         .home-astro-card-inline {
-          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-bottom:7px;
+          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; margin-bottom:5px;
         }
         .home-astro-card-chip {
-          display:flex; flex-direction:column; gap:2px; padding:6px 7px; border-radius:12px;
+          display:flex; flex-direction:column; gap:1px; padding:5px 6px; border-radius:11px;
           background:rgba(255,255,255,0.58); border:1px solid rgba(99,102,241,0.10);
         }
         .home-astro-card-chip span {
-          font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#818CF8;
+          font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#818CF8;
         }
         .home-astro-card-chip strong {
-          font-size:10px; line-height:1.2; color:#334155; font-weight:750;
+          font-size:9px; line-height:1.15; color:#334155; font-weight:750;
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
         .home-astro-card-footer {
@@ -751,57 +751,57 @@ export default function Home({
         }
         .home-astro-location-wrap {
           display:flex; align-items:center; gap:6px; min-width:0;
-          padding:5px 7px; border-radius:12px; background:rgba(255,255,255,0.62);
+          padding:4px 6px; border-radius:11px; background:rgba(255,255,255,0.62);
           border:1px solid rgba(99,102,241,0.12); box-shadow:inset 0 1px 0 rgba(255,255,255,0.94);
         }
         .home-astro-location-label {
-          font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#818CF8;
+          font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#818CF8;
         }
         .home-astro-location-select {
-          border:none; background:transparent; color:#312E81; font-size:10px; font-weight:800; outline:none;
-          max-width:90px; appearance:none; cursor:pointer;
+          border:none; background:transparent; color:#312E81; font-size:9px; font-weight:800; outline:none;
+          max-width:78px; appearance:none; cursor:pointer;
         }
         .home-astro-location-select option { color:#0f172a; }
-        .home-card-chev { font-size:18px; font-weight:700; line-height:1; opacity:0.75; }
-        .home-card-title { font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px; }
+        .home-card-chev { font-size:16px; font-weight:700; line-height:1; opacity:0.75; }
+        .home-card-title { font-size:9px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:2px; }
         .home-card-primary {
-          font-size:19px; font-weight:800; line-height:1.02; margin-bottom:5px;
+          font-size:17px; font-weight:800; line-height:1.02; margin-bottom:4px;
         }
-        .home-card-lines { display:flex; flex-direction:column; gap:3px; }
+        .home-card-lines { display:flex; flex-direction:column; gap:2px; }
         .home-card-lines p {
-          margin:0; font-size:10px; line-height:1.24; color:#64748b; font-weight:650;
+          margin:0; font-size:9px; line-height:1.18; color:#64748b; font-weight:650;
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
         .home-mini-visual {
-          margin-bottom:6px;
+          margin-bottom:4px;
         }
         .home-mini-visual--spark {
-          height:26px; display:flex; align-items:center;
+          height:20px; display:flex; align-items:center;
         }
         .home-mini-spark-svg {
-          width:56px; height:26px; overflow:visible;
+          width:48px; height:20px; overflow:visible;
           filter: drop-shadow(0 3px 8px rgba(15,23,42,0.08));
         }
         .home-mini-visual--dots {
-          display:flex; align-items:center; gap:5px; min-height:18px;
+          display:flex; align-items:center; gap:4px; min-height:14px;
         }
         .home-status-dot {
-          width:8px; height:8px; border-radius:999px; transition:all 0.18s ease;
-          box-shadow:0 0 0 3px rgba(255,255,255,0.75);
+          width:7px; height:7px; border-radius:999px; transition:all 0.18s ease;
+          box-shadow:0 0 0 2px rgba(255,255,255,0.75);
         }
         .home-mini-visual--progress {
-          min-height:18px; display:flex; align-items:center;
+          min-height:14px; display:flex; align-items:center;
         }
         .home-mini-progress-track {
-          width:64px; height:6px; border-radius:999px; background:rgba(148,163,184,0.18); overflow:hidden;
+          width:56px; height:5px; border-radius:999px; background:rgba(148,163,184,0.18); overflow:hidden;
         }
         .home-mini-progress-fill {
           height:100%; border-radius:999px; transition:width 0.4s ease;
         }
         .home-astro-strip {
           position:relative; overflow:hidden;
-          display:flex; align-items:center; gap:10px; padding:8px 10px;
-          border-radius:18px;
+          display:flex; align-items:center; gap:8px; padding:7px 8px;
+          border-radius:16px;
           background:
             radial-gradient(circle at 88% 24%, rgba(196,181,253,0.12), transparent 26%),
             linear-gradient(145deg,rgba(255,255,255,0.9),rgba(242,247,255,0.96));
@@ -809,92 +809,100 @@ export default function Home({
           box-shadow:0 10px 24px rgba(99,102,241,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
         }
         .home-astro-strip::before {
-          content:''; position:absolute; left:-10px; top:-14px; width:72px; height:72px; border-radius:999px;
+          content:''; position:absolute; left:-10px; top:-14px; width:58px; height:58px; border-radius:999px;
           background:radial-gradient(circle, rgba(191,219,254,0.22), rgba(191,219,254,0) 70%);
           pointer-events:none;
         }
         .home-astro-strip-icon {
-          width:30px; height:30px; border-radius:10px; flex-shrink:0;
+          width:26px; height:26px; border-radius:9px; flex-shrink:0;
           display:flex; align-items:center; justify-content:center;
-          background:linear-gradient(145deg,#FFFFFF,#EEF2FF); color:#4F46E5; font-size:15px;
+          background:linear-gradient(145deg,#FFFFFF,#EEF2FF); color:#4F46E5; font-size:13px;
           box-shadow:0 8px 18px rgba(99,102,241,0.12);
         }
         .home-astro-strip-copy {
-          min-width:0; flex:1 1 auto; display:flex; flex-direction:column; gap:2px;
+          min-width:0; flex:1 1 auto; display:flex; flex-direction:column; gap:1px;
         }
         .home-astro-strip-copy p {
-          margin:0; font-size:10px; color:#64748b; font-weight:700;
+          margin:0; font-size:9px; color:#64748b; font-weight:700;
         }
         .home-astro-strip-copy .home-astro-strip-title {
-          font-size:10px; color:#6366F1; text-transform:uppercase; letter-spacing:0.08em; font-weight:800;
+          font-size:9px; color:#6366F1; text-transform:uppercase; letter-spacing:0.08em; font-weight:800;
         }
         .home-astro-strip-copy .home-astro-strip-times {
-          font-size:11px; color:#0f172a; font-weight:800;
+          font-size:10px; color:#0f172a; font-weight:800;
         }
         .home-astro-strip-progress {
-          width:100%; height:5px; border-radius:999px; background:rgba(99,102,241,0.12); overflow:hidden; margin-top:2px;
+          width:100%; height:4px; border-radius:999px; background:rgba(99,102,241,0.12); overflow:hidden; margin-top:2px;
         }
         .home-astro-strip-progress > span {
           display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#A78BFA,#60A5FA);
         }
         .home-feature-row {
-          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
+          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px;
         }
         .home-feature-card {
           width:100%; border:none; cursor:pointer; text-align:left;
-          border-radius:18px; padding:11px 11px; color:#fff;
+          border-radius:16px; padding:9px; color:#fff;
           background:linear-gradient(145deg,#0f172a,#14233f 58%,#1e3a5f 100%);
           box-shadow:0 18px 34px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.06);
-          display:flex; align-items:center; gap:10px; min-height:80px;
+          display:flex; align-items:center; gap:8px; min-height:68px;
           transition:transform 0.16s ease, box-shadow 0.16s ease;
         }
         .home-feature-card:active, .home-quick-card:active { transform:scale(0.98); }
         .home-feature-icon {
-          width:38px; height:38px; border-radius:14px; flex-shrink:0;
-          display:flex; align-items:center; justify-content:center; font-size:18px;
+          width:32px; height:32px; border-radius:12px; flex-shrink:0;
+          display:flex; align-items:center; justify-content:center; font-size:15px;
           background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.10);
         }
         .home-feature-copy { min-width:0; flex:1 1 auto; }
-        .home-feature-copy p { margin:0; font-size:14px; font-weight:800; color:#fff; }
-        .home-feature-copy span { display:block; margin-top:2px; font-size:10.5px; color:rgba(226,232,240,0.78); font-weight:600; }
+        .home-feature-copy p { margin:0; font-size:12px; font-weight:800; color:#fff; }
+        .home-feature-copy span { display:block; margin-top:1px; font-size:9px; color:rgba(226,232,240,0.78); font-weight:600; line-height:1.2; }
         .home-feature-pill {
-          flex-shrink:0; padding:6px 10px; border-radius:999px;
-          background:linear-gradient(135deg,#6366F1,#8B5CF6); color:#fff; font-size:10px; font-weight:800;
+          flex-shrink:0; padding:5px 8px; border-radius:999px;
+          background:linear-gradient(135deg,#6366F1,#8B5CF6); color:#fff; font-size:9px; font-weight:800;
           box-shadow:0 8px 18px rgba(99,102,241,0.26);
         }
         .home-section {
           background:linear-gradient(145deg,rgba(255,255,255,0.88),rgba(244,247,251,0.9));
           border:1px solid rgba(148,163,184,0.16);
-          border-radius:20px; padding:11px;
+          border-radius:18px; padding:9px;
           box-shadow:0 12px 28px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.92);
         }
         .home-section-head {
-          display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;
+          display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;
         }
         .home-section-head p {
-          margin:0; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em;
+          margin:0; font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em;
         }
-        .home-quick-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+        .home-quick-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
         .home-quick-card {
-          border:none; cursor:pointer; text-align:left; border-radius:16px; padding:10px;
+          border:none; cursor:pointer; text-align:left; border-radius:14px; padding:8px;
           background:#fff; box-shadow:0 10px 24px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
           transition:transform 0.16s ease, box-shadow 0.16s ease;
         }
-        .home-quick-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+        .home-quick-top { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; }
         .home-quick-icon {
-          width:34px; height:34px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-          font-size:17px; font-weight:800;
+          width:29px; height:29px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+          font-size:14px; font-weight:800;
         }
-        .home-quick-title { margin:0; font-size:13px; font-weight:800; color:#0f172a; }
-        .home-quick-sub { margin:3px 0 0; font-size:10.5px; font-weight:650; color:#64748b; }
+        .home-quick-title { margin:0; font-size:11px; font-weight:800; color:#0f172a; }
+        .home-quick-sub { margin:2px 0 0; font-size:9px; font-weight:650; color:#64748b; line-height:1.2; }
         @media (max-width: 640px) {
-          .home-premium-root { padding:8px 10px 20px; }
-          .home-card-primary { font-size:18px; }
-          .home-dashboard-card { min-height:146px; }
-          .home-astro-primary { font-size:17px; }
-          .home-astro-location-select { max-width:82px; }
-          .home-feature-card { min-height:76px; padding:10px; }
-          .home-shell { gap:9px; }
+          .home-premium-root { padding:6px 8px 14px; }
+          .home-shell { gap:7px; }
+          .home-header { gap:8px; }
+          .home-time { font-size:9px; }
+          .home-coin-pill { padding:6px 9px; font-size:10px; }
+          .home-dashboard-grid, .home-feature-row, .home-quick-grid { gap:6px; }
+          .home-dashboard-card { min-height:126px; padding:8px 7px; }
+          .home-astro-card { min-height:126px; }
+          .home-card-primary { font-size:16px; }
+          .home-card-lines p { font-size:8.5px; }
+          .home-astro-primary { font-size:15px; }
+          .home-astro-location-select { max-width:72px; }
+          .home-feature-card { min-height:62px; padding:8px; }
+          .home-section { padding:8px; }
+          .home-quick-card { padding:7px; }
         }
       `}</style>
 
