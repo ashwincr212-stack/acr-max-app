@@ -174,8 +174,48 @@ function MiniProgress({ accent, pct = 0 }) {
   )
 }
 
-function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, animated, primaryPrefix = '', microVisual }) {
+const CARD_TONES = {
+  expenses: {
+    surface: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(255,249,240,0.98) 42%, rgba(255,239,213,0.96) 100%)',
+    border: 'rgba(217,119,6,0.18)',
+    shadow: '0 14px 32px rgba(217,119,6,0.12), 0 1px 0 rgba(255,255,255,0.94) inset',
+    glow: 'radial-gradient(circle at 18% 18%, rgba(251,191,36,0.26), transparent 48%)',
+    haze: 'radial-gradient(circle at 86% 22%, rgba(251,146,60,0.16), transparent 34%)',
+    gloss: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0))',
+    iconBg: 'linear-gradient(145deg, rgba(255,247,219,0.98), rgba(255,233,193,0.92))',
+  },
+  ledger: {
+    surface: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(240,253,248,0.98) 48%, rgba(222,247,239,0.96) 100%)',
+    border: 'rgba(5,150,105,0.18)',
+    shadow: '0 14px 32px rgba(5,150,105,0.11), 0 1px 0 rgba(255,255,255,0.94) inset',
+    glow: 'radial-gradient(circle at 16% 20%, rgba(52,211,153,0.2), transparent 50%)',
+    haze: 'radial-gradient(circle at 88% 22%, rgba(45,212,191,0.14), transparent 34%)',
+    gloss: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0))',
+    iconBg: 'linear-gradient(145deg, rgba(232,255,247,0.98), rgba(209,250,229,0.92))',
+  },
+  planner: {
+    surface: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(248,245,255,0.98) 48%, rgba(239,233,255,0.97) 100%)',
+    border: 'rgba(124,58,237,0.16)',
+    shadow: '0 14px 32px rgba(124,58,237,0.1), 0 1px 0 rgba(255,255,255,0.94) inset',
+    glow: 'radial-gradient(circle at 18% 18%, rgba(167,139,250,0.22), transparent 48%)',
+    haze: 'radial-gradient(circle at 86% 24%, rgba(196,181,253,0.2), transparent 34%)',
+    gloss: 'linear-gradient(180deg, rgba(255,255,255,0.74), rgba(255,255,255,0))',
+    iconBg: 'linear-gradient(145deg, rgba(247,243,255,0.98), rgba(237,233,254,0.94))',
+  },
+  astro: {
+    surface: 'linear-gradient(155deg, rgba(255,255,255,0.99) 0%, rgba(250,251,255,0.98) 48%, rgba(242,245,255,0.96) 100%)',
+    border: 'rgba(99,102,241,0.14)',
+    shadow: '0 14px 32px rgba(99,102,241,0.09), 0 1px 0 rgba(255,255,255,0.96) inset',
+    glow: 'radial-gradient(circle at 18% 18%, rgba(191,219,254,0.24), transparent 50%)',
+    haze: 'radial-gradient(circle at 86% 20%, rgba(221,214,254,0.2), transparent 34%)',
+    gloss: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0))',
+    iconBg: 'linear-gradient(145deg, rgba(255,255,255,0.98), rgba(237,242,255,0.94))',
+  },
+}
+
+function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, animated, primaryPrefix = '', microVisual, tone = 'expenses' }) {
   const [pressed, setPressed] = useState(false)
+  const toneConfig = CARD_TONES[tone] || CARD_TONES.expenses
 
   return (
     <button
@@ -185,18 +225,28 @@ function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, anima
       onMouseLeave={() => setPressed(false)}
       onTouchStart={() => setPressed(true)}
       onTouchEnd={() => setPressed(false)}
-      className="home-dashboard-card"
+      className={`home-dashboard-card home-dashboard-card--${tone}`}
       style={{
-        background: `linear-gradient(145deg, #ffffff 0%, ${bg} 100%)`,
-        border: `1px solid ${accent}22`,
+        background: toneConfig.surface || `linear-gradient(145deg, #ffffff 0%, ${bg} 100%)`,
+        border: `1px solid ${toneConfig.border || `${accent}22`}`,
         boxShadow: pressed
           ? 'inset 2px 2px 7px rgba(15,23,42,0.08), inset -1px -1px 4px rgba(255,255,255,0.85)'
-          : '0 12px 28px rgba(15,23,42,0.08), 0 1px 0 rgba(255,255,255,0.9) inset',
+          : toneConfig.shadow || '0 12px 28px rgba(15,23,42,0.08), 0 1px 0 rgba(255,255,255,0.9) inset',
         transform: pressed ? 'scale(0.98)' : 'translateY(0)',
       }}
     >
+      <span className="home-card-glow" style={{ background: toneConfig.glow }} />
+      <span className="home-card-haze" style={{ background: toneConfig.haze }} />
+      <span className="home-card-gloss" style={{ background: toneConfig.gloss }} />
+      {tone === 'astro' && (
+        <span className="home-card-stars" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      )}
       <div className="home-card-top">
-        <div className="home-card-icon" style={{ background: `${accent}14`, color: accent }}>
+        <div className="home-card-icon" style={{ background: toneConfig.iconBg || `${accent}14`, color: accent }}>
           {icon}
         </div>
         <div className="home-card-chev" style={{ color: accent }}>›</div>
@@ -516,14 +566,39 @@ export default function Home({
           display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
         }
         .home-dashboard-card {
+          position:relative; overflow:hidden;
           width:100%; border-radius:20px; padding:10px 10px 10px; border:none; text-align:left;
-          transition:transform 0.16s ease, box-shadow 0.16s ease; cursor:pointer;
+          transition:transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease; cursor:pointer;
           min-height:152px;
         }
+        .home-dashboard-card:hover { filter:saturate(1.04); }
+        .home-dashboard-card > * { position:relative; z-index:1; }
+        .home-card-glow, .home-card-haze, .home-card-gloss {
+          position:absolute; pointer-events:none; z-index:0;
+        }
+        .home-card-glow {
+          width:88px; height:88px; left:-16px; top:-14px; border-radius:999px; filter:blur(2px);
+        }
+        .home-card-haze {
+          width:84px; height:84px; right:-18px; top:-10px; border-radius:999px; filter:blur(1px);
+        }
+        .home-card-gloss {
+          left:8px; right:8px; top:0; height:44px; border-radius:18px 18px 28px 28px; opacity:0.82;
+        }
+        .home-card-stars {
+          position:absolute; inset:0; pointer-events:none; z-index:0;
+        }
+        .home-card-stars i {
+          position:absolute; width:4px; height:4px; border-radius:999px;
+          background:rgba(255,255,255,0.95); box-shadow:0 0 10px rgba(191,219,254,0.9);
+        }
+        .home-card-stars i:nth-child(1) { top:16px; right:46px; }
+        .home-card-stars i:nth-child(2) { top:34px; right:22px; width:3px; height:3px; opacity:0.75; }
+        .home-card-stars i:nth-child(3) { top:54px; right:58px; width:2px; height:2px; opacity:0.7; }
         .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
         .home-card-icon {
           width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-          font-size:15px; font-weight:800;
+          font-size:15px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,0.88), 0 10px 20px rgba(255,255,255,0.24);
         }
         .home-card-chev { font-size:18px; font-weight:700; line-height:1; opacity:0.75; }
         .home-card-title { font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px; }
@@ -564,9 +639,11 @@ export default function Home({
         .home-astro-strip {
           display:flex; align-items:center; gap:10px; padding:8px 10px;
           border-radius:18px;
-          background:linear-gradient(145deg,rgba(255,255,255,0.86),rgba(240,247,255,0.92));
-          border:1px solid rgba(37,99,235,0.12);
-          box-shadow:0 10px 24px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
+          background:
+            radial-gradient(circle at 88% 24%, rgba(196,181,253,0.12), transparent 26%),
+            linear-gradient(145deg,rgba(255,255,255,0.9),rgba(242,247,255,0.96));
+          border:1px solid rgba(99,102,241,0.1);
+          box-shadow:0 10px 24px rgba(99,102,241,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
         }
         .home-astro-strip-icon {
           width:30px; height:30px; border-radius:10px; flex-shrink:0;
@@ -684,6 +761,7 @@ export default function Home({
               animated
               lines={dashboardSnapshot.expenses.lines}
               microVisual={<MiniTrend accent="#D97706" points={dashboardSnapshot.expenses.trendBars} />}
+              tone="expenses"
               onClick={() => navigate('expense')}
             />
             <DashboardCard
@@ -696,6 +774,7 @@ export default function Home({
               animated
               lines={dashboardSnapshot.ledger.lines}
               microVisual={<MiniDots accent="#059669" values={dashboardSnapshot.ledger.dots} />}
+              tone="ledger"
               onClick={() => navigate('ledger')}
             />
             <DashboardCard
@@ -706,6 +785,7 @@ export default function Home({
               primary={dashboardSnapshot.planner.value}
               lines={dashboardSnapshot.planner.lines}
               microVisual={<MiniProgress accent="#7C3AED" pct={dashboardSnapshot.planner.pct} />}
+              tone="planner"
               onClick={() => navigate('planner')}
             />
             <DashboardCard
@@ -716,6 +796,7 @@ export default function Home({
               primary={dashboardSnapshot.astro.value}
               lines={dashboardSnapshot.astro.lines}
               microVisual={<MiniProgress accent="#2563EB" pct={dashboardSnapshot.astro.dayPct} />}
+              tone="astro"
               onClick={() => navigate('astro')}
             />
           </div>
