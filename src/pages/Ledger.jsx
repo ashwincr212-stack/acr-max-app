@@ -657,6 +657,42 @@ function EntryModal({ editing, prefillPerson, onSave, onClose }) {
   }))
   const set = (k,v) => setForm(f=>({...f,[k]:v}))
   const [error, setError] = useState('')
+  const [showContactTrust, setShowContactTrust] = useState(false)
+  const [contactHelp, setContactHelp] = useState('')
+
+  const handleChooseContact = useCallback(async () => {
+    const contactApi = navigator?.contacts
+    if (!contactApi?.select) {
+      setContactHelp('Contact picker is not supported on this device/browser. You can still enter the name and phone manually.')
+      return
+    }
+
+    try {
+      const selected = await contactApi.select(['name', 'tel'], { multiple: false })
+      const contact = selected?.[0]
+      if (!contact) return
+
+      const selectedName = Array.isArray(contact.name) ? contact.name[0] : contact.name
+      const selectedPhoneRaw = Array.isArray(contact.tel) ? contact.tel[0] : contact.tel
+      const selectedPhone = String(selectedPhoneRaw || '').replace(/[\s\-()]/g, '')
+
+      if (selectedName) set('person', selectedName)
+      if (selectedPhone) set('phone', selectedPhone)
+      setContactHelp(selectedName || selectedPhone ? 'Selected contact filled in the form.' : '')
+      setShowContactTrust(false)
+    } catch (error) {
+      if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+        setContactHelp('Contact access was not allowed. You can enter details manually.')
+        return
+      }
+      if (error?.name === 'AbortError') {
+        setShowContactTrust(false)
+        return
+      }
+      console.error('Contact picker failed:', error)
+      setContactHelp('Contact picker is not supported on this device/browser. You can still enter the name and phone manually.')
+    }
+  }, [])
 
   const handleSave = () => {
     if (!form.person.trim())          { setError('Name is required'); return }
@@ -720,6 +756,19 @@ function EntryModal({ editing, prefillPerson, onSave, onClose }) {
           <Lbl t="Person Name" />
           <input value={form.person} onChange={e=>set('person',e.target.value)}
             placeholder="e.g. Rahul" style={inputSt} readOnly={!!prefillPerson} />
+          {!prefillPerson && (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginTop:7, flexWrap:'wrap' }}>
+              <button onClick={() => { setContactHelp(''); setShowContactTrust(true) }} type="button" style={{
+                padding:'5px 9px', borderRadius:14, border:'1px solid #bfdbfe', background:'#eff6ff',
+                color:'#1d4ed8', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:10, cursor:'pointer',
+              }}>
+                Choose from contacts
+              </button>
+              {contactHelp && (
+                <span style={{ fontFamily:'Poppins,sans-serif', fontSize:10, color:'#64748b', lineHeight:1.3, flex:'1 1 180px' }}>{contactHelp}</span>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ display:'flex', gap:8, marginBottom:10 }}>
@@ -821,6 +870,14 @@ function NativePdfActions({ file, onClose }) {
           fontWeight:800, fontSize:12, cursor:busy?'wait':'pointer',
         }}>Cancel</button>
       </div>
+
+      {showContactTrust && (
+        <ContactTrustModal
+          onClose={() => setShowContactTrust(false)}
+          onChooseContact={handleChooseContact}
+          unsupportedMessage={contactHelp.includes('Contact picker') || contactHelp.includes('Contact access') ? contactHelp : ''}
+        />
+      )}
     </div>
   )
 }
@@ -1008,6 +1065,72 @@ function ReminderModal({ target, onClose, onPrepare, onSnooze }) {
           <button onClick={() => prepareAnd('sms')} style={{ ...quickBtn(canMessage ? '#0f766e' : '#cbd5e1', '#fff'), opacity: canMessage ? 1 : 0.7 }} disabled={!canMessage}>SMS</button>
           <button onClick={() => prepareAnd('copy')} style={quickBtn('#475569','#fff')}>Copy Message</button>
           <button onClick={onClose} style={quickBtn('#e2e8f0','#475569')}>Later</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ContactTrustModal({ onChooseContact, onClose, unsupportedMessage }) {
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:6200, background:'rgba(0,0,0,0.42)', backdropFilter:'blur(8px)',
+      display:'flex', alignItems:'flex-end', justifyContent:'center', animation:'fadeIn 0.2s ease-out',
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        width:'100%', maxWidth:500, maxHeight:'86vh', overflowY:'auto',
+        background:'linear-gradient(160deg,#f8f8f8,#ebebeb)', borderRadius:'20px 20px 0 0',
+        boxShadow:'0 -10px 40px rgba(0,0,0,0.18)', padding:'0 0 18px',
+        animation:'ldgSlideUpModal 0.3s cubic-bezier(.34,1.1,.64,1) both',
+      }}>
+        <div style={{ width:36, height:4, borderRadius:2, background:'#d1d5db', margin:'10px auto 0' }} />
+        <div style={{ padding:'12px 14px 10px', borderBottom:'1px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+            <div>
+              <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'2px 7px', borderRadius:12, background:'#eff6ff', border:'1px solid #bfdbfe', color:'#1d4ed8', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:9, marginBottom:6 }}>
+                🔒 Trust First
+              </div>
+              <h3 style={{ margin:'0 0 4px', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:15, color:'#111827' }}>Use Contacts?</h3>
+              <p style={{ margin:0, fontFamily:'Poppins,sans-serif', fontSize:11, lineHeight:1.4, color:'#64748b' }}>
+                ACR Max can read your contacts only when you choose a person. We do not upload, store, sell, or export your contact list.
+              </p>
+            </div>
+            <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:'1px solid #e2e8f0', background:'linear-gradient(145deg,#f5f5f5,#e0e0e0)', color:'#6b7280', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+          </div>
+        </div>
+
+        <div style={{ padding:'12px 14px 0' }}>
+          <div style={{ display:'grid', gap:7 }}>
+            {[
+              'You choose one contact manually',
+              'Only name and phone number are used to fill this ledger entry',
+              'Contact access is never used for automatic reminders',
+              'You control every WhatsApp/SMS reminder before sending',
+            ].map((line) => (
+              <div key={line} style={{ display:'flex', alignItems:'flex-start', gap:7 }}>
+                <span style={{ fontSize:11, color:'#16a34a', lineHeight:1.3 }}>•</span>
+                <p style={{ margin:0, fontFamily:'Poppins,sans-serif', fontSize:11, lineHeight:1.35, color:'#374151' }}>{line}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop:12, padding:'10px 11px', borderRadius:12, background:'linear-gradient(145deg,#ffffff,#eef2f7)', border:'1px solid #e2e8f0', boxShadow:'2px 2px 6px rgba(0,0,0,0.05)' }}>
+            <p style={{ margin:'0 0 4px', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:10, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em' }}>Privacy Promise</p>
+            <p style={{ margin:0, fontFamily:'Poppins,sans-serif', fontSize:11, lineHeight:1.4, color:'#64748b' }}>
+              Contacts are used only to help you fill names and phone numbers faster. Your contact list is not stored, synced, exported, or shared.
+            </p>
+          </div>
+
+          {unsupportedMessage && (
+            <p style={{ margin:'10px 0 0', fontFamily:'Poppins,sans-serif', fontSize:10, lineHeight:1.35, color:'#b45309' }}>
+              {unsupportedMessage}
+            </p>
+          )}
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, padding:'14px 14px 0' }}>
+          <button onClick={onChooseContact} style={quickBtn('#7c3aed','#fff')}>Choose Contact</button>
+          <button onClick={onClose} style={quickBtn('#e2e8f0','#475569')}>Enter Manually</button>
         </div>
       </div>
     </div>
