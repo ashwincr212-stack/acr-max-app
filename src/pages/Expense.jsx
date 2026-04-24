@@ -1,874 +1,1805 @@
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, PieChart, Pie, Legend, AreaChart, Area
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts'
-import { useState, useMemo, useEffect, useRef } from 'react'
-
-const fmt = (n) => `₹${Number(n).toLocaleString('en-IN')}`
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const BUDGET_DEFAULTS = {
-  Food:2000, Petrol:1500, Smoke:500, Liquor:1000,
-  'Electricity Bill':2000, 'Water Bill':500, 'Mobile Recharge':300,
-  Groceries:3000, CSD:1000, 'Hotel Food':1500, Other:1000
+  Food: 2000,
+  Petrol: 1500,
+  Smoke: 500,
+  Liquor: 1000,
+  'Electricity Bill': 2000,
+  'Water Bill': 500,
+  'Mobile Recharge': 300,
+  Groceries: 3000,
+  Vegetables: 1200,
+  Snacks: 800,
+  CSD: 1000,
+  'Hotel Food': 1500,
+  Other: 1000,
 }
 
 const CAT_ICONS = {
-  Food:'🍽',Petrol:'⛽',Smoke:'🚬',Liquor:'🍺',Groceries:'🛒',
-  'Mobile Recharge':'📱','Electricity Bill':'⚡','Water Bill':'💧',
-  'Hotel Food':'🏨',CSD:'🏪',Other:'💸'
+  Food: '🍽',
+  Petrol: '⛽',
+  Smoke: '🚬',
+  Liquor: '🍺',
+  Groceries: '🛒',
+  Vegetables: '🥬',
+  Snacks: '🍪',
+  'Mobile Recharge': '📱',
+  'Electricity Bill': '⚡',
+  'Water Bill': '💧',
+  'Hotel Food': '🏨',
+  CSD: '🏪',
+  Other: '💸',
 }
+
 const CAT_COLORS = {
-  Food:'#f59e0b',Petrol:'#3b82f6',Smoke:'#6b7280',Liquor:'#a78bfa',
-  Groceries:'#10b981','Mobile Recharge':'#0891b2','Electricity Bill':'#d97706',
-  'Water Bill':'#06b6d4','Hotel Food':'#f43f5e',CSD:'#7c3aed',Other:'#64748b'
+  Food: '#f59e0b',
+  Petrol: '#2563eb',
+  Smoke: '#64748b',
+  Liquor: '#8b5cf6',
+  Groceries: '#16a34a',
+  Vegetables: '#22c55e',
+  Snacks: '#f97316',
+  'Mobile Recharge': '#0891b2',
+  'Electricity Bill': '#d97706',
+  'Water Bill': '#06b6d4',
+  'Hotel Food': '#ef4444',
+  CSD: '#7c3aed',
+  Other: '#64748b',
 }
 
 const TABS = [
-  { id:'daily',   label:'📝 Logs' },
-  { id:'summary', label:'📊 Analytics' },
-  { id:'budget',  label:'🎯 Budgets' },
-  { id:'trends',  label:'📈 Trends' },
-  { id:'ai',      label:'🤖 AI Brain' },
-  { id:'export',  label:'⬇ Export' },
+  { id: 'daily', label: '📝 Logs' },
+  { id: 'overview', label: '👀 Overview' },
+  { id: 'summary', label: '📊 Analytics' },
+  { id: 'budget', label: '🎯 Budgets' },
+  { id: 'trends', label: '📈 Trends' },
+  { id: 'ai', label: '🧠 AI Brain' },
 ]
 
-// ── Helpers ──────────────────────────────────────────────
+const DAY_MS = 86400000
+const SMALL_SPEND_THRESHOLD = 100
 
-const normalizeText = (value='') =>
-  value.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()
+const fmt = (n) => `₹${Math.round(Number(n || 0)).toLocaleString('en-IN')}`
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 
-function getCategoryFromSpeech(text, categories) {
-  const n = normalizeText(text)
-  if (n.includes('food'))                                    return 'Food'
-  if (n.includes('petrol') || n.includes('fuel'))            return 'Petrol'
-  if (n.includes('smoke') || n.includes('cigarette'))        return 'Smoke'
-  if (n.includes('liquor') || n.includes('beer') || n.includes('alcohol')) return 'Liquor'
-  if (n.includes('electricity') || n.includes('current bill')) return 'Electricity Bill'
-  if (n.includes('water'))                                   return 'Water Bill'
-  if (n.includes('recharge') || n.includes('mobile'))        return 'Mobile Recharge'
-  if (n.includes('grocery') || n.includes('shopping'))       return 'Groceries'
-  if (n.includes('csd'))                                     return 'CSD'
-  if (n.includes('hotel'))                                   return 'Hotel Food'
-  return categories.find(c => n.includes(normalizeText(c))) || 'Other'
+const toMillis = (value) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  if (typeof value?.toMillis === 'function') return value.toMillis()
+  if (typeof value?.seconds === 'number') return value.seconds * 1000
+  return 0
 }
 
-function parseVoice(text, categories) {
-  const words  = normalizeText(text).split(' ').filter(Boolean)
-  const amount = Number(words.find(w => !isNaN(w) && w !== '') || 0)
-  return { amount, category: getCategoryFromSpeech(text, categories) }
+const getStartOfDay = (value = new Date()) => {
+  const date = value instanceof Date ? new Date(value) : new Date(toMillis(value) || Date.now())
+  date.setHours(0, 0, 0, 0)
+  return date
 }
 
-// ── Animated counter ──────────────────────────────────────
+const isSameDay = (a, b) => getStartOfDay(a).getTime() === getStartOfDay(b).getTime()
 
-function CountUp({ value, prefix='₹', duration=900 }) {
-  const [d, setD] = useState(0)
-  const raf = useRef(null)
-  useEffect(() => {
-    const end = Number(value); const t0 = performance.now()
-    const step = (now) => {
-      const p = Math.min((now - t0) / duration, 1)
-      const e = 1 - Math.pow(1 - p, 3)
-      setD(Math.round(end * e))
-      if (p < 1) raf.current = requestAnimationFrame(step)
+const normalizeText = (value = '') =>
+  String(value).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+
+const shortCategory = (name = '') =>
+  name
+    .replace('Electricity Bill', 'Power')
+    .replace('Water Bill', 'Water')
+    .replace('Mobile Recharge', 'Recharge')
+    .replace('Hotel Food', 'Hotel')
+    .replace('Vegetables', 'Veg')
+
+const normalizeLog = (log = {}) => {
+  const amount = Number(log.amount || 0)
+  const millis =
+    toMillis(log.createdAt) ||
+    toMillis(log.timestamp) ||
+    toMillis(log.date) ||
+    toMillis(log.id) ||
+    Date.now()
+  const date = new Date(millis)
+  return {
+    ...log,
+    amount,
+    category: log.category || 'Other',
+    note: log.note || log.title || log.description || '',
+    color: log.color || CAT_COLORS[log.category] || CAT_COLORS.Other,
+    paymentMode: log.paymentMode || '',
+    millis,
+    date,
+    timeLabel:
+      log.time ||
+      date.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+  }
+}
+
+const groupByCategory = (logs) =>
+  logs.reduce((acc, log) => {
+    const key = log.category || 'Other'
+    if (!acc[key]) {
+      acc[key] = {
+        name: key,
+        total: 0,
+        entries: 0,
+        color: CAT_COLORS[key] || log.color || CAT_COLORS.Other,
+      }
     }
-    raf.current = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(raf.current)
-  }, [value])
-  return <span>{prefix}{d.toLocaleString('en-IN')}</span>
+    acc[key].total += Number(log.amount || 0)
+    acc[key].entries += 1
+    return acc
+  }, {})
+
+const getTopCategories = (logs, limit = 6) => {
+  const rows = Object.values(groupByCategory(logs)).sort((a, b) => b.total - a.total)
+  if (rows.length <= limit) return rows
+  const head = rows.slice(0, limit)
+  const tail = rows.slice(limit)
+  return [
+    ...head,
+    {
+      name: 'Other',
+      total: tail.reduce((sum, row) => sum + row.total, 0),
+      entries: tail.reduce((sum, row) => sum + row.entries, 0),
+      color: '#94a3b8',
+    },
+  ]
 }
 
-// ── Neumorphic card ───────────────────────────────────────
+const getMonthStats = (logs, budgets) => {
+  const now = new Date()
+  const currentMonthLogs = logs.filter(
+    (log) => log.date.getMonth() === now.getMonth() && log.date.getFullYear() === now.getFullYear()
+  )
+  const today = getStartOfDay(now)
+  const yesterday = new Date(today.getTime() - DAY_MS)
+  const categoryTotals = groupByCategory(currentMonthLogs)
+  const totalSpent = currentMonthLogs.reduce((sum, log) => sum + log.amount, 0)
+  const todaySpent = currentMonthLogs
+    .filter((log) => isSameDay(log.date, today))
+    .reduce((sum, log) => sum + log.amount, 0)
+  const yesterdaySpent = currentMonthLogs
+    .filter((log) => isSameDay(log.date, yesterday))
+    .reduce((sum, log) => sum + log.amount, 0)
+  const totalEntries = currentMonthLogs.length
+  const topCategoryRow = Object.values(categoryTotals).sort((a, b) => b.total - a.total)[0] || null
+  const monthlyBudget = Object.values(budgets || {}).reduce((sum, value) => sum + Number(value || 0), 0)
+  const monthlyBudgetUsed = monthlyBudget > 0 ? (totalSpent / monthlyBudget) * 100 : 0
+  const overBudgetCategories = Object.values(categoryTotals)
+    .filter((row) => budgets?.[row.name] && row.total > budgets[row.name])
+    .map((row) => ({
+      ...row,
+      budget: budgets[row.name],
+      overBy: row.total - budgets[row.name],
+    }))
+    .sort((a, b) => b.overBy - a.overBy)
 
-function NeuCard({ children, style={}, accent, pressed }) {
+  return {
+    now,
+    currentMonthLogs,
+    categoryTotals,
+    totalSpent,
+    totalEntries,
+    todaySpent,
+    yesterdaySpent,
+    topCategoryRow,
+    monthlyBudget,
+    monthlyBudgetUsed,
+    overBudgetCategories,
+  }
+}
+
+const calculateProjection = ({ totalSpent, monthlyBudget, now, totalEntries }) => {
+  const dayOfMonth = now.getDate()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const averageDailySpend = dayOfMonth > 0 ? totalSpent / dayOfMonth : 0
+  const projectedSpend = averageDailySpend * daysInMonth
+  const projectedDelta = projectedSpend - monthlyBudget
+  const confidence =
+    totalEntries < 4 || dayOfMonth < 5 ? 'Low' : dayOfMonth < 15 ? 'Medium' : 'High'
+  return { dayOfMonth, daysInMonth, averageDailySpend, projectedSpend, projectedDelta, confidence }
+}
+
+const calculateBurnRate = ({ averageDailySpend, monthlyBudget, daysInMonth }) => {
+  const idealDailyBudget = daysInMonth > 0 ? monthlyBudget / daysInMonth : 0
+  const burnRate = idealDailyBudget > 0 ? averageDailySpend / idealDailyBudget : 0
+  const message =
+    burnRate > 1.15
+      ? 'At this speed, budget may end early.'
+      : burnRate < 0.9
+        ? 'You are spending slower than planned.'
+        : 'You are moving close to the planned pace.'
+  return { idealDailyBudget, burnRate, message }
+}
+
+const calculateSafeSpend = ({ monthlyBudget, totalSpent, now }) => {
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const remainingBudget = monthlyBudget - totalSpent
+  const remainingDays = Math.max(daysInMonth - now.getDate() + 1, 1)
+  const safeSpendToday = remainingBudget / remainingDays
+  const perDay = Math.abs(safeSpendToday)
+  return {
+    remainingBudget,
+    remainingDays,
+    safeSpendToday,
+    message:
+      remainingBudget >= 0
+        ? `Safe spend today: ${fmt(perDay)}`
+        : `Recovery needed: ${fmt(perDay)}/day`,
+    sub:
+      remainingBudget >= 0
+        ? 'Stay under this to finish within budget.'
+        : 'Daily cuts from here reduce overshoot.',
+  }
+}
+
+const categoryGroupName = (category = '') => {
+  const needs = ['Electricity Bill', 'Water Bill', 'Rent', 'Groceries', 'Vegetables', 'Petrol', 'Bills']
+  const lifestyle = ['Food', 'Snacks', 'Liquor', 'Smoke', 'Entertainment', 'Hotel Food']
+  const travel = ['Petrol', 'Transport', 'Cab', 'Train', 'Bus']
+  if (needs.includes(category)) return 'Needs'
+  if (lifestyle.includes(category)) return 'Lifestyle'
+  if (travel.includes(category)) return 'Travel'
+  return 'Other'
+}
+
+const detectMoneyLeaks = (logs) => {
+  const buckets = {}
+  logs.forEach((log) => {
+    if (log.amount > SMALL_SPEND_THRESHOLD) return
+    const noteKey = normalizeText(log.note)
+    const key = noteKey ? `${log.category}::${noteKey}` : `${log.category}::category`
+    if (!buckets[key]) {
+      buckets[key] = {
+        label: noteKey ? `${log.note} (${log.category})` : `${log.category} repeated`,
+        total: 0,
+        count: 0,
+        category: log.category,
+      }
+    }
+    buckets[key].total += log.amount
+    buckets[key].count += 1
+  })
+
+  const leaks = Object.values(buckets)
+    .filter((item) => item.count >= 3)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3)
+
+  return {
+    leaks,
+    totalLeakAmount: leaks.reduce((sum, item) => sum + item.total, 0),
+  }
+}
+
+const calculateHealthScore = ({
+  monthlyBudgetUsed,
+  overBudgetCount,
+  todaySpent,
+  safeSpendToday,
+  projectedDelta,
+  topRisks,
+}) => {
+  let score = 100
+  if (monthlyBudgetUsed > 80) score -= 10
+  if (monthlyBudgetUsed > 100) score -= 22
+  score -= overBudgetCount * 8
+  if (todaySpent > safeSpendToday && safeSpendToday > 0) score -= 12
+  if (projectedDelta > 0) score -= clamp(projectedDelta / 300, 5, 22)
+  score = clamp(Math.round(score), 0, 100)
+  const status =
+    score >= 85 ? 'Excellent' : score >= 70 ? 'Good' : score >= 55 ? 'Watchful' : score >= 35 ? 'Risky' : 'Critical'
+  const reason =
+    score >= 85
+      ? 'Stable month with spending close to plan.'
+      : topRisks.length
+        ? `${status} month — ${topRisks.slice(0, 2).join(' and ')} are pushing the budget.`
+        : 'Monitor daily spending to stay inside budget.'
+  return { score, status, reason }
+}
+
+const getCoachOutput = ({
+  health,
+  overBudgetCategories,
+  safeSpend,
+  projection,
+  burnRate,
+  groupedInsights,
+  topCategoryRow,
+}) => {
+  const risks = []
+  if (overBudgetCategories[0]) {
+    risks.push(
+      `${overBudgetCategories[0].name} is ${Math.round(
+        (overBudgetCategories[0].total / overBudgetCategories[0].budget) * 100
+      )}% of budget.`
+    )
+  }
+  if (projection.projectedDelta > 0) risks.push(`Projected overspend of ${fmt(projection.projectedDelta)} by month-end.`)
+  if (burnRate.burnRate > 1.1) risks.push(`Burn rate is running at ${burnRate.burnRate.toFixed(1)}x.`)
+  if (groupedInsights.lifestylePct > 35) risks.push(`Lifestyle spending is ${groupedInsights.lifestylePct.toFixed(0)}% of total.`)
+
+  const dailyCut = projection.projectedDelta > 0 ? Math.ceil(projection.projectedDelta / safeSpend.remainingDays) : 0
+  const topSuggestion = overBudgetCategories[0]
+    ? `Try setting ${overBudgetCategories[0].name} daily cap to ${fmt((overBudgetCategories[0].budget || 0) / Math.max(projection.daysInMonth, 1))}.`
+    : topCategoryRow
+      ? `Keep ${topCategoryRow.name} under close watch for the next few days.`
+      : 'Add more entries to unlock sharper coaching.'
+
+  return {
+    diagnosis:
+      health.score >= 70
+        ? 'Your budget is mostly under control.'
+        : health.score >= 40
+          ? 'Your budget is under pressure.'
+          : 'Your spending pattern needs recovery mode.',
+    risks: risks.slice(0, 3),
+    recoveryPlan:
+      projection.projectedDelta > 0
+        ? `Cut about ${fmt(dailyCut)}/day for the rest of the month to recover.`
+        : 'Keep the current pace and avoid sudden spikes in discretionary spend.',
+    suggestedDailyCut: dailyCut,
+    categorySuggestion: topSuggestion,
+    motivation:
+      health.score >= 70
+        ? 'Small disciplined days now will create a strong month-end finish.'
+        : 'Every tight day from here gives you back control.',
+  }
+}
+
+const getDailyComparison = (todayLogs, yesterdayLogs) => {
+  if (!todayLogs.length || !yesterdayLogs.length) return null
+  const todayTotal = todayLogs.reduce((sum, log) => sum + log.amount, 0)
+  const yesterdayTotal = yesterdayLogs.reduce((sum, log) => sum + log.amount, 0)
+  const diff = todayTotal - yesterdayTotal
+  const todayCats = groupByCategory(todayLogs)
+  const yesterdayCats = groupByCategory(yesterdayLogs)
+  const categories = [...new Set([...Object.keys(todayCats), ...Object.keys(yesterdayCats)])]
+  let biggestIncrease = null
+  categories.forEach((category) => {
+    const delta = (todayCats[category]?.total || 0) - (yesterdayCats[category]?.total || 0)
+    if (delta > 0 && (!biggestIncrease || delta > biggestIncrease.delta)) {
+      biggestIncrease = { category, delta }
+    }
+  })
+  return { todayTotal, yesterdayTotal, diff, biggestIncrease }
+}
+
+const getHealthIssues = ({ monthStats, safeSpend, projection, burnRate, leakData }) => {
+  const issues = []
+  if (monthStats.monthlyBudgetUsed > 100) issues.push(`Budget is already at ${Math.round(monthStats.monthlyBudgetUsed)}% this month.`)
+  else if (monthStats.monthlyBudgetUsed > 80) issues.push(`Budget usage is already at ${Math.round(monthStats.monthlyBudgetUsed)}%.`)
+  if (monthStats.overBudgetCategories[0]) issues.push(`${monthStats.overBudgetCategories[0].name} is over by ${fmt(monthStats.overBudgetCategories[0].overBy)}.`)
+  if (monthStats.todaySpent > Math.max(safeSpend.safeSpendToday, 0) && safeSpend.remainingBudget >= 0) {
+    issues.push(`Today's spend is ahead of the safe pace.`)
+  }
+  if (projection.projectedDelta > 0) issues.push(`Month-end projection is ${fmt(projection.projectedDelta)} above plan.`)
+  if (burnRate.burnRate > 1.1) issues.push(`Burn rate is ${burnRate.burnRate.toFixed(1)}x.`)
+  if (leakData.totalLeakAmount > 0) issues.push(`${fmt(leakData.totalLeakAmount)} is tied up in small repeat spends.`)
+  return issues.slice(0, 3)
+}
+
+const getDailyChallenge = ({ monthStats, safeSpend, dailyComparison, groupedInsights, projection }) => {
+  const riskyCategory = monthStats.overBudgetCategories[0]?.name || monthStats.topCategoryRow?.name || 'Food'
+  const safeCap = Math.max(Math.round(Math.max(safeSpend.safeSpendToday, 120)), 120)
+  const categoryDailyCap = Math.max(
+    60,
+    Math.round((monthStats.overBudgetCategories[0]?.budget || monthStats.monthlyBudget || 0) / Math.max(projection.daysInMonth, 1))
+  )
+  const templates = [
+    {
+      id: 'safe-spend',
+      title: 'Spend under the safe line',
+      target: `Keep total spend under ${fmt(safeCap)} today.`,
+      reason: 'This keeps month-end pressure from building further.',
+      weight: 6,
+    },
+    {
+      id: 'food-cap',
+      title: 'Food control day',
+      target: `Keep Food under ${fmt(Math.max(categoryDailyCap, 180))} today.`,
+      reason: 'Food is one of the fastest categories to drift upward.',
+      weight: riskyCategory === 'Food' ? 10 : 5,
+    },
+    {
+      id: 'smoke-zero',
+      title: 'No Smoke spend today',
+      target: 'Avoid any Smoke entries for the rest of today.',
+      reason: 'One clean day improves both budget and discipline.',
+      weight: monthStats.categoryTotals.Smoke ? 9 : 3,
+    },
+    {
+      id: 'snacks-cap',
+      title: 'Snack leak block',
+      target: `Keep Snacks under ${fmt(Math.max(Math.round(safeCap * 0.35), 60))} today.`,
+      reason: 'Small repeat spends are quietly draining the month.',
+      weight: monthStats.categoryTotals.Snacks ? 8 : 4,
+    },
+    {
+      id: 'record-all',
+      title: 'Zero missing entries',
+      target: 'Record every expense before night.',
+      reason: 'Complete logs unlock better alerts and better decisions.',
+      weight: 5,
+    },
+    {
+      id: 'lifestyle-cut',
+      title: 'Lifestyle cutback',
+      target: 'Keep lifestyle spending lighter than needs today.',
+      reason: 'Lifestyle is currently taking a larger share of your money.',
+      weight: groupedInsights.lifestylePct > groupedInsights.needsPct ? 9 : 4,
+    },
+    {
+      id: 'beat-yesterday',
+      title: 'Beat yesterday',
+      target: dailyComparison ? `Finish below yesterday's ${fmt(dailyComparison.yesterdayTotal)}.` : `Finish below ${fmt(safeCap)} today.`,
+      reason: 'A lower-spend day helps reset momentum.',
+      weight: dailyComparison ? 8 : 3,
+    },
+    {
+      id: 'petrol-plan',
+      title: 'Planned travel only',
+      target: `Keep Petrol within ${fmt(Math.max(categoryDailyCap, 120))} today.`,
+      reason: 'Travel spend stays healthier when it is planned, not reactive.',
+      weight: monthStats.categoryTotals.Petrol ? 7 : 3,
+    },
+    {
+      id: 'risky-category',
+      title: `${riskyCategory} reset`,
+      target: `Avoid impulse ${riskyCategory} spend today.`,
+      reason: `${riskyCategory} is the category asking for the most attention right now.`,
+      weight: monthStats.overBudgetCategories.length ? 10 : 4,
+    },
+  ]
+
+  const seed =
+    monthStats.now.getFullYear() * 10000 +
+    (monthStats.now.getMonth() + 1) * 100 +
+    monthStats.now.getDate()
+  const totalWeight = templates.reduce((sum, item) => sum + item.weight, 0)
+  let weightedSeed = seed % Math.max(totalWeight, 1)
+  let selected = templates[0]
+  for (const item of templates) {
+    weightedSeed -= item.weight
+    if (weightedSeed < 0) {
+      selected = item
+      break
+    }
+  }
+
+  try {
+    const todayKey = monthStats.now.toISOString().slice(0, 10)
+    const stored = JSON.parse(localStorage.getItem('acr_expense_last_challenge') || 'null')
+    if (stored && stored.date !== todayKey && stored.id === selected.id) {
+      const index = templates.findIndex((item) => item.id === selected.id)
+      selected = templates[(index + 1) % templates.length]
+    }
+    localStorage.setItem('acr_expense_last_challenge', JSON.stringify({ id: selected.id, date: todayKey }))
+  } catch {}
+
+  return {
+    ...selected,
+    reward: 'Reward ready: +20 ACR coins',
+  }
+}
+
+function CountUp({ value, prefix = '₹', duration = 900 }) {
+  const [display, setDisplay] = useState(0)
+  const rafRef = useRef(null)
+  useEffect(() => {
+    const target = Number(value || 0)
+    const start = performance.now()
+    const tick = (time) => {
+      const progress = Math.min((time - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(target * eased))
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [value, duration])
   return (
-    <div style={{
-      background:'linear-gradient(135deg,#fafafa 0%,#e4e4e4 50%,#f0f0f0 100%)',
-      borderRadius:20, border: accent?`1px solid ${accent}20`:'1px solid rgba(255,255,255,0.9)',
-      boxShadow: pressed
-        ? 'inset 2px 2px 6px rgba(0,0,0,0.1),inset -1px -1px 4px rgba(255,255,255,0.8)'
-        : '5px 5px 14px rgba(0,0,0,0.08),-3px -3px 8px rgba(255,255,255,0.9),inset 0 1px 0 rgba(255,255,255,0.8)',
-      padding:18, marginBottom:14, transition:'box-shadow 0.15s', ...style
-    }}>{children}</div>
+    <span>
+      {prefix}
+      {display.toLocaleString('en-IN')}
+    </span>
   )
 }
 
-// ── Section header ────────────────────────────────────────
-
-function SectionHdr({ title, accent='#7c3aed', right }) {
+function GlassCard({ children, style = {}, accent = '#dbeafe', className = '' }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <div style={{ width:3, height:16, borderRadius:2, background:`linear-gradient(to bottom,${accent},${accent}50)` }} />
-        <p style={{ fontSize:12, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.12em', margin:0, fontFamily:'Poppins,sans-serif' }}>{title}</p>
+    <div
+      className={className}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 20,
+        padding: 12,
+        border: '1px solid rgba(255,255,255,0.92)',
+        background:
+          'linear-gradient(145deg, rgba(255,255,255,0.95), rgba(244,247,251,0.88) 45%, rgba(235,240,245,0.92))',
+        boxShadow:
+          '0 10px 22px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.94), inset 0 -1px 0 rgba(148,163,184,0.06)',
+        backdropFilter: 'blur(18px)',
+        ...style,
+      }}
+    >
+      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at top right, ${accent}, transparent 34%)`, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
+    </div>
+  )
+}
+
+function SectionHdr({ title, subtitle, right, accent = '#7c3aed' }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: accent, boxShadow: `0 0 0 5px ${accent}18` }} />
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569' }}>{title}</p>
+        </div>
+        {subtitle ? <p style={{ margin: '4px 0 0', fontSize: 10, color: '#64748b', lineHeight: 1.35 }}>{subtitle}</p> : null}
       </div>
       {right}
     </div>
   )
 }
 
-// ── Progress bar ──────────────────────────────────────────
-
-function NeuBar({ pct, color, height=8 }) {
-  const [w, setW] = useState(0)
-  useEffect(() => { const t=setTimeout(()=>setW(pct),250); return ()=>clearTimeout(t) }, [pct])
+function ProgressLine({ pct, tone, height = 9 }) {
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setWidth(clamp(pct, 0, 100)), 100)
+    return () => window.clearTimeout(timer)
+  }, [pct])
   return (
-    <div style={{ height, borderRadius:height, background:'linear-gradient(145deg,#e0e0e0,#f5f5f5)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.1),inset -1px -1px 2px rgba(255,255,255,0.8)', overflow:'hidden' }}>
-      <div style={{ height:'100%', width:`${w}%`, borderRadius:height, background:`linear-gradient(90deg,${color},${color}cc)`, transition:'width 1.1s cubic-bezier(.34,1.1,.64,1)', position:'relative', overflow:'hidden' }}>
-        <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)', animation:'shimBar 2s infinite' }} />
-      </div>
+    <div style={{ height, borderRadius: 999, background: 'rgba(226,232,240,0.88)', overflow: 'hidden' }}>
+      <div
+        style={{
+          width: `${width}%`,
+          height: '100%',
+          borderRadius: 999,
+          background: tone,
+          transition: 'width 0.9s cubic-bezier(.34,1.2,.64,1)',
+        }}
+      />
     </div>
   )
 }
 
-// ── Smart summary card ────────────────────────────────────
-
-function SummaryCard({ overallTotal, logs, alerts, topCategory, categoryTotals, avgTransaction }) {
-  const msDay=86400000; const now=new Date()
-  const todayTotal = logs.filter(l=>{const d=new Date(l.id);return d.getDate()===now.getDate()&&d.getMonth()===now.getMonth()}).reduce((s,l)=>s+l.amount,0)
-  const thisWeek   = logs.filter(l=>(now-new Date(l.id))<7*msDay).reduce((s,l)=>s+l.amount,0)
-  const lastWeek   = logs.filter(l=>{const d=now-new Date(l.id);return d>=7*msDay&&d<14*msDay}).reduce((s,l)=>s+l.amount,0)
-  const weekChange = lastWeek>0?Math.round(((thisWeek-lastWeek)/lastWeek)*100):null
-
-  const totalBudget = Object.values(BUDGET_DEFAULTS).reduce((s,v)=>s+v,0)
-  const budgetPct   = totalBudget>0?Math.min(Math.round((overallTotal/totalBudget)*100),100):0
-
-  const contextMsg = alerts.length>0 ? `⚠️ ${alerts.length} categor${alerts.length>1?'ies':'y'} over budget`
-    : weekChange>10                   ? '📈 High spending week — review budget'
-    : weekChange!==null&&weekChange<-10?'📉 Great! Spending reduced this week'
-    : logs.length===0                 ? '🌱 Start logging to see insights'
-    : '✅ Spending looks on track'
-
+function TooltipCard({ active, payload, label }) {
+  if (!active || !payload?.length) return null
   return (
-    <div style={{ borderRadius:18, padding:'14px 15px', marginBottom:10, background:'linear-gradient(135deg,#f8f8f8 0%,#e0e0e0 40%,#f2f2f2 100%)', border:'1.5px solid rgba(255,255,255,0.95)', boxShadow:'5px 5px 14px rgba(0,0,0,0.09),-3px -3px 9px rgba(255,255,255,0.98),inset 0 1px 0 rgba(255,255,255,0.95)', position:'relative', overflow:'hidden', animation:'slideUp 0.4s ease-out 0.05s both' }}>
-      <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.7),transparent 65%)', pointerEvents:'none' }} />
-      <div style={{ position:'absolute', bottom:-20, left:-10, width:80, height:80, borderRadius:'50%', background:'radial-gradient(circle,rgba(220,220,220,0.5),transparent 65%)', pointerEvents:'none' }} />
-
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
-        <div>
-          <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.12em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Total Spent</p>
-          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:26, color:'#b8860b', margin:0, lineHeight:1 }}><CountUp value={overallTotal} /></p>
-          <p style={{ fontSize:10, color:'#6b7280', margin:'3px 0 0', fontFamily:'Poppins,sans-serif' }}>{logs.length} entries total</p>
-        </div>
-        <div style={{ textAlign:'right' }}>
-          <p style={{ fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>Today</p>
-          <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:19, color: todayTotal>0?'#d97706':'#16a34a', margin:0 }}>{fmt(todayTotal)}</p>
-        </div>
-      </div>
-
-      <div style={{ marginBottom:9 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-          <span style={{ fontSize:10, fontWeight:700, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>Monthly Budget Used</span>
-          <span style={{ fontSize:11, fontWeight:800, color: budgetPct>80?'#dc2626':'#16a34a', fontFamily:'Poppins,sans-serif' }}>{budgetPct}%</span>
-        </div>
-        <div style={{ height:7, borderRadius:7, background:'linear-gradient(145deg,#d8d8d8,#efefef)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.1),inset -1px -1px 3px rgba(255,255,255,0.9)', overflow:'hidden' }}>
-          <div style={{ height:'100%', width:`${budgetPct}%`, borderRadius:7, background: budgetPct>80?'linear-gradient(90deg,#dc2626,#ef4444)':'linear-gradient(90deg,#16a34a,#22c55e)', transition:'width 1.2s ease-out', boxShadow:'1px 0 6px rgba(0,0,0,0.1)' }} />
-        </div>
-      </div>
-
-      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-        <span style={{ padding:'4px 10px', borderRadius:18, fontSize:10, fontWeight:700, background:'linear-gradient(145deg,#f0f0f0,#e4e4e4)', border:'1px solid #d1d5db', color:'#374151', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>{contextMsg}</span>
-        {topCategory!=='—' && (
-          <span style={{ padding:'4px 10px', borderRadius:18, fontSize:10, fontWeight:700, background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', border:'1px solid #ddd6fe', color:'#7c3aed', fontFamily:'Poppins,sans-serif', boxShadow:'2px 2px 5px rgba(0,0,0,0.06),-1px -1px 3px rgba(255,255,255,0.9)' }}>
-            {CAT_ICONS[topCategory]||'💸'} Most: {topCategory}
-          </span>
-        )}
-      </div>
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '9px 11px', boxShadow: '0 12px 22px rgba(15,23,42,0.12)' }}>
+      <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{label}</p>
+      <p style={{ margin: '3px 0 0', fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{fmt(payload[0].value)}</p>
     </div>
   )
 }
 
-// ── Habit tracker ─────────────────────────────────────────
-
-function HabitTracker({ logs }) {
-  const today = new Date()
-  const last7 = Array.from({length:7},(_,i)=>{
-    const d = new Date(today); d.setDate(d.getDate()-6+i)
-    const dayLogs = logs.filter(l=>{ const ld=new Date(l.id); return ld.getDate()===d.getDate()&&ld.getMonth()===d.getMonth() })
-    return { day:d.toLocaleDateString('en-IN',{weekday:'short'}), hasLog:dayLogs.length>0, total:dayLogs.reduce((s,l)=>s+l.amount,0), isToday:i===6 }
-  })
-  const streak     = last7.filter(d=>d.hasLog).length
-  const loggedToday= last7[6].hasLog
-
+function TinyStat({ label, value, tone = '#2563eb', sub }) {
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontSize:20 }}>🔥</span>
-          <div>
-            <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:0, fontFamily:'Poppins,sans-serif' }}>{streak} Day Logging Streak</p>
-            <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif' }}>{loggedToday?'✅ Logged today — great!':'❌ Not logged today yet'}</p>
-          </div>
-        </div>
-        <div style={{ padding:'3px 10px', borderRadius:16, background: loggedToday?'#dcfce7':'#fff1f2', border:`1px solid ${loggedToday?'#bbf7d0':'#fecdd3'}`, fontSize:10, fontWeight:700, color: loggedToday?'#16a34a':'#dc2626', fontFamily:'Poppins,sans-serif' }}>
-          {loggedToday?'✓ Done':'Pending'}
-        </div>
-      </div>
-      <div style={{ display:'flex', gap:5, justifyContent:'space-between' }}>
-        {last7.map((d,i) => (
-          <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, flex:1 }}>
-            <div style={{ width:'100%', height:25, borderRadius:8, background: d.hasLog?`linear-gradient(145deg,${d.isToday?'#d97706':'#7c3aed'},${d.isToday?'#f59e0b':'#6d28d9'})`:'linear-gradient(145deg,#e8e8e8,#f5f5f5)', border: d.hasLog?`1px solid ${d.isToday?'#fde68a':'#ddd6fe'}`:'1px solid #e2e8f0', boxShadow: d.hasLog?'2px 2px 5px rgba(0,0,0,0.09),-1px -1px 3px rgba(255,255,255,0.8)':'inset 1px 1px 3px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontSize: d.hasLog?12:10 }}>
-              {d.hasLog ? (d.isToday?'🔥':'✓') : '·'}
-            </div>
-            <span style={{ fontSize:8, fontWeight:700, color: d.hasLog?'#374151':'#9ca3af', fontFamily:'Poppins,sans-serif' }}>{d.day.slice(0,2)}</span>
-          </div>
-        ))}
-      </div>
+    <div style={{ padding: '9px 10px', borderRadius: 14, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)' }}>
+      <p style={{ margin: 0, fontSize: 9, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
+      <p style={{ margin: '4px 0 0', fontSize: 14.5, fontWeight: 800, color: tone, lineHeight: 1.08 }}>{value}</p>
+      {sub ? <p style={{ margin: '3px 0 0', fontSize: 9.5, color: '#64748b', lineHeight: 1.3 }}>{sub}</p> : null}
     </div>
   )
 }
 
-// ── Smart alert card ──────────────────────────────────────
-
-function SmartAlertCard({ alert, onView }) {
+function MiniOverviewCard({ label, value, sub, tone = '#2563eb' }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:'linear-gradient(145deg,#fff1f2,#fff)', borderRadius:14, border:'1.5px solid #fca5a5', boxShadow:'3px 3px 8px rgba(220,38,38,0.07),-2px -2px 5px rgba(255,255,255,0.9)', marginBottom:9 }}>
-      <div style={{ width:38, height:38, borderRadius:11, background:'#fee2e2', border:'1px solid #fca5a5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>
-        {CAT_ICONS[alert.cat]||'⚠️'}
-      </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <p style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif' }}>{alert.cat} over budget</p>
-        <p style={{ fontSize:11, color:'#dc2626', margin:0, fontWeight:600, fontFamily:'Poppins,sans-serif' }}>₹{alert.over.toLocaleString('en-IN')} over limit</p>
-      </div>
-      <button onClick={onView} style={{ padding:'5px 12px', borderRadius:10, background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)', fontSize:11, fontWeight:700, color:'#374151', cursor:'pointer', fontFamily:'Poppins,sans-serif', whiteSpace:'nowrap' }}>View →</button>
+    <div style={{ minHeight: 74, padding: '9px 10px', borderRadius: 14, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)' }}>
+      <p style={{ margin: 0, fontSize: 9, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
+      <p className="syne" style={{ margin: '6px 0 0', fontSize: 16.5, fontWeight: 800, lineHeight: 1, color: tone }}>{value}</p>
+      <p style={{ margin: '5px 0 0', fontSize: 9.5, color: '#64748b', lineHeight: 1.28 }}>{sub}</p>
     </div>
   )
 }
 
-// ── Quick add button ──────────────────────────────────────
-
-function ExpenseAlertsSheet({ alerts, onClose, onViewBudgets }) {
+function HealthRing({ score, onClick }) {
+  const tone = score >= 70 ? '#16a34a' : score >= 40 ? '#d97706' : '#dc2626'
   return (
-    <div style={{
-      position:'fixed', inset:0, zIndex:5000, background:'rgba(15,23,42,0.38)',
-      backdropFilter:'blur(8px)', display:'flex', alignItems:'flex-end', justifyContent:'center',
-      animation:'fadeIn 0.18s ease-out',
-    }} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{
-        width:'100%', maxWidth:460, margin:'0 10px 12px',
-        borderRadius:20, padding:'12px',
-        background:'linear-gradient(160deg,#ffffff,#f1f5f9)',
-        border:'1px solid rgba(255,255,255,0.95)',
-        boxShadow:'0 18px 48px rgba(15,23,42,0.28)',
-        fontFamily:'Poppins,sans-serif',
-      }}>
-        <div style={{ width:36, height:4, borderRadius:4, background:'#d1d5db', margin:'0 auto 10px' }} />
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:10 }}>
-          <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:800, color:'#111827' }}>Expense alerts</p>
-            <p style={{ margin:'2px 0 0', fontSize:10.5, fontWeight:600, color:'#64748b' }}>
-              {alerts.length ? `${alerts.length} budget ${alerts.length>1?'limits':'limit'} need attention` : 'No budget alerts right now'}
-            </p>
-          </div>
-          <button onClick={onClose} style={{ width:30, height:30, borderRadius:10, border:'1px solid #e2e8f0', background:'linear-gradient(145deg,#f8fafc,#e5e7eb)', color:'#64748b', fontWeight:800, cursor:'pointer' }}>×</button>
-        </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:'55vh', overflowY:'auto', paddingRight:2 }}>
-          {alerts.length ? alerts.map(a => (
-            <SmartAlertCard key={a.cat} alert={a} onView={onViewBudgets} />
-          )) : (
-            <div style={{ padding:'16px 12px', borderRadius:14, textAlign:'center', background:'linear-gradient(145deg,#f8fafc,#eef2f7)', border:'1px solid #e2e8f0', color:'#64748b', fontSize:12, fontWeight:700 }}>
-              Spending is within your current budget limits.
-            </div>
-          )}
-        </div>
+    <button
+      onClick={onClick}
+      style={{
+        width: 60,
+        height: 60,
+        borderRadius: '50%',
+        border: 'none',
+        background: `conic-gradient(${tone} ${clamp(score, 0, 100) * 3.6}deg, rgba(226,232,240,0.85) 0deg)`,
+        padding: 3,
+        cursor: 'pointer',
+        boxShadow: `0 0 0 5px ${tone}12, 0 8px 18px rgba(15,23,42,0.08)`,
+        animation: score < 40 ? 'expPulseDanger 2s ease-in-out infinite' : score < 70 ? 'expPulseSoft 2.2s ease-in-out infinite' : 'none',
+      }}
+      aria-label="Open expense health details"
+    >
+      <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'rgba(255,255,255,0.96)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+        <span className="syne" style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: tone }}>{score}</span>
+        <span style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Health</span>
       </div>
-    </div>
-  )
-}
-
-function QuickAddBtn({ icon, label, color, bg, border, onClick }) {
-  const [pressed, setPressed] = useState(false)
-  return (
-    <button onMouseDown={()=>setPressed(true)} onMouseUp={()=>setPressed(false)} onTouchStart={()=>setPressed(true)} onTouchEnd={()=>setPressed(false)} onClick={onClick}
-      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'12px 8px', borderRadius:14, background:`linear-gradient(145deg,${bg},#fff)`, border:`1.5px solid ${border}`, cursor:'pointer', transition:'all 0.15s', boxShadow: pressed?`inset 2px 2px 5px rgba(0,0,0,0.1),inset -1px -1px 3px rgba(255,255,255,0.8)`:`3px 3px 8px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)`, transform: pressed?'scale(0.95)':'scale(1)' }}>
-      <span style={{ fontSize:22 }}>{icon}</span>
-      <span style={{ fontSize:10, fontWeight:700, color:color, fontFamily:'Poppins,sans-serif' }}>{label}</span>
     </button>
   )
 }
 
-// ── AI Insight card ───────────────────────────────────────
-
-function AIInsightCard({ icon, text, sub, color, bg, border, delay=0 }) {
+function BottomSheet({ title, subtitle, onClose, children, accent = 'rgba(59,130,246,0.15)' }) {
   return (
-    <div style={{ display:'flex', gap:10, padding:'12px 14px', background:`linear-gradient(145deg,${bg},#fff)`, borderRadius:14, border:`1.5px solid ${border}`, boxShadow:'3px 3px 8px rgba(0,0,0,0.06),-2px -2px 5px rgba(255,255,255,0.9)', animation:`slideIn 0.4s ease-out ${delay}ms both` }}>
-      <div style={{ width:34, height:34, borderRadius:10, background:`${color}15`, border:`1px solid ${color}25`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>{icon}</div>
-      <div>
-        <p style={{ fontSize:12, fontWeight:700, color:'#1a1a1a', margin:'0 0 2px', fontFamily:'Poppins,sans-serif', lineHeight:1.4 }}>{text}</p>
-        {sub && <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif' }}>{sub}</p>}
+      <div
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 5000,
+          background: 'rgba(15,23,42,0.34)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '10px 10px',
+        }}
+      >
+      <GlassCard style={{ width: '92vw', maxWidth: 520, maxHeight: '75vh', overflowY: 'auto', borderRadius: 22, padding: 11 }} accent={accent}>
+        <div style={{ width: 44, height: 5, borderRadius: 999, background: '#cbd5e1', margin: '0 auto 12px' }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#0f172a' }}>{title}</p>
+            {subtitle ? <p style={{ margin: '4px 0 0', fontSize: 11, color: '#64748b' }}>{subtitle}</p> : null}
+          </div>
+          <button onClick={onClose} style={actionBtn('#64748b', '#f8fafc')}>Close</button>
+        </div>
+        {children}
+      </GlassCard>
+    </div>
+  )
+}
+
+function ExpenseAlertsSheet({ alerts, onClose, onViewBudgets }) {
+  return (
+    <BottomSheet title="Expense alerts" subtitle={alerts.length ? `${alerts.length} warnings and nudges` : 'All clear for now'} onClose={onClose} accent="rgba(239,68,68,0.16)">
+      <div style={{ display: 'grid', gap: 10, maxHeight: '62vh', overflowY: 'auto', paddingRight: 2 }}>
+        {alerts.length ? alerts.map((alert, index) => (
+          <div
+            key={`${alert.title}-${index}`}
+            style={{
+              padding: '12px 12px',
+              borderRadius: 18,
+              background: alert.severity === 'high' ? '#fff1f2' : alert.severity === 'medium' ? '#fff7ed' : '#eff6ff',
+              border: `1px solid ${alert.severity === 'high' ? '#fecdd3' : alert.severity === 'medium' ? '#fed7aa' : '#bfdbfe'}`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 13, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
+                {alert.icon}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>{alert.title}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#475569', lineHeight: 1.45 }}>{alert.text}</p>
+              </div>
+            </div>
+          </div>
+        )) : <div style={{ padding: '18px 12px', borderRadius: 18, background: '#f8fafc', textAlign: 'center', color: '#64748b', fontSize: 12, fontWeight: 700 }}>Spending is within your current budget limits.</div>}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+        <button onClick={onViewBudgets} style={actionBtn('#7c3aed', '#faf5ff')}>Open budgets</button>
+      </div>
+    </BottomSheet>
+  )
+}
+
+function BudgetRow({ row, editingBudget, budgetInput, setBudgetInput, setEditingBudget, saveBudget, onAdjust, onReduceDaily, onIgnore }) {
+  const over = row.budget > 0 && row.spent > row.budget
+  const pct = row.budget > 0 ? clamp((row.spent / row.budget) * 100, 0, 100) : 0
+  const overBy = Math.max(row.spent - row.budget, 0)
+  return (
+    <div style={{ padding: '9px 9px', borderRadius: 15, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 11.5, fontWeight: 800, color: '#0f172a' }}>{(CAT_ICONS[row.name] || '💸') + ' ' + row.name}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 9.5, color: '#64748b' }}>{fmt(row.spent)} / {row.budget ? fmt(row.budget) : 'Set budget'}</p>
+        </div>
+        <span style={{ padding: '4px 7px', borderRadius: 999, background: over ? '#fef2f2' : '#eff6ff', color: over ? '#dc2626' : '#2563eb', fontSize: 9.5, fontWeight: 800 }}>{row.budget ? `${Math.round(pct)}%` : 'No limit'}</span>
+      </div>
+
+      {editingBudget === row.name ? (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <input
+            type="number"
+            value={budgetInput}
+            onChange={(e) => setBudgetInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && saveBudget(row.name)}
+            autoFocus
+            placeholder="₹ budget"
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button onClick={() => saveBudget(row.name)} style={actionBtn('#2563eb', '#eff6ff')}>Save</button>
+          <button onClick={() => setEditingBudget(null)} style={actionBtn('#64748b', '#f8fafc')}>Close</button>
+        </div>
+      ) : null}
+
+      <ProgressLine pct={pct} tone={over ? 'linear-gradient(90deg,#ef4444,#fb7185)' : `linear-gradient(90deg,${row.color},${row.color}cc)`} />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 6 }}>
+        <p style={{ margin: 0, fontSize: 9.5, color: over ? '#dc2626' : '#64748b', fontWeight: 700 }}>
+          {over ? `Over by ${fmt(overBy)}` : row.budget ? `${fmt(Math.max(row.budget - row.spent, 0))} left` : 'Tap adjust to set limit'}
+        </p>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button onClick={() => onAdjust(row)} style={miniActionBtn('#2563eb', '#eff6ff')}>Adjust</button>
+          <button onClick={() => onReduceDaily(row)} style={miniActionBtn('#d97706', '#fff7ed')}>Reduce daily</button>
+          <button onClick={() => onIgnore(row)} style={miniActionBtn('#64748b', '#f8fafc')}>Ignore</button>
+        </div>
       </div>
     </div>
   )
 }
-
-// ── Gamification badge ────────────────────────────────────
-
-function Badge({ icon, label, sub, unlocked, color }) {
-  return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'12px 6px', background: unlocked?`linear-gradient(145deg,${color}10,#fff)`:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', borderRadius:14, border: unlocked?`1.5px solid ${color}30`:'1.5px solid #e5e7eb', boxShadow: unlocked?'3px 3px 8px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)':'2px 2px 5px rgba(0,0,0,0.04)', opacity: unlocked?1:0.45, position:'relative', overflow:'hidden' }}>
-      {unlocked && <div style={{ position:'absolute', top:0, right:0, width:8, height:8, borderRadius:'0 14px 0 8px', background:color }} />}
-      <span style={{ fontSize:22, filter: unlocked?'none':'grayscale(1)' }}>{icon}</span>
-      <p style={{ fontSize:9, fontWeight:700, color: unlocked?'#1a1a1a':'#9ca3af', margin:0, textAlign:'center', fontFamily:'Poppins,sans-serif', lineHeight:1.3 }}>{label}</p>
-      <p style={{ fontSize:8, color: unlocked?color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif' }}>{sub}</p>
-    </div>
-  )
-}
-
-// ── Tooltip ───────────────────────────────────────────────
-
-const LightTooltip = ({ active, payload, label }) => {
-  if (!active||!payload?.length) return null
-  return (
-    <div style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, padding:'8px 13px', boxShadow:'3px 3px 10px rgba(0,0,0,0.1)' }}>
-      <p style={{ color:'#6b7280', fontSize:11, marginBottom:3, fontFamily:'Poppins,sans-serif' }}>{label}</p>
-      <p style={{ color:'#1a1a1a', fontWeight:800, fontSize:14, fontFamily:'Poppins,sans-serif' }}>{fmt(payload[0].value)}</p>
-    </div>
-  )
-}
-
-// ── Budget bar ────────────────────────────────────────────
-
-function BudgetBar({ spent, budget, color }) {
-  const pct  = Math.min((spent/budget)*100, 100)
-  const over = spent>budget
-  return (
-    <div style={{ marginBottom:4 }}>
-      <div style={{ height:7, borderRadius:7, background:'linear-gradient(145deg,#e0e0e0,#f5f5f5)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.09),inset -1px -1px 2px rgba(255,255,255,0.8)', overflow:'hidden' }}>
-        <div style={{ height:'100%', borderRadius:7, width:`${pct}%`, background: over?'linear-gradient(90deg,#ef4444,#f87171)':`linear-gradient(90deg,${color},${color}bb)`, transition:'width 1s ease-out' }} />
-      </div>
-      {over && <p style={{ fontSize:10, color:'#dc2626', fontWeight:600, marginTop:3, fontFamily:'Poppins,sans-serif' }}>⚠ Over by {fmt(spent-budget)}</p>}
-    </div>
-  )
-}
-
-// ══════════════════════════════════════════════════════════
-//  VOICE CONFIRMATION MODAL
-// ══════════════════════════════════════════════════════════
-
-
-// ══════════════════════════════════════════════════════════
-//  MAIN EXPORT
-// ══════════════════════════════════════════════════════════
 
 export default function Expense(props) {
   const {
-    logs, customAmount, setCustomAmount, customCategory, setCustomCategory,
-    categories, addExpense, addExpenseWithMeta, deleteExpense, filteredLogs,
-    searchTerm, setSearchTerm, filterCategory, setFilterCategory, overallTotal,
-    expenseTab, setExpenseTab, summaryData, aiInsights, generateAIAdvice,
-    isThinking, triggerCamera, handleImageCapture, fileInputRef,
+    logs,
+    customAmount,
+    setCustomAmount,
+    customCategory,
+    setCustomCategory,
+    categories,
+    addExpense,
+    addExpenseWithMeta,
+    deleteExpense,
+    filteredLogs,
+    searchTerm,
+    setSearchTerm,
+    filterCategory,
+    setFilterCategory,
+    overallTotal,
+    expenseTab,
+    setExpenseTab,
+    aiInsights,
+    generateAIAdvice,
+    isThinking,
+    triggerCamera,
+    handleImageCapture,
+    fileInputRef,
   } = props
 
-  const [budgets, setBudgets]             = useState(BUDGET_DEFAULTS)
+  const [budgets, setBudgets] = useState(BUDGET_DEFAULTS)
   const [editingBudget, setEditingBudget] = useState(null)
-  const [budgetInput, setBudgetInput]     = useState('')
-  const [noteInput, setNoteInput]         = useState('')
-  const [sortBy, setSortBy]               = useState('time')
-  const [justAdded, setJustAdded]         = useState(false)
-  const [deletingId, setDeletingId]       = useState(null)
+  const [budgetInput, setBudgetInput] = useState('')
+  const [noteInput, setNoteInput] = useState('')
+  const [sortBy, setSortBy] = useState('time')
+  const [justAdded, setJustAdded] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
   const [showMobileForm, setShowMobileForm] = useState(false)
   const [showAlertsSheet, setShowAlertsSheet] = useState(false)
+  const [showHealthSheet, setShowHealthSheet] = useState(false)
+  const [showChallengeSheet, setShowChallengeSheet] = useState(false)
 
-  // ── Voice state (minimal) ──────────────────────────────
+  const normalizedLogs = useMemo(() => logs.map(normalizeLog).sort((a, b) => b.millis - a.millis), [logs])
+  const normalizedFilteredLogs = useMemo(() => filteredLogs.map(normalizeLog).sort((a, b) => b.millis - a.millis), [filteredLogs])
 
-  const categoryTotals = useMemo(() => logs.reduce((acc,l) => { acc[l.category]=(acc[l.category]||0)+l.amount; return acc }, {}), [logs])
-  const topCategory    = useMemo(() => { const e=Object.entries(categoryTotals); return e.length?e.sort((a,b)=>b[1]-a[1])[0][0]:'—' }, [categoryTotals])
-  const avgTransaction = logs.length?Math.round(overallTotal/logs.length):0
-  const alerts         = useMemo(() => Object.entries(categoryTotals).filter(([c,t])=>budgets[c]&&t>budgets[c]).map(([cat,total])=>({cat,over:total-budgets[cat]})), [categoryTotals, budgets])
-  const trendData      = useMemo(() => { const hours=Array.from({length:24},(_,i)=>({hour:`${i}h`,amount:0})); logs.forEach(l=>{const h=parseInt(l.time?.split(':')[0]||'0');if(!isNaN(h))hours[h].amount+=l.amount}); return hours.filter((_,i)=>i>=6&&i<=22) }, [logs])
-  const sortedLogs     = useMemo(() => { const b=[...filteredLogs]; if(sortBy==='amount')return b.sort((a,b)=>b.amount-a.amount); if(sortBy==='category')return b.sort((a,b)=>a.category.localeCompare(b.category)); return b }, [filteredLogs, sortBy])
+  const monthStats = useMemo(() => getMonthStats(normalizedLogs, budgets), [normalizedLogs, budgets])
+  const projection = useMemo(
+    () =>
+      calculateProjection({
+        totalSpent: monthStats.totalSpent,
+        monthlyBudget: monthStats.monthlyBudget,
+        now: monthStats.now,
+        totalEntries: monthStats.totalEntries,
+      }),
+    [monthStats]
+  )
+  const burnRate = useMemo(
+    () =>
+      calculateBurnRate({
+        averageDailySpend: projection.averageDailySpend,
+        monthlyBudget: monthStats.monthlyBudget,
+        daysInMonth: projection.daysInMonth,
+      }),
+    [projection, monthStats.monthlyBudget]
+  )
+  const safeSpend = useMemo(
+    () =>
+      calculateSafeSpend({
+        monthlyBudget: monthStats.monthlyBudget,
+        totalSpent: monthStats.totalSpent,
+        now: monthStats.now,
+      }),
+    [monthStats]
+  )
 
-  const now            = new Date(); const msDay=86400000
-  const thisWeekTotal  = useMemo(()=>logs.filter(l=>(now-new Date(l.id))<7*msDay).reduce((s,l)=>s+l.amount,0),[logs])
-  const weekendTotal   = useMemo(()=>logs.filter(l=>{const d=new Date(l.id).getDay();return d===0||d===6}).reduce((s,l)=>s+l.amount,0),[logs])
-  const weekdayTotal   = useMemo(()=>logs.filter(l=>{const d=new Date(l.id).getDay();return d>0&&d<6}).reduce((s,l)=>s+l.amount,0),[logs])
-  const weekdayAvg     = weekdayTotal/5||0
-  const weekendAvg     = weekendTotal/2||0
+  const todayLogs = useMemo(
+    () => monthStats.currentMonthLogs.filter((log) => isSameDay(log.date, monthStats.now)),
+    [monthStats]
+  )
+  const yesterdayLogs = useMemo(
+    () => monthStats.currentMonthLogs.filter((log) => isSameDay(log.date, new Date(getStartOfDay(monthStats.now).getTime() - DAY_MS))),
+    [monthStats]
+  )
+  const dailyComparison = useMemo(() => getDailyComparison(todayLogs, yesterdayLogs), [todayLogs, yesterdayLogs])
+  const leakData = useMemo(() => detectMoneyLeaks(monthStats.currentMonthLogs), [monthStats.currentMonthLogs])
+  const groupedInsights = useMemo(() => {
+    const groups = { Needs: 0, Lifestyle: 0, Travel: 0, Other: 0 }
+    monthStats.currentMonthLogs.forEach((log) => {
+      groups[categoryGroupName(log.category)] += log.amount
+    })
+    const total = monthStats.totalSpent || 1
+    return {
+      groups,
+      needsPct: (groups.Needs / total) * 100,
+      lifestylePct: (groups.Lifestyle / total) * 100,
+      travelPct: (groups.Travel / total) * 100,
+    }
+  }, [monthStats])
+  const health = useMemo(
+    () =>
+      calculateHealthScore({
+        monthlyBudgetUsed: monthStats.monthlyBudgetUsed,
+        overBudgetCount: monthStats.overBudgetCategories.length,
+        todaySpent: monthStats.todaySpent,
+        safeSpendToday: Math.max(safeSpend.safeSpendToday, 0),
+        projectedDelta: projection.projectedDelta,
+        topRisks: monthStats.overBudgetCategories.map((row) => row.name),
+      }),
+    [monthStats, safeSpend, projection]
+  )
+  const coach = useMemo(
+    () =>
+      getCoachOutput({
+        health,
+        overBudgetCategories: monthStats.overBudgetCategories,
+        safeSpend,
+        projection,
+        burnRate,
+        groupedInsights,
+        topCategoryRow: monthStats.topCategoryRow,
+      }),
+    [health, monthStats, safeSpend, projection, burnRate, groupedInsights]
+  )
+  const healthIssues = useMemo(
+    () => getHealthIssues({ monthStats, safeSpend, projection, burnRate, leakData }),
+    [monthStats, safeSpend, projection, burnRate, leakData]
+  )
+  const dailyChallenge = useMemo(
+    () => getDailyChallenge({ monthStats, safeSpend, dailyComparison, groupedInsights, projection }),
+    [monthStats, safeSpend, dailyComparison, groupedInsights, projection]
+  )
 
-  // ── Expense add helpers ───────────────────────────────
+  const currentMonthSummary = useMemo(
+    () => Object.values(monthStats.categoryTotals).sort((a, b) => b.total - a.total),
+    [monthStats.categoryTotals]
+  )
+  const analyticsRows = useMemo(
+    () =>
+      currentMonthSummary.map((row) => ({
+        ...row,
+        budget: budgets[row.name] || 0,
+        pct: monthStats.totalSpent ? (row.total / monthStats.totalSpent) * 100 : 0,
+      })),
+    [currentMonthSummary, budgets, monthStats.totalSpent]
+  )
+  const chartData = useMemo(() => getTopCategories(monthStats.currentMonthLogs, 6), [monthStats.currentMonthLogs])
+  const trendData = useMemo(() => {
+    const hours = Array.from({ length: 24 }, (_, index) => ({
+      hour: `${String(index).padStart(2, '0')}:00`,
+      amount: 0,
+    }))
+    todayLogs.forEach((log) => {
+      hours[log.date.getHours()].amount += log.amount
+    })
+    return hours.filter((_, index) => index >= 6 && index <= 23)
+  }, [todayLogs])
+
+  const sortedLogs = useMemo(() => {
+    const base = [...normalizedFilteredLogs]
+    if (sortBy === 'amount') return base.sort((a, b) => b.amount - a.amount)
+    if (sortBy === 'category') return base.sort((a, b) => a.category.localeCompare(b.category))
+    return base.sort((a, b) => b.millis - a.millis)
+  }, [normalizedFilteredLogs, sortBy])
+
+  const logGroups = useMemo(() => {
+    const today = []
+    const yesterday = []
+    const earlier = []
+    sortedLogs.forEach((log) => {
+      if (isSameDay(log.date, monthStats.now)) today.push(log)
+      else if (isSameDay(log.date, new Date(getStartOfDay(monthStats.now).getTime() - DAY_MS))) yesterday.push(log)
+      else earlier.push(log)
+    })
+    return [
+      { title: 'Today', items: today },
+      { title: 'Yesterday', items: yesterday },
+      { title: 'Earlier', items: earlier },
+    ].filter((group) => group.items.length)
+  }, [sortedLogs, monthStats.now])
+
+  const monthlyStory = useMemo(() => {
+    const bestControlled = analyticsRows
+      .filter((row) => row.budget > 0)
+      .sort((a, b) => a.total / a.budget - b.total / b.budget)[0]
+    const risky = monthStats.overBudgetCategories[0] || [...analyticsRows].sort((a, b) => b.total - a.total)[0]
+    const nextMonthTarget =
+      monthStats.monthlyBudget > 0
+        ? Math.max(monthStats.monthlyBudget - Math.max(projection.projectedDelta, 0) * 0.5, monthStats.monthlyBudget * 0.88)
+        : 0
+    return {
+      biggestCategory: monthStats.topCategoryRow?.name || 'None yet',
+      bestControlled: bestControlled?.name || 'No budget data',
+      risky: risky?.name || 'No risk yet',
+      crossed: monthStats.overBudgetCategories.length,
+      nextMonthTarget,
+    }
+  }, [analyticsRows, monthStats, projection.projectedDelta])
+
+  const smartAlerts = useMemo(() => {
+    const items = []
+    monthStats.overBudgetCategories.slice(0, 2).forEach((row) => {
+      items.push({
+        icon: CAT_ICONS[row.name] || '🚨',
+        title: `${row.name} over budget`,
+        text: `${fmt(row.overBy)} above the current limit. Consider a tighter daily cap.`,
+        severity: 'high',
+      })
+    })
+    if (monthStats.todaySpent > Math.max(safeSpend.safeSpendToday, 0) && safeSpend.remainingBudget >= 0) {
+      items.push({
+        icon: '📅',
+        title: 'High spending today',
+        text: `Today is already at ${fmt(monthStats.todaySpent)} versus a safe pace of ${fmt(safeSpend.safeSpendToday)}.`,
+        severity: 'medium',
+      })
+    }
+    if (burnRate.burnRate > 1.1) {
+      items.push({
+        icon: '🔥',
+        title: 'Burn rate warning',
+        text: `You are spending at ${burnRate.burnRate.toFixed(1)}x of the ideal daily pace.`,
+        severity: 'high',
+      })
+    }
+    if (projection.projectedDelta > 0) {
+      items.push({
+        icon: '🔮',
+        title: 'Month-end prediction',
+        text: `Expected month-end spend is ${fmt(projection.projectedSpend)}, likely over by ${fmt(projection.projectedDelta)}.`,
+        severity: 'high',
+      })
+    }
+    if (leakData.totalLeakAmount > 0) {
+      items.push({
+        icon: '🕳️',
+        title: 'Money leak detected',
+        text: `${fmt(leakData.totalLeakAmount)} found in repeated small spends this month.`,
+        severity: 'medium',
+      })
+    }
+    items.push({
+      icon: '⚡',
+      title: 'Challenge reminder',
+      text: dailyChallenge.target,
+      severity: 'low',
+    })
+    items.push({
+      icon: '💡',
+      title: 'Smart suggestion',
+      text: coach.categorySuggestion,
+      severity: 'low',
+    })
+    return items
+  }, [monthStats, safeSpend, burnRate, projection, leakData, coach.categorySuggestion, dailyChallenge.target])
 
   const handleAdd = () => {
-    if (!customAmount || customAmount <= 0) return
-    addExpenseWithMeta ? addExpenseWithMeta(noteInput, []) : addExpense()
-    setJustAdded(true); setNoteInput('')
-    setTimeout(() => setJustAdded(false), 900)
+    if (!customAmount || Number(customAmount) <= 0) return
+    if (addExpenseWithMeta) addExpenseWithMeta(noteInput, [])
+    else addExpense()
+    setJustAdded(true)
+    setNoteInput('')
+    window.setTimeout(() => setJustAdded(false), 900)
   }
-  const quickAdd = (cat) => { setCustomCategory(cat); setShowMobileForm(true) }
-  const handleDelete = (id) => { setDeletingId(id); setTimeout(()=>{deleteExpense(id);setDeletingId(null)},350) }
-  const saveBudget = (cat) => { const v=parseFloat(budgetInput); if(!isNaN(v)&&v>0)setBudgets(p=>({...p,[cat]:v})); setEditingBudget(null); setBudgetInput('') }
 
-  // ── Voice flow ────────────────────────────────────────
-  //
-  //  APPROACH: pure Google popup. No custom UI, no partialResults,
-  //  no manual listeners. SpeechRecognition.start() with popup:true
-  //  blocks until the user finishes speaking and returns the transcript.
+  const handleDelete = (id) => {
+    setDeletingId(id)
+    window.setTimeout(() => {
+      deleteExpense(id)
+      setDeletingId(null)
+    }, 260)
+  }
 
+  const saveBudget = (category) => {
+    const value = parseFloat(budgetInput)
+    if (!Number.isNaN(value) && value > 0) setBudgets((prev) => ({ ...prev, [category]: value }))
+    setEditingBudget(null)
+    setBudgetInput('')
+  }
 
-  // ── Export helpers ────────────────────────────────────
+  const openBudgetAdjust = (row) => {
+    setEditingBudget(row.name)
+    setBudgetInput(String(row.budget || ''))
+  }
+
+  const reduceDaily = (row) => {
+    const remaining = Math.max(projection.daysInMonth - projection.dayOfMonth + 1, 1)
+    const overshoot = Math.max(row.spent - row.budget, 0)
+    const dailyCut = overshoot > 0 ? overshoot / remaining : row.spent / Math.max(projection.dayOfMonth, 1)
+    window.alert(`${row.name}: try reducing about ${fmt(dailyCut)}/day for the rest of this month.`)
+  }
+
+  const ignoreBudget = (row) => {
+    window.alert(`${row.name} kept as-is. This is a UI placeholder and does not change your budget.`)
+  }
 
   const exportCSV = () => {
-    const rows = [['ID','Category','Amount','Time','Note']]
-    logs.forEach(l => rows.push([l.id, l.category, l.amount, l.time, l.note||'']))
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')], {type:'text/csv'}))
-    a.download = `expenses_${new Date().toISOString().slice(0,10)}.csv`
-    a.click()
+    const rows = [['ID', 'Category', 'Amount', 'Time', 'Note']]
+    logs.forEach((log) => rows.push([log.id, log.category, log.amount, log.time || '', log.note || '']))
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([rows.map((row) => row.join(',')).join('\n')], { type: 'text/csv' }))
+    link.download = `expenses_${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
   }
+
   const exportJSON = () => {
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(logs,null,2)], {type:'application/json'}))
-    a.download = `expenses_${new Date().toISOString().slice(0,10)}.json`
-    a.click()
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' }))
+    link.download = `expenses_${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
   }
+
   const exportText = () => {
-    let t = `ACR MAX Report\n${new Date().toLocaleDateString('en-IN')}\nTotal: ${fmt(overallTotal)}\n\n`
-    logs.forEach(l => { t += `[${l.time}] ${l.category}: ${fmt(l.amount)}${l.note?' — '+l.note:''}\n` })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([t], {type:'text/plain'}))
-    a.download = `expenses_${new Date().toISOString().slice(0,10)}.txt`
-    a.click()
+    let text = `ACR MAX Report\n${new Date().toLocaleDateString('en-IN')}\nTotal: ${fmt(overallTotal)}\n\n`
+    logs.forEach((log) => {
+      text += `[${log.time || ''}] ${log.category}: ${fmt(log.amount)}${log.note ? ` - ${log.note}` : ''}\n`
+    })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
+    link.download = `expenses_${new Date().toISOString().slice(0, 10)}.txt`
+    link.click()
   }
 
-  // ── Style shortcuts ───────────────────────────────────
-
-  const neu      = { background:'linear-gradient(145deg,#f8fafc,#e8ecf0)', border:'1.5px solid #e2e8f0', borderRadius:16, padding:'12px 14px', boxShadow:'3px 3px 8px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)' }
-  const inputSt  = { width:'100%', padding:'12px 14px', background:'linear-gradient(145deg,#e8e8e8,#ffffff)', boxShadow:'inset 3px 3px 6px rgba(0,0,0,0.09),inset -2px -2px 4px rgba(255,255,255,0.9)', border:'1.5px solid #e2e8f0', borderRadius:13, fontWeight:600, color:'#1a1a1a', fontSize:14, outline:'none', fontFamily:'Poppins,sans-serif', transition:'box-shadow 0.2s' }
-  const selectSt = { padding:'11px 14px', background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', boxShadow:'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 4px rgba(255,255,255,0.9)', border:'1.5px solid #e2e8f0', borderRadius:13, fontWeight:700, color:'#1a1a1a', fontSize:13, outline:'none', cursor:'pointer', fontFamily:'Poppins,sans-serif' }
+  const monthLabel = monthStats.now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+  const budgetTone =
+    monthStats.monthlyBudgetUsed > 100
+      ? 'linear-gradient(90deg,#ef4444,#fb7185)'
+      : monthStats.monthlyBudgetUsed > 80
+        ? 'linear-gradient(90deg,#f59e0b,#f97316)'
+        : 'linear-gradient(90deg,#16a34a,#22c55e)'
 
   return (
     <>
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap');
-      .exp-root *{font-family:'Poppins',sans-serif!important;}
-      .exp-root .syne{font-family:'Syne',sans-serif!important;}
-      @keyframes slideUp {from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-      @keyframes slideIn {from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
-      @keyframes fadeIn  {from{opacity:0}to{opacity:1}}
-      @keyframes popIn   {0%{opacity:0;transform:scale(0.8)}70%{transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
-      @keyframes shimBar {0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
-      @keyframes spinLoad{to{transform:rotate(360deg)}}
-      @keyframes floatY  {0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-      @media(max-width:640px){
-        .exp-add-form{display:none!important;}
-        .exp-fab{display:flex!important;}
-        .exp-tabs button{padding:9px 13px!important;font-size:11px!important;}
-      }
-      @media(min-width:641px){.exp-fab{display:none!important;}}
-      select option{background:#ffffff!important;color:#1a1a1a!important;}
-      input::placeholder{color:#9ca3af!important;}
-    `}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+        .exp-root * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
+        .exp-root .syne { font-family: 'Poppins', sans-serif; }
+        .exp-tabs::-webkit-scrollbar, .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .expense-page-root {
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .expense-full-bleed {
+          width: 100%;
+          box-sizing: border-box;
+        }
+        @keyframes expPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.18); }
+          50% { box-shadow: 0 0 0 8px rgba(248,113,113,0.08); }
+        }
+        @keyframes expPulseSoft {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.03); }
+        }
+        @keyframes expPulseDanger {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220,38,38,0.12), 0 10px 22px rgba(15,23,42,0.08); }
+          50% { transform: scale(1.05); box-shadow: 0 0 0 9px rgba(220,38,38,0.15), 0 10px 22px rgba(15,23,42,0.08); }
+        }
+        @media (max-width: 640px) {
+          .expense-page-root {
+            width: calc(100% + 24px) !important;
+            max-width: none !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            padding-left: 4px !important;
+            padding-right: 4px !important;
+            overflow-x: hidden;
+          }
+          .expense-full-bleed {
+            width: 100% !important;
+            max-width: none !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+          }
+          .exp-grid-overview { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .exp-grid-2 { grid-template-columns: 1fr !important; }
+          .exp-grid-3 { grid-template-columns: 1fr !important; }
+          .exp-mobile-breakdown { display: flex !important; }
+          .exp-analytics-table { display: none !important; }
+          .exp-filter-row { grid-template-columns: minmax(0,1fr) 88px 78px !important; }
+        }
+        @media (min-width: 641px) {
+          .exp-mobile-breakdown { display: none !important; }
+        }
+      `}</style>
 
-
-    {/* ── MOBILE FAB ── */}
-    <div className="exp-fab" style={{ display:'none', position:'fixed', bottom:154, right:18, zIndex:200, flexDirection:'column', alignItems:'flex-end', gap:10 }}>
-      {showMobileForm && (
-        <div style={{ background:'linear-gradient(145deg,#ffffff,#f5f5f5)', border:'1px solid #e2e8f0', borderRadius:22, padding:18, width:'calc(100vw - 40px)', maxWidth:340, boxShadow:'6px 6px 20px rgba(0,0,0,0.12),-4px -4px 12px rgba(255,255,255,0.9)', animation:'slideUp 0.3s ease-out both' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-            <p style={{ fontFamily:'Syne,sans-serif', fontWeight:800, color:'#1a1a1a', fontSize:15, margin:0 }}>+ Add Expense</p>
-            <button onClick={()=>setShowMobileForm(false)} style={{ background:'linear-gradient(145deg,#f5f5f5,#e8e8e8)', border:'1px solid #e2e8f0', borderRadius:8, color:'#6b7280', fontSize:15, cursor:'pointer', width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'2px 2px 4px rgba(0,0,0,0.08),-1px -1px 3px rgba(255,255,255,0.9)' }}>✕</button>
-          </div>
-          <div style={{ marginBottom:10 }}>
-            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>Category</label>
-            <select value={customCategory} onChange={e=>setCustomCategory(e.target.value)} style={{ width:'100%', ...selectSt, padding:'10px 12px' }}>
-              {categories.map(c=><option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div style={{ marginBottom:10 }}>
-            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>Amount (₹)</label>
-            <input type="number" value={customAmount} onChange={e=>setCustomAmount(e.target.value)} onKeyDown={e=>e.key==='Enter'&&(handleAdd(),setShowMobileForm(false))} placeholder="0.00" autoFocus style={{ width:'100%', ...inputSt, fontSize:16, fontWeight:700 }} />
-          </div>
-          <div style={{ marginBottom:12 }}>
-            <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.1em' }}>Note (optional)</label>
-            <input type="text" value={noteInput} onChange={e=>setNoteInput(e.target.value)} placeholder="e.g. lunch" style={{ width:'100%', ...inputSt, fontSize:13 }} />
-          </div>
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={()=>{ triggerCamera() }} style={{ padding:'11px 14px', borderRadius:12, fontSize:17, background:'linear-gradient(145deg,#ecfdf5,#d1fae5)', border:'1.5px solid #a7f3d0', cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>📷</button>
-            <input type="file" accept="image/*" capture="environment" ref={fileInputRef} style={{ display:'none' }} onChange={handleImageCapture} />
-            <button onClick={()=>{ handleAdd(); if(customAmount>0) setShowMobileForm(false) }} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, cursor:'pointer', boxShadow:'3px 3px 10px rgba(124,58,237,0.25),-1px -1px 3px rgba(255,255,255,0.5)' }}>
-              {justAdded?'✓ Added!':'+ Add'}
-            </button>
-          </div>
-        </div>
-      )}
-      <button onClick={()=>setShowMobileForm(s=>!s)} style={{ width:56, height:56, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.8)', background:'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontSize:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'4px 4px 14px rgba(124,58,237,0.3),-2px -2px 6px rgba(255,255,255,0.7)', transition:'all 0.2s', transform:showMobileForm?'rotate(45deg)':'rotate(0)' }}>+</button>
-    </div>
-
-    {showAlertsSheet && (
-      <ExpenseAlertsSheet
-        alerts={alerts}
-        onClose={()=>setShowAlertsSheet(false)}
-        onViewBudgets={()=>{ setShowAlertsSheet(false); setExpenseTab('budget') }}
-      />
-    )}
-
-    <div className="exp-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:100, color:'#1a1a1a', position:'relative', background:'transparent' }}>
-
-      {/* ── HEADER ── */}
-      <div style={{ marginBottom:16, animation:'slideUp 0.4s ease-out both' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            <img src="/logo.jpg" alt="" style={{ width:42, height:42, borderRadius:'50%', objectFit:'cover', border:'2px solid #e2e8f0', boxShadow:'3px 3px 8px rgba(0,0,0,0.1),-2px -2px 5px rgba(255,255,255,0.9)', flexShrink:0 }} />
-            <div>
-              <h2 style={{ fontFamily:'Poppins,sans-serif', fontSize:20, fontWeight:800, margin:'0 0 1px', color:'#1a1a1a' }}>💰 Expenses</h2>
-              <p style={{ fontSize:11, color:'#6b7280', margin:0, fontWeight:500 }}>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</p>
+      <div style={{ position: 'fixed', right: 16, bottom: 154, zIndex: 1200, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+        {showMobileForm ? (
+          <GlassCard style={{ width: 'min(92vw, 360px)', padding: 14, borderRadius: 26 }} accent="rgba(124,58,237,0.18)">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <p className="syne" style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>Add expense</p>
+              <button onClick={() => setShowMobileForm(false)} style={actionBtn('#64748b', '#f8fafc')}>Close</button>
             </div>
-          </div>
-          {alerts.length>0 && (
-            <button onClick={()=>setShowAlertsSheet(true)} style={{ background:'linear-gradient(145deg,#fff1f2,#fee2e2)', border:'1.5px solid #fca5a5', color:'#dc2626', padding:'6px 12px', borderRadius:10, fontSize:12, fontWeight:700, display:'flex', alignItems:'center', gap:5, boxShadow:'2px 2px 6px rgba(220,38,38,0.1),-1px -1px 3px rgba(255,255,255,0.9)', cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>
-              🚨 {alerts.length} Alert{alerts.length>1?'s':''}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── DYNAMIC SUMMARY CARD ── */}
-      <SummaryCard overallTotal={overallTotal} logs={logs} alerts={alerts} topCategory={topCategory} categoryTotals={categoryTotals} avgTransaction={avgTransaction} />
-
-      {/* ── TABS ── */}
-      <div className="exp-tabs" style={{ display:'flex', gap:7, marginBottom:16, overflowX:'auto', paddingBottom:4, scrollbarWidth:'none' }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={()=>setExpenseTab(t.id)} style={{
-            padding:'10px 18px', borderRadius:12, fontWeight:700, fontSize:12, whiteSpace:'nowrap', cursor:'pointer', transition:'all 0.2s', fontFamily:'Poppins,sans-serif',
-            background: expenseTab===t.id?'linear-gradient(145deg,#f0f0f0,#e4e4e4)':'linear-gradient(145deg,#ffffff,#f5f5f5)',
-            border: expenseTab===t.id?'1.5px solid #d1d5db':'1.5px solid #e8e8e8',
-            color: expenseTab===t.id?'#1a1a1a':'#6b7280',
-            borderBottom: expenseTab===t.id?'2.5px solid #7c3aed':undefined,
-            boxShadow: expenseTab===t.id?'inset 2px 2px 5px rgba(0,0,0,0.08),inset -1px -1px 3px rgba(255,255,255,0.8)':'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)',
-          }}>{t.label}</button>
-        ))}
-      </div>
-
-      {/* ════════ LOGS TAB ════════ */}
-      {expenseTab==='daily' && (
-        <div>
-          <NeuCard style={{ marginBottom:10, padding:12, borderRadius:16 }} accent="#d97706">
-            <SectionHdr title="Daily Streak" accent="#d97706" />
-            <HabitTracker logs={logs} />
-          </NeuCard>
-
-          <NeuCard style={{ marginBottom:14 }} accent="#7c3aed">
-            <SectionHdr title="Quick Add" accent="#7c3aed" />
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
-              {[
-                {icon:'🍽',label:'Food',      color:'#d97706',bg:'#fffbeb',border:'#fde68a',cat:'Food'},
-                {icon:'⚡',label:'Bills',     color:'#d97706',bg:'#fef9c3',border:'#fde68a',cat:'Electricity Bill'},
-                {icon:'🛒',label:'Groceries', color:'#16a34a',bg:'#f0fdf4',border:'#bbf7d0',cat:'Groceries'},
-                {icon:'⛽',label:'Petrol',    color:'#1d4ed8',bg:'#eff6ff',border:'#bfdbfe',cat:'Petrol'},
-                {icon:'📱',label:'Recharge',  color:'#0891b2',bg:'#f0f9ff',border:'#bae6fd',cat:'Mobile Recharge'},
-                {icon:'🍺',label:'Liquor',    color:'#7c3aed',bg:'#faf5ff',border:'#ddd6fe',cat:'Liquor'},
-                {icon:'🏪',label:'CSD',       color:'#6d28d9',bg:'#faf5ff',border:'#ddd6fe',cat:'CSD'},
-                {icon:'💸',label:'Other',     color:'#475569',bg:'#f8fafc',border:'#e2e8f0',cat:'Other'},
-              ].map((q,i)=><QuickAddBtn key={i} {...q} onClick={()=>quickAdd(q.cat)} />)}
-            </div>
-            <p style={{ fontSize:10, color:'#9ca3af', textAlign:'center', margin:0, fontWeight:500 }}>Tap to pre-select category, then set amount</p>
-          </NeuCard>
-
-          {false && logs.length>=3 && (
-            <NeuCard style={{ marginBottom:14 }} accent="#7c3aed">
-              <SectionHdr title="AI Insights" accent="#7c3aed" />
-              <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
-                {topCategory!=='—' && <AIInsightCard icon="💡" text={`You spend most on ${topCategory}`} sub={`${overallTotal>0?Math.round((categoryTotals[topCategory]/overallTotal)*100):0}% of total — ${fmt(categoryTotals[topCategory])}`} color="#7c3aed" bg="#faf5ff" border="#ddd6fe" delay={0} />}
-                {weekendAvg>weekdayAvg*1.3 && <AIInsightCard icon="📅" text="You spend more on weekends" sub={`Weekend avg: ${fmt(weekendAvg)} vs Weekday avg: ${fmt(weekdayAvg)}`} color="#d97706" bg="#fffbeb" border="#fde68a" delay={60} />}
-                {avgTransaction>0 && <AIInsightCard icon="📊" text={`Average spend ₹${avgTransaction.toLocaleString('en-IN')} per entry`} sub={avgTransaction>1000?'High avg — try splitting large expenses into categories':'Healthy transaction size'} color="#0891b2" bg="#f0f9ff" border="#bae6fd" delay={120} />}
-                {alerts.length>0 && <AIInsightCard icon="🎯" text={`${alerts.length} budget limit${alerts.length>1?'s':''} exceeded this period`} sub="Review budgets in the Budgets tab to set realistic limits" color="#dc2626" bg="#fff1f2" border="#fecdd3" delay={180} />}
-              </div>
-            </NeuCard>
-          )}
-
-          {false && <NeuCard style={{ marginBottom:14 }}>
-            <SectionHdr title="Achievements" accent="#d97706" />
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
-              <Badge icon="🌱" label="First Log"    sub="Logged 1+"  unlocked={logs.length>=1}   color="#16a34a" />
-              <Badge icon="🔥" label="3-Day Habit"  sub="3 days"     unlocked={logs.length>=3}   color="#d97706" />
-              <Badge icon="⚡" label="Power User"   sub="10+ entries" unlocked={logs.length>=10}  color="#7c3aed" />
-              <Badge icon="🏆" label="Super Saver"  sub="20+ entries" unlocked={logs.length>=20}  color="#0891b2" />
-            </div>
-          </NeuCard>}
-
-          {/* Desktop add form */}
-          <div className="exp-add-form" style={{ ...neu, borderTop:'3px solid #7c3aed', marginBottom:14, animation:'slideUp 0.45s ease-out 0.1s both' }}>
-            <SectionHdr title="Add Expense" accent="#7c3aed" />
-            <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:12 }}>
-              <div style={{ flex:'1 1 130px' }}>
-                <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:7, textTransform:'uppercase', letterSpacing:'0.1em' }}>Category</label>
-                <select value={customCategory} onChange={e=>setCustomCategory(e.target.value)} style={selectSt}>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select>
-              </div>
-              <div style={{ flex:'1 1 110px' }}>
-                <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:7, textTransform:'uppercase', letterSpacing:'0.1em' }}>Amount</label>
-                <input type="number" value={customAmount} onChange={e=>setCustomAmount(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleAdd()} style={inputSt} placeholder="₹ 0.00" />
-              </div>
-              <div style={{ flex:'1 1 130px' }}>
-                <label style={{ display:'block', fontSize:9, fontWeight:700, color:'#9ca3af', marginBottom:7, textTransform:'uppercase', letterSpacing:'0.1em' }}>Note</label>
-                <input type="text" value={noteInput} onChange={e=>setNoteInput(e.target.value)} style={inputSt} placeholder="optional…" />
-              </div>
-            </div>
-            <div style={{ display:'flex', gap:10 }}>
-              <button onClick={triggerCamera} style={{ padding:'11px 15px', borderRadius:13, fontSize:18, background:'linear-gradient(145deg,#ecfdf5,#d1fae5)', border:'1.5px solid #a7f3d0', cursor:'pointer', boxShadow:'2px 2px 5px rgba(0,0,0,0.07),-1px -1px 3px rgba(255,255,255,0.9)' }}>📷</button>
-              <input type="file" accept="image/*" capture="environment" ref={fileInputRef} style={{ display:'none' }} onChange={handleImageCapture} />
-              <button onClick={handleAdd} style={{ flex:1, padding:'12px', borderRadius:13, border:'none', cursor:'pointer', fontWeight:700, fontSize:14, color:'#fff', background: justAdded?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow:'3px 3px 10px rgba(124,58,237,0.25)', transition:'all 0.25s' }}>
-                {justAdded?'✓ Added!':'+ Add Expense'}
-              </button>
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div style={{ display:'flex', gap:10, marginBottom:12, flexWrap:'wrap' }}>
-            <div style={{ position:'relative', flex:1, minWidth:160 }}>
-              <span style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', fontSize:13, color:'#9ca3af', pointerEvents:'none' }}>🔍</span>
-              <input type="text" placeholder="Search…" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} style={{ ...inputSt, paddingLeft:36, fontSize:13 }} />
-            </div>
-            <select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)} style={selectSt}>
-              <option value="All">All Categories</option>
-              {categories.map(c=><option key={c} value={c}>{c}</option>)}
-            </select>
-            <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={selectSt}>
-              <option value="time">Latest</option>
-              <option value="amount">Highest</option>
-              <option value="category">A–Z</option>
-            </select>
-          </div>
-
-          {/* Activity feed */}
-          {sortedLogs.length>0 && (
-            <NeuCard>
-              <SectionHdr title="Activity Timeline" accent="#7c3aed" />
-              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                {sortedLogs.map((log,i) => (
-                  <div key={log.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 13px', background: i%2===0?'linear-gradient(145deg,#f8f8f8,#f0f0f0)':'linear-gradient(145deg,#ffffff,#f5f5f5)', borderRadius:13, border:'1px solid #f1f1f1', boxShadow:'2px 2px 5px rgba(0,0,0,0.05),-1px -1px 3px rgba(255,255,255,0.9)', animation:`slideIn 0.3s ease-out ${i*35}ms both`, opacity:deletingId===log.id?0:1, transition:'opacity 0.3s' }}>
-                    <div style={{ width:6, height:6, borderRadius:'50%', background:CAT_COLORS[log.category]||'#7c3aed', flexShrink:0, boxShadow:`0 0 0 3px ${(CAT_COLORS[log.category]||'#7c3aed')}20` }} />
-                    <div style={{ width:34, height:34, borderRadius:10, background:`${CAT_COLORS[log.category]||'#7c3aed'}15`, border:`1px solid ${CAT_COLORS[log.category]||'#7c3aed'}25`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>
-                      {CAT_ICONS[log.category]||'💸'}
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <p style={{ fontWeight:700, fontSize:13, color:'#1a1a1a', margin:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                        {log.category}{log.note?` · ${log.note}`:''}
-                      </p>
-                      <p style={{ fontSize:10, color:'#9ca3af', margin:'2px 0 0' }}>
-                        {log.time} · {new Date(log.id).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}
-                      </p>
-                    </div>
-                    <p style={{ fontWeight:800, fontSize:14, color:'#b8860b', margin:0, flexShrink:0 }}>{fmt(log.amount)}</p>
-                    <button onClick={()=>handleDelete(log.id)} style={{ background:'transparent', border:'none', color:'#d1d5db', fontSize:14, cursor:'pointer', borderRadius:6, padding:'4px 5px', transition:'all 0.2s' }} onMouseEnter={e=>{e.target.style.color='#dc2626';e.target.style.background='#fee2e2'}} onMouseLeave={e=>{e.target.style.color='#d1d5db';e.target.style.background='transparent'}}>🗑</button>
-                  </div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <select value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} style={inputStyle}>
+                {categories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
                 ))}
+              </select>
+              <input type="number" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="Amount" style={inputStyle} />
+              <input type="text" value={noteInput} onChange={(e) => setNoteInput(e.target.value)} placeholder="Note (optional)" style={inputStyle} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={triggerCamera} style={actionBtn('#16a34a', '#ecfdf5')}>📷</button>
+                <input type="file" accept="image/*" capture="environment" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageCapture} />
+                <button
+                  onClick={() => {
+                    handleAdd()
+                    if (Number(customAmount) > 0) setShowMobileForm(false)
+                  }}
+                  style={{ ...actionBtn('#fff', justAdded ? '#16a34a' : '#7c3aed'), flex: 1, border: 'none' }}
+                >
+                  {justAdded ? 'Added' : '+ Add'}
+                </button>
               </div>
-            </NeuCard>
-          )}
-        </div>
-      )}
-
-      {/* ════════ ANALYTICS ════════ */}
-      {expenseTab==='summary' && (
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:14 }}>
-            {['bar','pie'].map((type,ci)=>(
-              <NeuCard key={type} style={{ animation:`slideUp 0.4s ease-out ${ci*100}ms both` }}>
-                <SectionHdr title={type==='bar'?'Spend by Category':'Distribution'} accent="#7c3aed" />
-                {summaryData.length===0
-                  ? <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'#9ca3af', fontSize:40 }}>📊</div>
-                  : type==='bar'?(
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={summaryData} margin={{top:4,right:4,left:0,bottom:4}}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontFamily:'Poppins',fontSize:11}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontFamily:'Poppins',fontSize:11}} />
-                        <Tooltip content={<LightTooltip />} />
-                        <Bar dataKey="total" radius={[8,8,0,0]}>{summaryData.map((e,i)=><Cell key={i} fill={e.color} />)}</Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ):(
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie data={summaryData} cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="total" paddingAngle={3}>
-                          {summaryData.map((e,i)=><Cell key={i} fill={e.color} />)}
-                        </Pie>
-                        <Tooltip content={<LightTooltip />} />
-                        <Legend iconType="circle" iconSize={8} formatter={v=><span style={{color:'#6b7280',fontSize:11,fontFamily:'Poppins'}}>{v}</span>} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
-              </NeuCard>
-            ))}
-          </div>
-          <NeuCard>
-            <SectionHdr title="Category Breakdown" accent="#7c3aed" right={<span style={{ fontSize:12, color:'#9ca3af', fontWeight:600 }}>{summaryData?.length||0} categories</span>} />
-            <table style={{ width:'100%', fontSize:13, borderCollapse:'separate', borderSpacing:'0 4px' }}>
-              <thead><tr style={{ color:'#9ca3af', fontSize:10, textTransform:'uppercase', letterSpacing:'0.08em' }}>
-                {['Category','Spent','Budget','Entries','% Total'].map(h=><th key={h} style={{ textAlign:h==='Category'?'left':'right', paddingBottom:12, fontWeight:700, fontFamily:'Poppins,sans-serif' }}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {summaryData.map((row,i)=>{
-                  const count=logs.filter(l=>l.category===row.name).length
-                  const pct=overallTotal?((row.total/overallTotal)*100).toFixed(1):0
-                  const over=budgets[row.name]&&row.total>budgets[row.name]
-                  return (
-                    <tr key={i} style={{ animation:`slideIn 0.35s ease-out ${i*40}ms both` }}>
-                      <td style={{ padding:'10px 8px', fontWeight:700, color:'#1a1a1a', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)', borderRadius:'8px 0 0 8px', borderLeft:`3px solid ${row.color}` }}>
-                        <span style={{ display:'flex', alignItems:'center', gap:8 }}><span style={{ fontSize:16 }}>{CAT_ICONS[row.name]||'💸'}</span>{row.name}</span>
-                      </td>
-                      <td style={{ padding:'10px 8px', textAlign:'right', fontWeight:800, color:over?'#dc2626':'#b8860b', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)' }}>{fmt(row.total)}</td>
-                      <td style={{ padding:'10px 8px', textAlign:'right', color:'#6b7280', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)' }}>{budgets[row.name]?fmt(budgets[row.name]):'—'}</td>
-                      <td style={{ padding:'10px 8px', textAlign:'right', color:'#6b7280', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)' }}>{count}</td>
-                      <td style={{ padding:'10px 8px', textAlign:'right', background:'linear-gradient(145deg,#f8f8f8,#f0f0f0)', borderRadius:'0 8px 8px 0' }}>
-                        <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:`${row.color}15`, color:row.color }}>{pct}%</span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot><tr>
-                <td style={{ paddingTop:14, fontWeight:800, color:'#1a1a1a', fontFamily:'Syne,sans-serif' }}>Total</td>
-                <td style={{ paddingTop:14, textAlign:'right', fontWeight:800, fontSize:15, color:'#b8860b', fontFamily:'Syne,sans-serif' }}>{fmt(overallTotal)}</td>
-                <td colSpan={3} />
-              </tr></tfoot>
-            </table>
-          </NeuCard>
-        </div>
-      )}
-
-      {/* ════════ BUDGETS ════════ */}
-      {expenseTab==='budget' && (
-        <div>
-          <div style={{ padding:'13px 16px', background:'linear-gradient(145deg,#faf5ff,#f3e8ff)', border:'1.5px solid #ddd6fe', borderRadius:14, marginBottom:14, display:'flex', gap:10, boxShadow:'3px 3px 8px rgba(124,58,237,0.07),-2px -2px 5px rgba(255,255,255,0.9)' }}>
-            <span style={{ fontSize:20 }}>🎯</span>
-            <div>
-              <p style={{ fontWeight:700, color:'#7c3aed', fontSize:13, margin:0, fontFamily:'Poppins,sans-serif' }}>Budget Goals</p>
-              <p style={{ color:'#9ca3af', fontSize:11, marginTop:2, fontFamily:'Poppins,sans-serif' }}>Tap any category to set your monthly limit.</p>
             </div>
-          </div>
-          <NeuCard>
-            {categories.map((cat,i) => {
-              const spent=categoryTotals[cat]||0; const budget=budgets[cat]||0
-              const color=summaryData.find(s=>s.name===cat)?.color||'#7c3aed'
-              return (
-                <div key={cat} style={{ marginBottom:16, animation:`slideIn 0.35s ease-out ${i*40}ms both` }}>
-                  {editingBudget===cat ? (
-                    <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:8 }}>
-                      <span style={{ flex:1, fontWeight:700, color:'#1a1a1a', fontSize:13, fontFamily:'Poppins,sans-serif' }}>{CAT_ICONS[cat]||'💸'} {cat}</span>
-                      <input type="number" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} autoFocus onKeyDown={e=>e.key==='Enter'&&saveBudget(cat)} style={{ width:120, padding:'8px 12px', background:'linear-gradient(145deg,#e8e8e8,#fff)', boxShadow:'inset 2px 2px 4px rgba(0,0,0,0.09)', border:'1.5px solid #e2e8f0', borderRadius:10, color:'#1a1a1a', fontSize:13, fontWeight:700, outline:'none', fontFamily:'Poppins,sans-serif' }} placeholder="₹ budget" />
-                      <button onClick={()=>saveBudget(cat)} style={{ background:'linear-gradient(135deg,#7c3aed,#4f46e5)', border:'none', color:'#fff', padding:'8px 14px', borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'2px 2px 6px rgba(124,58,237,0.25)', fontFamily:'Poppins,sans-serif' }}>Save</button>
-                      <button onClick={()=>setEditingBudget(null)} style={{ background:'none', border:'none', color:'#9ca3af', cursor:'pointer', fontSize:16 }}>✕</button>
-                    </div>
-                  ) : (
-                    <div onClick={()=>{setEditingBudget(cat);setBudgetInput(budget||'')}} style={{ display:'flex', justifyContent:'space-between', marginBottom:7, cursor:'pointer' }}>
-                      <span style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', fontFamily:'Poppins,sans-serif' }}>{CAT_ICONS[cat]||'💸'} {cat}</span>
-                      <span style={{ fontSize:11, fontWeight:700, color:'#6b7280', fontFamily:'Poppins,sans-serif' }}>{budget?`${fmt(spent)} / ${fmt(budget)}`:'✏ Tap to set'}</span>
-                    </div>
-                  )}
-                  {budget>0 ? <BudgetBar spent={spent} budget={budget} color={color} /> : <div style={{ height:7, background:'linear-gradient(145deg,#e0e0e0,#f5f5f5)', borderRadius:7, boxShadow:'inset 1px 1px 3px rgba(0,0,0,0.08)', marginBottom:4 }} />}
+          </GlassCard>
+        ) : null}
+        <button
+          onClick={() => setShowMobileForm((value) => !value)}
+          style={{
+            width: 54,
+            height: 54,
+            borderRadius: '50%',
+            border: '1px solid rgba(255,255,255,0.9)',
+            background: 'linear-gradient(135deg,#0f172a,#334155 45%,#7c3aed)',
+            color: '#fff',
+            fontSize: 26,
+            cursor: 'pointer',
+            boxShadow: '0 12px 22px rgba(15,23,42,0.22)',
+          }}
+        >
+          {showMobileForm ? '×' : '+'}
+        </button>
+      </div>
+
+      {showAlertsSheet ? (
+        <ExpenseAlertsSheet
+          alerts={smartAlerts}
+          onClose={() => setShowAlertsSheet(false)}
+          onViewBudgets={() => {
+            setShowAlertsSheet(false)
+            setExpenseTab('budget')
+          }}
+        />
+      ) : null}
+
+      {showHealthSheet ? (
+        <BottomSheet title="Expense health" subtitle={`${health.score}/100 • ${health.status}`} onClose={() => setShowHealthSheet(false)} accent="rgba(22,163,74,0.16)">
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ padding: '12px 12px', borderRadius: 18, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
+              <p style={{ margin: 0, fontSize: 12, color: '#475569', lineHeight: 1.5 }}>{health.reason}</p>
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {healthIssues.length ? healthIssues.map((issue) => (
+                <div key={issue} style={{ padding: '11px 12px', borderRadius: 18, background: '#fff7ed', border: '1px solid #fed7aa', color: '#7c2d12', fontSize: 11.5, lineHeight: 1.45 }}>
+                  {issue}
                 </div>
-              )
-            })}
-          </NeuCard>
-        </div>
-      )}
-
-      {/* ════════ TRENDS ════════ */}
-      {expenseTab==='trends' && (
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <NeuCard>
-            <SectionHdr title="Hourly Spend Today" accent="#7c3aed" />
-            <p style={{ fontSize:11, color:'#9ca3af', marginBottom:16, fontFamily:'Poppins,sans-serif' }}>How your money flowed through the day</p>
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={trendData} margin={{top:4,right:4,left:0,bottom:4}}>
-                <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#7c3aed" stopOpacity={0.2}/><stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/></linearGradient></defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontSize:11,fontFamily:'Poppins'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontSize:11,fontFamily:'Poppins'}} />
-                <Tooltip content={<LightTooltip />} />
-                <Area type="monotone" dataKey="amount" stroke="#7c3aed" strokeWidth={2.5} fill="url(#ag)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </NeuCard>
-          <NeuCard>
-            <SectionHdr title="Category Comparison" accent="#7c3aed" />
-            {summaryData.length===0
-              ? <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'#9ca3af', fontSize:40 }}>📊</div>
-              : <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={summaryData} layout="vertical" margin={{top:4,right:60,left:70,bottom:4}}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                    <XAxis type="number" axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontSize:11,fontFamily:'Poppins'}} />
-                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#374151',fontWeight:700,fontSize:12,fontFamily:'Poppins'}} width={70} />
-                    <Tooltip content={<LightTooltip />} />
-                    <Bar dataKey="total" radius={[0,8,8,0]}>{summaryData.map((e,i)=><Cell key={i} fill={e.color} />)}</Bar>
-                  </BarChart>
-                </ResponsiveContainer>}
-          </NeuCard>
-        </div>
-      )}
-
-      {/* ════════ AI BRAIN ════════ */}
-      {expenseTab==='ai' && (
-        <NeuCard>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:22 }}>
-            <div>
-              <h3 className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:22, margin:0, color:'#1a1a1a' }}>🧠 ACR MAX Brain</h3>
-              <p style={{ color:'#9ca3af', fontSize:11, marginTop:4, fontFamily:'Poppins,sans-serif' }}>Powered by Gemini AI</p>
+              )) : <div style={{ padding: '11px 12px', borderRadius: 18, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', fontSize: 11.5 }}>No major pressure signs right now.</div>}
             </div>
-            <button onClick={generateAIAdvice} disabled={isThinking} style={{ padding:'10px 20px', borderRadius:13, fontWeight:700, fontFamily:'Poppins,sans-serif', fontSize:13, background: isThinking?'linear-gradient(145deg,#f5f5f5,#e8e8e8)':'linear-gradient(135deg,#7c3aed,#4f46e5)', border: isThinking?'1.5px solid #e2e8f0':'none', color: isThinking?'#9ca3af':'#fff', cursor: isThinking?'not-allowed':'pointer', boxShadow: isThinking?'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)':'3px 3px 10px rgba(124,58,237,0.25)', transition:'all 0.2s' }}>
-              {isThinking?<><div style={{ width:14, height:14, border:'2px solid #d1d5db', borderTop:'2px solid #7c3aed', borderRadius:'50%', animation:'spinLoad 0.7s linear infinite', display:'inline-block', marginRight:7 }} />Analyzing…</>:'✨ Generate Insights'}
-            </button>
+            <div style={{ padding: '12px 12px', borderRadius: 18, background: '#f8fafc', border: '1px solid #dbe2ea' }}>
+              <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569' }}>Improvement actions</p>
+              <div style={{ display: 'grid', gap: 6, marginTop: 7 }}>
+                <p style={{ margin: 0, fontSize: 11.5, color: '#475569' }}>1. Stay under {safeSpend.remainingBudget >= 0 ? fmt(Math.max(safeSpend.safeSpendToday, 0)) : `${fmt(Math.abs(safeSpend.safeSpendToday))}/day`} from now.</p>
+                <p style={{ margin: 0, fontSize: 11.5, color: '#475569' }}>2. Review {monthStats.overBudgetCategories[0]?.name || monthStats.topCategoryRow?.name || 'top spending'} before the next spend.</p>
+                <p style={{ margin: 0, fontSize: 11.5, color: '#475569' }}>3. Cut low-value repeat spends first to recover faster.</p>
+              </div>
+            </div>
+            <div style={{ padding: '12px 12px', borderRadius: 18, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+              <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1d4ed8' }}>How to improve</p>
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#1e3a8a', lineHeight: 1.5 }}>{coach.recoveryPlan} {coach.categorySuggestion}</p>
+              {coach.suggestedDailyCut ? <p style={{ margin: '8px 0 0', fontSize: 11.5, fontWeight: 800, color: '#1d4ed8' }}>Suggested daily cut: {fmt(coach.suggestedDailyCut)}</p> : null}
+            </div>
           </div>
-          {aiInsights.length===0 ? (
-            <div style={{ textAlign:'center', padding:'32px 0' }}>
-              <div style={{ fontSize:48, marginBottom:12, animation:'floatY 4s ease-in-out infinite' }}>🧠</div>
-              <p style={{ color:'#9ca3af', fontSize:14, fontWeight:600, fontFamily:'Poppins,sans-serif' }}>Generate your personalized financial analysis</p>
-            </div>
-          ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
-              {[{icon:'📊',title:'Observation',color:'#1d4ed8',bg:'#eff6ff',border:'#bfdbfe'},{icon:'⚠️',title:'Projection',color:'#d97706',bg:'#fffbeb',border:'#fde68a'},{icon:'💡',title:'Action',color:'#16a34a',bg:'#f0fdf4',border:'#bbf7d0'}].map((card,i)=>aiInsights[i]&&(
-                <div key={i} style={{ padding:'18px', borderRadius:16, background:`linear-gradient(145deg,${card.bg},#fff)`, border:`1.5px solid ${card.border}`, borderTop:`3px solid ${card.color}`, boxShadow:'3px 3px 8px rgba(0,0,0,0.06),-2px -2px 5px rgba(255,255,255,0.9)', animation:`popIn 0.5s cubic-bezier(.34,1.56,.64,1) ${i*100}ms both` }}>
-                  <div style={{ fontSize:20, marginBottom:10 }}>{card.icon}</div>
-                  <p style={{ fontWeight:800, fontSize:10, textTransform:'uppercase', letterSpacing:'0.1em', color:card.color, marginBottom:8, fontFamily:'Poppins,sans-serif' }}>{card.title}</p>
-                  <p style={{ color:'#374151', fontSize:13, lineHeight:1.65, margin:0, fontFamily:'Poppins,sans-serif' }}>{aiInsights[i].replace(/-/g,'')}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </NeuCard>
-      )}
+        </BottomSheet>
+      ) : null}
 
-      {/* ════════ EXPORT ════════ */}
-      {expenseTab==='export' && (
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <NeuCard>
-            <SectionHdr title="Export Data" accent="#7c3aed" />
-            <p style={{ color:'#9ca3af', fontSize:12, marginBottom:18, fontFamily:'Poppins,sans-serif' }}>Download all {logs.length} entries in your preferred format.</p>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12 }}>
-              {[{label:'CSV',desc:'Excel & Sheets',icon:'📊',action:exportCSV,color:'#16a34a',bg:'#f0fdf4',border:'#bbf7d0'},{label:'JSON',desc:'Raw data',icon:'🔧',action:exportJSON,color:'#1d4ed8',bg:'#eff6ff',border:'#bfdbfe'},{label:'Text',desc:'Readable report',icon:'📄',action:exportText,color:'#d97706',bg:'#fffbeb',border:'#fde68a'}].map((item,i)=>(
-                <button key={item.label} onClick={item.action} disabled={logs.length===0}
-                  style={{ padding:'20px 16px', borderRadius:16, textAlign:'left', cursor:logs.length===0?'not-allowed':'pointer', background:`linear-gradient(145deg,${item.bg},#fff)`, border:`1.5px solid ${item.border}`, opacity:logs.length===0?0.4:1, transition:'all 0.2s', boxShadow:'3px 3px 8px rgba(0,0,0,0.06),-2px -2px 5px rgba(255,255,255,0.9)' }}
-                  onMouseEnter={e=>{if(logs.length)e.currentTarget.style.transform='translateY(-3px)'}}
-                  onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)'}}>
-                  <div style={{ fontSize:26, marginBottom:10 }}>{item.icon}</div>
-                  <p className="syne" style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:14, color:item.color, marginBottom:3 }}>Export {item.label}</p>
-                  <p style={{ fontSize:11, color:'#9ca3af', margin:0, fontFamily:'Poppins,sans-serif' }}>{item.desc}</p>
+      {showChallengeSheet ? (
+        <BottomSheet title="Today's money challenge" subtitle={monthStats.now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })} onClose={() => setShowChallengeSheet(false)} accent="rgba(245,158,11,0.16)">
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ padding: '13px 13px', borderRadius: 18, background: '#fff7ed', border: '1px solid #fed7aa' }}>
+              <p className="syne" style={{ margin: 0, fontSize: 21, color: '#9a3412' }}>{dailyChallenge.title}</p>
+              <p style={{ margin: '7px 0 0', fontSize: 12, color: '#7c2d12', lineHeight: 1.45 }}>{dailyChallenge.target}</p>
+            </div>
+            <div style={{ padding: '12px 12px', borderRadius: 18, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
+              <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b' }}>Why today</p>
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#475569', lineHeight: 1.5 }}>{dailyChallenge.reason}</p>
+              <p style={{ margin: '8px 0 0', fontSize: 11.5, fontWeight: 800, color: '#d97706' }}>{dailyChallenge.reward}</p>
+            </div>
+          </div>
+        </BottomSheet>
+      ) : null}
+
+      <div className="exp-root expense-page-root" style={{ maxWidth: 980, margin: '0 auto', padding: '0 6px', paddingBottom: 214, color: '#0f172a' }}>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <GlassCard className="expense-full-bleed" style={{ padding: 9 }} accent="rgba(245,158,11,0.18)">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <img src="/logo.jpg" alt="ACR Max" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 16px rgba(15,23,42,0.14)' }} />
+                <div style={{ minWidth: 0 }}>
+                  <h2 className="syne" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0f172a', lineHeight: 1.05 }}>Expenses</h2>
+                  <p style={{ margin: '2px 0 0', fontSize: 10.5, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {monthStats.now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  onClick={() => setShowChallengeSheet(true)}
+                  style={{
+                    minWidth: 34,
+                    height: 32,
+                    borderRadius: 11,
+                    padding: '0 8px',
+                    border: '1px solid #fde68a',
+                    background: 'linear-gradient(145deg,#fffbeb,#ffffff)',
+                    color: '#d97706',
+                    fontWeight: 800,
+                    fontSize: 11.5,
+                    cursor: 'pointer',
+                    boxShadow: '0 0 0 3px rgba(245,158,11,0.05)',
+                  }}
+                >
+                  ⚡
+                </button>
+                <button
+                  onClick={() => setShowAlertsSheet(true)}
+                  style={{
+                    minWidth: 34,
+                    height: 32,
+                    borderRadius: 11,
+                    padding: '0 8px',
+                    border: `1px solid ${smartAlerts.length ? '#fecdd3' : '#dbe2ea'}`,
+                    background: smartAlerts.length ? 'linear-gradient(145deg,#fff1f2,#ffffff)' : 'linear-gradient(145deg,#ffffff,#f8fafc)',
+                    color: smartAlerts.length ? '#dc2626' : '#475569',
+                    fontWeight: 800,
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    boxShadow: smartAlerts.length ? '0 0 0 3px rgba(248,113,113,0.08)' : '0 6px 12px rgba(15,23,42,0.04)',
+                    animation: smartAlerts.length ? 'expPulse 2.2s ease-in-out infinite' : 'none',
+                  }}
+                >
+                  {smartAlerts.length ? `🚨${smartAlerts.length}` : '🚨'}
+                </button>
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard className="expense-full-bleed" style={{ padding: 10 }} accent="rgba(59,130,246,0.18)">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'start' }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>Monthly total spent</p>
+                <p className="syne" style={{ margin: '4px 0 0', fontSize: 26, lineHeight: 1, fontWeight: 800, color: '#0f172a' }}>
+                  <CountUp value={monthStats.totalSpent} />
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 6, marginTop: 7 }}>
+                  <TinyStat label="Today" value={fmt(monthStats.todaySpent)} tone="#d97706" />
+                  <TinyStat label="Entries" value={monthStats.totalEntries} tone="#475569" />
+                  <TinyStat label="Top" value={shortCategory(monthStats.topCategoryRow?.name || '--')} tone={monthStats.topCategoryRow?.color || '#2563eb'} />
+                  <TinyStat
+                    label={monthStats.monthlyBudget - monthStats.totalSpent >= 0 ? 'Left' : 'Over'}
+                    value={fmt(Math.abs(monthStats.monthlyBudget - monthStats.totalSpent))}
+                    tone={monthStats.monthlyBudget - monthStats.totalSpent >= 0 ? '#16a34a' : '#dc2626'}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
+                <span style={{ padding: '4px 8px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 10, fontWeight: 800 }}>
+                  {health.status}
+                </span>
+                <span style={{ fontSize: 9.5, color: '#64748b', fontWeight: 700 }}>Tap for tips</span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Budget used</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: monthStats.monthlyBudgetUsed > 100 ? '#dc2626' : monthStats.monthlyBudgetUsed > 80 ? '#d97706' : '#16a34a' }}>
+                  {Math.round(monthStats.monthlyBudgetUsed)}%
+                </span>
+              </div>
+              <ProgressLine pct={monthStats.monthlyBudgetUsed} tone={budgetTone} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+              <span style={chipStyle(monthStats.overBudgetCategories.length ? '#fff1f2' : '#ecfdf5', monthStats.overBudgetCategories.length ? '#dc2626' : '#16a34a')}>
+                {monthStats.overBudgetCategories.length} over budget
+              </span>
+              <span style={chipStyle('#f8fafc', '#475569')}>{fmt(monthStats.monthlyBudget || 0)} budget</span>
+            </div>
+          </GlassCard>
+
+          <GlassCard className="expense-full-bleed" style={{ padding: 8 }} accent="rgba(124,58,237,0.16)">
+            <div className="exp-tabs hide-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 1, scrollbarWidth: 'none' }}>
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setExpenseTab(tab.id)}
+                  style={{
+                    padding: '7px 11px',
+                    borderRadius: 999,
+                    border: `1px solid ${expenseTab === tab.id ? '#c4b5fd' : '#e2e8f0'}`,
+                    background: expenseTab === tab.id ? 'linear-gradient(145deg,#faf5ff,#f3e8ff)' : 'linear-gradient(145deg,#ffffff,#f8fafc)',
+                    color: expenseTab === tab.id ? '#6d28d9' : '#475569',
+                    fontWeight: 800,
+                    fontSize: 10.5,
+                    whiteSpace: 'nowrap',
+                    cursor: 'pointer',
+                    boxShadow: expenseTab === tab.id ? '0 6px 14px rgba(124,58,237,0.12)' : '0 4px 10px rgba(15,23,42,0.04)',
+                  }}
+                >
+                  {tab.label}
                 </button>
               ))}
             </div>
-          </NeuCard>
-          {logs.length>0 && (
-            <NeuCard>
-              <SectionHdr title="Report Preview" accent="#7c3aed" />
-              <div style={{ fontFamily:'monospace', fontSize:12, color:'#374151' }}>
-                <p style={{ marginBottom:4 }}>Date: {new Date().toLocaleDateString('en-IN')}</p>
-                <p style={{ marginBottom:4 }}>Total Entries: {logs.length}</p>
-                <p style={{ color:'#16a34a', marginBottom:4, fontWeight:700 }}>Total Spend: {fmt(overallTotal)}</p>
-                <p style={{ marginBottom:8 }}>Avg per Entry: {fmt(avgTransaction)}</p>
-                <div style={{ borderTop:'1px solid #e5e7eb', paddingTop:8 }}>
-                  {summaryData.slice(0,5).map(r=>(
-                    <div key={r.name} style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                      <span style={{ fontWeight:700, color:'#374151' }}>{CAT_ICONS[r.name]||'💸'} {r.name}</span>
-                      <span style={{ color:r.color, fontWeight:700 }}>{fmt(r.total)}</span>
+          </GlassCard>
+
+          {expenseTab === 'daily' ? (
+            <GlassCard className="expense-full-bleed" style={{ padding: 11 }} accent="rgba(226,232,240,0.84)">
+              <SectionHdr
+                title="Expense Timeline"
+                accent="#475569"
+                right={<span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 700 }}>{sortedLogs.length} entries</span>}
+              />
+
+              <div className="exp-filter-row" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.8fr 0.8fr', gap: 8, marginBottom: 10 }}>
+                <input type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 40, padding: '9px 10px' }} />
+                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 40, padding: '9px 8px', fontSize: 11 }}>
+                  <option value="All">All categories</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 40, padding: '9px 8px', fontSize: 11 }}>
+                  <option value="time">Latest</option>
+                  <option value="amount">Highest</option>
+                  <option value="category">A-Z</option>
+                </select>
+              </div>
+
+              {todayLogs.length ? (
+                <div style={{ marginBottom: 10, padding: '7px 9px', borderRadius: 13, background: 'linear-gradient(145deg,#eff6ff,#ffffff)', border: '1px solid #bfdbfe' }}>
+                  <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: '#1d4ed8' }}>
+                    Today {fmt(monthStats.todaySpent)} · {todayLogs.length} entries · Top {shortCategory(getTopCategories(todayLogs, 1)[0]?.name || '—')}
+                  </p>
+                </div>
+              ) : null}
+
+              {logGroups.length ? (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {logGroups.map((group) => (
+                    <div key={group.title}>
+                      <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 800, color: group.title === 'Today' ? '#1d4ed8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group.title}</p>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        {group.items.map((log) => (
+                          <div
+                            key={log.id}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'auto 1fr auto auto',
+                              gap: 8,
+                              alignItems: 'center',
+                              padding: '8px 9px',
+                              borderRadius: 14,
+                              background: group.title === 'Today' ? 'linear-gradient(145deg,#f8fbff,#ffffff)' : 'rgba(255,255,255,0.62)',
+                              border: group.title === 'Today' ? '1px solid #bfdbfe' : '1px solid rgba(226,232,240,0.9)',
+                              boxShadow: group.title === 'Today' ? '0 6px 12px rgba(37,99,235,0.05)' : 'none',
+                              opacity: deletingId === log.id ? 0.45 : 1,
+                              transition: 'opacity 0.2s ease',
+                            }}
+                          >
+                            <div style={{ width: 32, height: 32, borderRadius: 11, background: `${CAT_COLORS[log.category] || '#64748b'}18`, color: CAT_COLORS[log.category] || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+                              {CAT_ICONS[log.category] || '💸'}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <p style={{ margin: 0, fontSize: 11.5, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {log.category}{log.note ? ` • ${log.note}` : ''}
+                              </p>
+                              <p style={{ margin: '2px 0 0', fontSize: 9.5, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {log.timeLabel} • {log.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}{log.paymentMode ? ` • ${log.paymentMode}` : ''}
+                              </p>
+                            </div>
+                            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#b45309', whiteSpace: 'nowrap' }}>{fmt(log.amount)}</p>
+                            <button onClick={() => handleDelete(log.id)} style={{ ...miniActionBtn('#dc2626', '#fff1f2'), padding: '5px 7px' }}>Del</button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </NeuCard>
-          )}
-        </div>
-      )}
+              ) : (
+                <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>No expense logs match this filter yet.</p>
+              )}
+            </GlassCard>
+          ) : null}
 
-    </div>
+          {expenseTab === 'overview' ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div className="exp-grid-overview" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+                <MiniOverviewCard label="Safe Spend" value={safeSpend.remainingBudget >= 0 ? fmt(Math.max(safeSpend.safeSpendToday, 0)) : `${fmt(Math.abs(safeSpend.safeSpendToday))}/d`} sub={safeSpend.remainingBudget >= 0 ? 'Stay under it today.' : 'Recovery pace needed.'} tone={safeSpend.remainingBudget >= 0 ? '#16a34a' : '#dc2626'} />
+                <MiniOverviewCard label="Burn Rate" value={`${burnRate.burnRate.toFixed(1)}x`} sub={burnRate.burnRate > 1.1 ? 'Spending too fast.' : burnRate.burnRate < 0.9 ? 'Below plan pace.' : 'Close to plan.'} tone={burnRate.burnRate > 1.1 ? '#dc2626' : burnRate.burnRate < 0.9 ? '#16a34a' : '#d97706'} />
+                <MiniOverviewCard label="Month-End" value={fmt(projection.projectedSpend)} sub={projection.projectedDelta > 0 ? `Over by ${fmt(projection.projectedDelta)}` : `Under by ${fmt(Math.abs(projection.projectedDelta))}`} tone={projection.projectedDelta > 0 ? '#dc2626' : '#16a34a'} />
+                <MiniOverviewCard label="Today vs Yesterday" value={dailyComparison ? `${dailyComparison.diff <= 0 ? '↓' : '↑'} ${fmt(Math.abs(dailyComparison.diff))}` : '--'} sub={dailyComparison ? dailyComparison.diff <= 0 ? 'Lower than yesterday.' : 'Higher than yesterday.' : 'Need more entries.'} tone={dailyComparison ? dailyComparison.diff <= 0 ? '#16a34a' : '#dc2626' : '#64748b'} />
+              </div>
+
+              <GlassCard style={{ padding: 11 }} accent="rgba(59,130,246,0.15)">
+                <SectionHdr title="Money Leak Detector" accent="#2563eb" subtitle={leakData.totalLeakAmount ? `${fmt(leakData.totalLeakAmount)} found in repeat spends.` : 'No repeated low-ticket leak found yet.'} />
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {leakData.leaks.length ? leakData.leaks.map((item) => (
+                    <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 9px', borderRadius: 14, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</p>
+                        <p style={{ margin: '4px 0 0', fontSize: 10.5, color: '#64748b' }}>{item.count} small spends</p>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: '#2563eb', whiteSpace: 'nowrap' }}>{fmt(item.total)}</p>
+                    </div>
+                  )) : <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Add a few more entries to unlock leak detection.</p>}
+                </div>
+              </GlassCard>
+
+              <div className="exp-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <GlassCard style={{ padding: 11 }} accent="rgba(14,165,233,0.15)">
+                  <SectionHdr title="Category Mix" accent="#0891b2" subtitle="Compact spend share by group." />
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {[
+                      ['Needs', groupedInsights.needsPct, '#2563eb'],
+                      ['Lifestyle', groupedInsights.lifestylePct, '#d97706'],
+                      ['Travel', groupedInsights.travelPct, '#7c3aed'],
+                    ].map(([label, pct, color]) => (
+                      <div key={label}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 10.5, color: '#475569', fontWeight: 700 }}>{label}</span>
+                          <span style={{ fontSize: 10.5, color, fontWeight: 800 }}>{Number(pct).toFixed(0)}%</span>
+                        </div>
+                        <ProgressLine pct={pct} tone={`linear-gradient(90deg,${color},${color}cc)`} height={8} />
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+
+                <GlassCard style={{ padding: 11 }} accent="rgba(124,58,237,0.15)">
+                  <SectionHdr title={`${monthLabel} Story`} accent="#7c3aed" subtitle="Compact monthly recap." />
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <TinyStat label="Biggest" value={monthlyStory.biggestCategory} tone={monthStats.topCategoryRow?.color || '#0f172a'} />
+                    <TinyStat label="Best controlled" value={monthlyStory.bestControlled} tone="#16a34a" />
+                    <TinyStat label="Riskiest" value={monthlyStory.risky} tone="#dc2626" />
+                    <TinyStat label="Next target" value={monthlyStory.nextMonthTarget ? fmt(monthlyStory.nextMonthTarget) : 'Set budgets'} tone="#2563eb" />
+                  </div>
+                </GlassCard>
+              </div>
+
+              <GlassCard style={{ padding: 11 }} accent="rgba(245,158,11,0.15)">
+                <SectionHdr title="Daily Challenge" accent="#d97706" right={<button onClick={() => setShowChallengeSheet(true)} style={miniActionBtn('#d97706', '#fff7ed')}>Open</button>} />
+                <p className="syne" style={{ margin: 0, fontSize: 17, color: '#9a3412' }}>{dailyChallenge.title}</p>
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#7c2d12', lineHeight: 1.45 }}>{dailyChallenge.target}</p>
+                <p style={{ margin: '6px 0 0', fontSize: 10.5, color: '#64748b' }}>{dailyChallenge.reward}</p>
+              </GlassCard>
+            </div>
+          ) : null}
+
+          {expenseTab === 'summary' ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div className="exp-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <GlassCard style={{ padding: 11 }} accent="rgba(124,58,237,0.15)">
+                  <SectionHdr title="Top Categories" accent="#7c3aed" subtitle="Top 6 categories plus Other for cleaner mobile reading." />
+                  {chartData.length ? (
+                    <ResponsiveContainer width="100%" height={176}>
+                      <BarChart data={chartData} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={shortCategory} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+                        <Tooltip content={<TooltipCard />} />
+                        <Bar dataKey="total" radius={[10, 10, 0, 0]}>
+                          {chartData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Add expenses to unlock analytics.</p>}
+                </GlassCard>
+
+                <GlassCard style={{ padding: 11 }} accent="rgba(16,185,129,0.14)">
+                  <SectionHdr title="Distribution" accent="#16a34a" />
+                  {chartData.length ? (
+                    <div style={{ position: 'relative', width: '100%', height: 188 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                          <Pie data={chartData} dataKey="total" nameKey="name" cx="50%" cy="44%" innerRadius={34} outerRadius={54} paddingAngle={3}>
+                            {chartData.map((entry) => (
+                              <Cell key={entry.name} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<TooltipCard />} />
+                          <Legend verticalAlign="bottom" align="center" iconType="circle" iconSize={6} formatter={(value) => <span style={{ color: '#475569', fontSize: 9.5 }}>{shortCategory(value)}</span>} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div style={{ position: 'absolute', left: '50%', top: '34%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                        <p style={{ margin: 0, fontSize: 9.5, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total</p>
+                        <p className="syne" style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>{fmt(monthStats.totalSpent)}</p>
+                      </div>
+                    </div>
+                  ) : <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>No chart data yet.</p>}
+                </GlassCard>
+              </div>
+
+              <GlassCard style={{ padding: 11 }} accent="rgba(226,232,240,0.84)">
+                <SectionHdr title="Category Breakdown" accent="#475569" right={<span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>{analyticsRows.length} categories</span>} />
+                <div className="exp-analytics-table" style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
+                    <thead>
+                      <tr style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        <th style={thStyle('left')}>Category</th>
+                        <th style={thStyle('right')}>Spent</th>
+                        <th style={thStyle('right')}>Budget</th>
+                        <th style={thStyle('right')}>Entries</th>
+                        <th style={thStyle('right')}>Share</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analyticsRows.map((row) => (
+                        <tr key={row.name}>
+                          <td style={tdStyle('left', row.color)}>{(CAT_ICONS[row.name] || '💸') + ' ' + row.name}</td>
+                          <td style={tdStyle('right')}>{fmt(row.total)}</td>
+                          <td style={tdStyle('right')}>{row.budget ? fmt(row.budget) : '—'}</td>
+                          <td style={tdStyle('right')}>{row.entries}</td>
+                          <td style={tdStyle('right')}>
+                            <span style={chipStyle(`${row.color}18`, row.color)}>{row.pct.toFixed(1)}%</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="exp-mobile-breakdown" style={{ display: 'none', flexDirection: 'column', gap: 8 }}>
+                  {analyticsRows.map((row) => (
+                    <div key={row.name} style={{ padding: '8px 9px', borderRadius: 14, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>{(CAT_ICONS[row.name] || '💸') + ' ' + row.name}</p>
+                        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 800, color: row.color }}>{fmt(row.total)}</p>
+                      </div>
+                      <p style={{ margin: '5px 0 0', fontSize: 10.5, color: '#64748b' }}>{row.entries} entries • {row.budget ? `${fmt(row.budget)} budget` : 'No budget'} • {row.pct.toFixed(1)}%</p>
+                    </div>
+                  ))}
+                </div>
+              </GlassCard>
+            </div>
+          ) : null}
+
+          {expenseTab === 'budget' ? (
+            <GlassCard style={{ padding: 11 }} accent="rgba(124,58,237,0.16)">
+              <SectionHdr title="Budget Goals" accent="#7c3aed" subtitle="Compact monthly rows with quick actions." />
+              <div style={{ display: 'grid', gap: 10 }}>
+                {categories.map((category) => {
+                  const summaryRow = currentMonthSummary.find((row) => row.name === category)
+                  const row = {
+                    name: category,
+                    spent: summaryRow?.total || 0,
+                    entries: summaryRow?.entries || 0,
+                    color: summaryRow?.color || CAT_COLORS[category] || CAT_COLORS.Other,
+                    budget: budgets[category] || 0,
+                  }
+                  return (
+                    <BudgetRow
+                      key={category}
+                      row={row}
+                      editingBudget={editingBudget}
+                      budgetInput={budgetInput}
+                      setBudgetInput={setBudgetInput}
+                      setEditingBudget={setEditingBudget}
+                      saveBudget={saveBudget}
+                      onAdjust={openBudgetAdjust}
+                      onReduceDaily={reduceDaily}
+                      onIgnore={ignoreBudget}
+                    />
+                  )
+                })}
+              </div>
+            </GlassCard>
+          ) : null}
+
+          {expenseTab === 'trends' ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div className="exp-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <GlassCard style={{ padding: 11 }} accent="rgba(124,58,237,0.16)">
+                  <SectionHdr title="Hourly Spend Today" accent="#7c3aed" subtitle="Cleaned for mobile with today-only pacing." />
+                  <ResponsiveContainer width="100%" height={180}>
+                    <AreaChart data={trendData} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="expArea" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+                      <Tooltip content={<TooltipCard />} />
+                      <Area type="monotone" dataKey="amount" stroke="#7c3aed" strokeWidth={3} fill="url(#expArea)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </GlassCard>
+
+                <GlassCard style={{ padding: 11 }} accent="rgba(245,158,11,0.15)">
+                  <SectionHdr title="Category Comparison" accent="#d97706" subtitle="Top mobile-friendly category labels only." />
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 18, left: 30, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                      <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+                      <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 11, fontWeight: 700 }} width={72} tickFormatter={shortCategory} />
+                      <Tooltip content={<TooltipCard />} />
+                      <Bar dataKey="total" radius={[0, 10, 10, 0]}>
+                        {chartData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </GlassCard>
+              </div>
+            </div>
+          ) : null}
+
+          {expenseTab === 'ai' ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <GlassCard style={{ padding: 11 }} accent="rgba(124,58,237,0.18)">
+                <SectionHdr title="AI Budget Coach" accent="#7c3aed" subtitle="Rule-based coach layered over your real expense data." />
+                <div className="exp-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 10 }}>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ padding: '10px 10px', borderRadius: 16, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
+                      <p className="syne" style={{ margin: 0, fontSize: 20, color: '#0f172a' }}>{coach.diagnosis}</p>
+                      <p style={{ margin: '7px 0 0', fontSize: 11.5, color: '#475569', lineHeight: 1.5 }}>{health.reason}</p>
+                    </div>
+                    <div style={{ padding: '10px 10px', borderRadius: 16, background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                      <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9a3412' }}>Recovery plan</p>
+                      <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#7c2d12', lineHeight: 1.5 }}>{coach.recoveryPlan}</p>
+                    </div>
+                    <div style={{ padding: '10px 10px', borderRadius: 16, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                      <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1d4ed8' }}>Category suggestion</p>
+                      <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#1e3a8a', lineHeight: 1.5 }}>{coach.categorySuggestion}</p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <TinyStat label="Suggested daily cut" value={coach.suggestedDailyCut ? fmt(coach.suggestedDailyCut) : 'No cut needed'} tone={coach.suggestedDailyCut ? '#dc2626' : '#16a34a'} />
+                    <div style={{ padding: '10px 10px', borderRadius: 16, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
+                      <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b' }}>Top risks</p>
+                      <div style={{ display: 'grid', gap: 6, marginTop: 7 }}>
+                        {coach.risks.length ? coach.risks.map((risk) => (
+                          <p key={risk} style={{ margin: 0, fontSize: 11.5, color: '#475569', lineHeight: 1.45 }}>• {risk}</p>
+                        )) : <p style={{ margin: 0, fontSize: 11.5, color: '#64748b' }}>No major risks detected right now.</p>}
+                      </div>
+                    </div>
+                    <div style={{ padding: '10px 10px', borderRadius: 16, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                      <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#166534' }}>Motivation</p>
+                      <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#166534', lineHeight: 1.45 }}>{coach.motivation}</p>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+
+              <GlassCard style={{ padding: 11 }} accent="rgba(59,130,246,0.16)">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+                  <SectionHdr title="External AI Insights" accent="#2563eb" subtitle="Your existing Gemini-powered analysis remains available." />
+                  <button onClick={generateAIAdvice} disabled={isThinking} style={{ ...actionBtn(isThinking ? '#64748b' : '#fff', isThinking ? '#f8fafc' : '#2563eb'), border: 'none' }}>
+                    {isThinking ? 'Analyzing...' : 'Refresh'}
+                  </button>
+                </div>
+                {aiInsights.length ? (
+                  <div className="exp-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                    {[
+                      ['Observation', '📊', '#eff6ff', '#1d4ed8'],
+                      ['Projection', '⚠️', '#fff7ed', '#d97706'],
+                      ['Action', '💡', '#f0fdf4', '#16a34a'],
+                    ].map(([title, icon, bg, color], index) =>
+                      aiInsights[index] ? (
+                        <div key={title} style={{ padding: '10px 10px', borderRadius: 16, background: bg, border: `1px solid ${color}22` }}>
+                          <p style={{ margin: 0, fontSize: 18 }}>{icon}</p>
+                          <p style={{ margin: '8px 0 0', fontSize: 10.5, color, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</p>
+                          <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#475569', lineHeight: 1.5 }}>{aiInsights[index].replace(/-/g, '')}</p>
+                        </div>
+                      ) : null
+                    )}
+                  </div>
+                ) : <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Generate your personalized financial analysis.</p>}
+              </GlassCard>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </>
   )
 }
+
+const inputStyle = {
+  width: '100%',
+  padding: '9px 10px',
+  borderRadius: 12,
+  border: '1px solid #dbe2ea',
+  background: 'rgba(255,255,255,0.92)',
+  color: '#0f172a',
+  outline: 'none',
+  fontSize: 11.5,
+  fontWeight: 700,
+}
+
+const actionBtn = (color, bg) => ({
+  padding: '8px 10px',
+  borderRadius: 11,
+  border: `1px solid ${color}22`,
+  background: bg,
+  color,
+  fontWeight: 800,
+  cursor: 'pointer',
+})
+
+const miniActionBtn = (color, bg) => ({
+  padding: '5px 7px',
+  borderRadius: 999,
+  border: `1px solid ${color}22`,
+  background: bg,
+  color,
+  fontSize: 9.5,
+  fontWeight: 800,
+  cursor: 'pointer',
+})
+
+const chipStyle = (bg, color) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '4px 8px',
+  borderRadius: 999,
+  background: bg,
+  color,
+  fontSize: 9.5,
+  fontWeight: 800,
+})
+
+const thStyle = (align) => ({
+  textAlign: align,
+  padding: '0 8px 6px',
+  fontWeight: 800,
+})
+
+const tdStyle = (align, color) => ({
+  textAlign: align,
+  padding: '8px 7px',
+  background: 'rgba(255,255,255,0.62)',
+  borderTop: '1px solid rgba(226,232,240,0.88)',
+  borderBottom: '1px solid rgba(226,232,240,0.88)',
+  color: color || '#475569',
+  fontWeight: align === 'left' ? 800 : 700,
+})

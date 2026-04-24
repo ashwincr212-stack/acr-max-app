@@ -178,9 +178,9 @@ function ProcessingIcon() {
 const styles = {
   wrapper: {
     position: 'fixed',
-    bottom: '90px',
-    right: '20px',
-    zIndex: 9999,
+    bottom: '86px',
+    right: '16px',
+    zIndex: 1200,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-end',
@@ -199,8 +199,8 @@ const styles = {
     boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
   },
   micButton: {
-    width: '56px',
-    height: '56px',
+    width: '52px',
+    height: '52px',
     borderRadius: '50%',
     border: 'none',
     background: 'linear-gradient(145deg, #e6e6e6, #ffffff)',
