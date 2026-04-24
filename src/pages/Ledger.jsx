@@ -37,6 +37,38 @@ const getDisplayType = (entryOrType) => (
   normalizeLedgerType(entryOrType) === 'lent' ? 'You gave' : 'You took'
 )
 
+const isFutureSnoozed = (entry) => {
+  if (!entry?.reminderSnoozeUntil) return false
+  const snoozeTime = new Date(entry.reminderSnoozeUntil).getTime()
+  return Number.isFinite(snoozeTime) && snoozeTime > Date.now()
+}
+
+const cleanPhoneNumber = (phone) => {
+  const digits = String(phone || '').replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.length === 12 && digits.startsWith('91')) return digits
+  if (digits.length === 10) return `91${digits}`
+  return digits.length >= 10 ? digits : ''
+}
+
+const getReminderStatus = (daysLeft) => {
+  if (daysLeft == null) return 'Pending'
+  if (daysLeft < 0) return `Overdue by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'}`
+  if (daysLeft === 0) return 'Due today'
+  return `Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
+}
+
+const toIsoDate = (date) => new Date(date).toISOString().slice(0, 10)
+
+const getNextSunday = () => {
+  const now = new Date()
+  const day = now.getDay()
+  const daysUntilSunday = day === 0 ? 7 : 7 - day
+  const next = new Date(now)
+  next.setDate(now.getDate() + daysUntilSunday)
+  return toIsoDate(next)
+}
+
 /* ══════════════════════════════════════════════════════════════════════
    GROUP ENTRIES → PERSON ACCOUNTS
 ══════════════════════════════════════════════════════════════════════ */
@@ -310,7 +342,7 @@ const actionBtn = (bg,col,br) => ({
 /* ══════════════════════════════════════════════════════════════════════
    PERSON DETAIL DRAWER
 ══════════════════════════════════════════════════════════════════════ */
-function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete, onEdit, onExport }) {
+function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete, onEdit, onExport, onRemind }) {
   const [addOpen, setAddOpen]   = useState(false)
   const [editEntry, setEditEntry] = useState(null)
   const [showExportMenu, setShowExportMenu] = useState(false)
@@ -361,6 +393,11 @@ function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete
                       💬 WhatsApp
                     </a>
                   </>
+                )}
+                {pendingEntries.length > 0 && (
+                  <button onClick={() => onRemind(account)} style={{ fontSize:9, fontWeight:800, padding:'2px 8px', borderRadius:9, background:'#eff6ff', color:'#1d4ed8', border:'1px solid #bfdbfe', fontFamily:'Poppins,sans-serif', cursor:'pointer' }}>
+                    🔔 Remind
+                  </button>
                 )}
                 {account.isFullySettled && <span style={badge('#dcfce7','#16a34a','#bbf7d0')}>✓ ALL CLEAR</span>}
               </div>
@@ -471,7 +508,7 @@ const quickBtn = (bg, col) => ({
 /* ══════════════════════════════════════════════════════════════════════
    ALERTS POPUP
 ══════════════════════════════════════════════════════════════════════ */
-function AlertsPopup({ entries, onOpenPerson, onSettle, onClose }) {
+function AlertsPopup({ entries, onOpenPerson, onSettle, onClose, onRemind }) {
   const groupByPerson = (items) => {
     const map = new Map()
     items.forEach(entry => {
@@ -502,7 +539,7 @@ function AlertsPopup({ entries, onOpenPerson, onSettle, onClose }) {
   }
 
   const groups = useMemo(() => {
-    const active = entries.filter(e => !e.settled && e.dueDate)
+    const active = entries.filter(e => !e.settled && e.dueDate && !isFutureSnoozed(e))
     const overdue   = active.filter(e => DAYS_LEFT(e.dueDate) < 0).sort((a,b)=>DAYS_LEFT(a.dueDate)-DAYS_LEFT(b.dueDate))
     const today     = active.filter(e => DAYS_LEFT(e.dueDate) === 0)
     const tomorrow  = active.filter(e => DAYS_LEFT(e.dueDate) === 1)
@@ -524,7 +561,6 @@ function AlertsPopup({ entries, onOpenPerson, onSettle, onClose }) {
     const d = group.minDays
     const status = d < 0 ? `Overdue ${Math.abs(d)}d` : d === 0 ? 'Due today' : d === 1 ? 'Due tomorrow' : `${d}d left`
     const direction = net === 0 ? 'mixed dues' : isReceivable ? 'owes you' : 'you owe'
-    const waMsg = `Hi ${group.name}, just a reminder — ${fmt(amount)} is ${d < 0 ? 'overdue' : 'due'} between us. Please let me know. 🙏`
     return (
       <div style={{ padding:'8px 10px', background:'linear-gradient(145deg,#f8f8f8,#ebebeb)', borderRadius:10, marginBottom:6, boxShadow:'2px 2px 6px rgba(0,0,0,0.06),-1px -1px 4px rgba(255,255,255,0.9)', borderLeft:`3px solid ${isReceivable?'#16a34a':'#dc2626'}` }}>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
@@ -541,12 +577,15 @@ function AlertsPopup({ entries, onOpenPerson, onSettle, onClose }) {
         </div>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           <button onClick={()=>{ onOpenPerson(group.key); onClose() }} style={{ fontSize:10, fontWeight:800, padding:'4px 8px', borderRadius:8, border:'1px solid #e2e8f0', background:'#f0f0f3', color:'#475569', cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>Open Account</button>
-          {group.phone && (
-            <a href={`https://wa.me/91${group.phone.replace(/\D/g,'')}?text=${encodeURIComponent(waMsg)}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize:10, fontWeight:800, padding:'4px 8px', borderRadius:8, border:'1px solid #bbf7d0', background:'#dcfce7', color:'#16a34a', textDecoration:'none', fontFamily:'Poppins,sans-serif' }}>
-              💬 Remind
-            </a>
-          )}
+          <button onClick={() => onRemind({
+            key: group.key,
+            name: group.name,
+            phone: group.phone,
+            amount,
+            minDays: d,
+          })} style={{ fontSize:10, fontWeight:800, padding:'4px 8px', borderRadius:8, border:'1px solid #bbf7d0', background:'#dcfce7', color:'#16a34a', textDecoration:'none', fontFamily:'Poppins,sans-serif', cursor:'pointer' }}>
+            💬 Remind
+          </button>
           <button onClick={()=>group.items.forEach(entry => onSettle(entry.id))} style={{ fontSize:10, fontWeight:800, padding:'4px 8px', borderRadius:8, border:'1px solid #fca5a5', background:'#fee2e2', color:'#dc2626', cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>✓ Settle</button>
         </div>
       </div>
@@ -786,6 +825,195 @@ function NativePdfActions({ file, onClose }) {
   )
 }
 
+function ReminderModal({ target, onClose, onPrepare, onSnooze }) {
+  const [tone, setTone] = useState('polite')
+  const [language, setLanguage] = useState('english')
+  const [message, setMessage] = useState('')
+  const [messageDirty, setMessageDirty] = useState(false)
+  const [feedback, setFeedback] = useState('')
+
+  const phone = cleanPhoneNumber(target?.phone)
+  const canMessage = Boolean(phone)
+
+  const templates = useMemo(() => ({
+    english: {
+      polite: ({ name, amount }) => `Hi ${name}, gentle reminder for ${amount} pending in ACR Max ledger. Please check when possible.`,
+      friendly: ({ name, amount }) => `Hey ${name}, small reminder - ${amount} is pending. Please send when possible 🙂`,
+      direct: ({ name, amount }) => `Hi ${name}, ${amount} is pending. Please settle it when possible.`,
+      formal: ({ name, amount }) => `Dear ${name}, this is a payment reminder for ${amount} pending in ACR Max ledger. Kindly review and settle it.`,
+    },
+    hindi: {
+      polite: ({ name, amount }) => `Hi ${name}, ACR Max ledger mein ${amount} pending hai. Kripya jab possible ho check karke settle kar dijiye.`,
+      friendly: ({ name, amount }) => `Hi ${name}, ek chhota reminder - ${amount} pending hai. Time mile to settle kar dijiye.`,
+      direct: ({ name, amount }) => `Hi ${name}, ${amount} pending hai. Kripya settle kar dijiye.`,
+      formal: ({ name, amount }) => `Namaste ${name}, ACR Max ledger mein ${amount} ka payment pending hai. Kripya review karke settle kijiye.`,
+    },
+    tamil: {
+      polite: ({ name, amount }) => `Hi ${name}, ACR Max ledger la ${amount} pending irukku. Mudinja check panni settle pannunga.`,
+      friendly: ({ name, amount }) => `Hi ${name}, small reminder - ${amount} pending irukku. Time kidaicha settle pannunga.`,
+      direct: ({ name, amount }) => `Hi ${name}, ${amount} pending irukku. Please settle pannunga.`,
+      formal: ({ name, amount }) => `Vanakkam ${name}, ACR Max ledger la ${amount} pending ulladhu. Dayavu seithu review panni settle pannunga.`,
+    },
+    malayalam: {
+      polite: ({ name, amount }) => `Hi ${name}, ACR Max ledger-il ${amount} pending aanu. Kazhiyumbol check cheythu settle cheyyane.`,
+      friendly: ({ name, amount }) => `Hi ${name}, oru small reminder - ${amount} pending aanu. Samayam kittumbol settle cheyyuka.`,
+      direct: ({ name, amount }) => `Hi ${name}, ${amount} pending aanu. Dayavaayi settle cheyyuka.`,
+      formal: ({ name, amount }) => `Namaskaram ${name}, ACR Max ledger-il ${amount} pending aanu. Dayavaayi review cheythu settle cheyyane.`,
+    },
+  }), [])
+
+  const buildMessage = useCallback((nextTone, nextLanguage) => {
+    const langTemplates = templates[nextLanguage] || templates.english
+    const template = langTemplates[nextTone] || langTemplates.polite || templates.english.polite
+    return template({ name: target.name, amount: fmt(target.amount) })
+  }, [target, templates])
+
+  useEffect(() => {
+    if (!messageDirty) setMessage(buildMessage(tone, language))
+  }, [tone, language, messageDirty, buildMessage])
+
+  useEffect(() => {
+    setMessage(buildMessage('polite', 'english'))
+    setMessageDirty(false)
+    setTone('polite')
+    setLanguage('english')
+    setFeedback('')
+  }, [target, buildMessage])
+
+  const prepareAnd = async (channel) => {
+    onPrepare(channel)
+    setFeedback(channel === 'copy' ? 'Reminder copied.' : 'Reminder prepared.')
+
+    if (channel === 'copy') {
+      try {
+        await navigator.clipboard.writeText(message)
+      } catch (error) {
+        console.error('Reminder copy failed:', error)
+        setFeedback('Copy failed. Please try again.')
+      }
+      return
+    }
+
+    if (!canMessage) {
+      setFeedback(channel === 'whatsapp' ? 'Phone number required for WhatsApp. You can copy the message.' : 'Phone number required for SMS. You can copy the message.')
+      return
+    }
+
+    if (channel === 'whatsapp') {
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    window.location.href = `sms:${phone}?body=${encodeURIComponent(message)}`
+  }
+
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:6500, background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)',
+      display:'flex', alignItems:'flex-end', justifyContent:'center', animation:'fadeIn 0.2s ease-out',
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        width:'100%', maxWidth:520, maxHeight:'92vh', overflowY:'auto',
+        background:'linear-gradient(160deg,#f8f8f8,#ebebeb)', borderRadius:'20px 20px 0 0',
+        boxShadow:'0 -10px 40px rgba(0,0,0,0.18)', padding:'0 0 20px',
+        animation:'ldgSlideUpModal 0.32s cubic-bezier(.34,1.1,.64,1) both',
+      }}>
+        <div style={{ width:36, height:4, borderRadius:2, background:'#d1d5db', margin:'10px auto 0' }} />
+        <div style={{ padding:'12px 14px 10px', borderBottom:'1px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+            <div>
+              <h3 style={{ margin:'0 0 3px', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:15, color:'#111827' }}>Send reminder?</h3>
+              <p style={{ margin:0, fontFamily:'Poppins,sans-serif', fontSize:11, color:'#64748b' }}>{target.name} has {fmt(target.amount)} pending.</p>
+            </div>
+            <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:'1px solid #e2e8f0', background:'linear-gradient(145deg,#f5f5f5,#e0e0e0)', color:'#6b7280', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+          </div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:8 }}>
+            <span style={badge('#eff6ff','#1d4ed8','#bfdbfe')}>{target.name}</span>
+            <span style={badge('#fffbeb','#b45309','#fde68a')}>{target.statusText}</span>
+          </div>
+          <p style={{ margin:'8px 0 0', fontFamily:'Poppins,sans-serif', fontSize:10, lineHeight:1.35, color:'#6b7280' }}>
+            ACR Max only prepares the reminder. You review and send it yourself. No auto-send. No spam.
+          </p>
+        </div>
+
+        <div style={{ padding:'12px 14px 0' }}>
+          <p style={{ margin:'0 0 6px', fontFamily:'Poppins,sans-serif', fontSize:9, fontWeight:800, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em' }}>Tone</p>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+            {['polite','friendly','direct','formal'].map(option => (
+              <button key={option} onClick={() => setTone(option)} style={{
+                padding:'5px 9px', borderRadius:14, border: tone===option ? '1.5px solid #7c3aed' : '1px solid #e2e8f0',
+                background: tone===option ? '#ede9fe' : '#f5f5f5', color: tone===option ? '#7c3aed' : '#475569',
+                fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:10, cursor:'pointer',
+              }}>{option[0].toUpperCase() + option.slice(1)}</button>
+            ))}
+          </div>
+
+          <p style={{ margin:'0 0 6px', fontFamily:'Poppins,sans-serif', fontSize:9, fontWeight:800, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em' }}>Language</p>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+            {[
+              ['english','English'],
+              ['hindi','Hindi'],
+              ['tamil','Tamil'],
+              ['malayalam','Malayalam'],
+            ].map(([key, label]) => (
+              <button key={key} onClick={() => setLanguage(key)} style={{
+                padding:'5px 9px', borderRadius:14, border: language===key ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
+                background: language===key ? '#ccfbf1' : '#f5f5f5', color: language===key ? '#0f766e' : '#475569',
+                fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:10, cursor:'pointer',
+              }}>{label}</button>
+            ))}
+          </div>
+
+          <p style={{ margin:'0 0 6px', fontFamily:'Poppins,sans-serif', fontSize:9, fontWeight:800, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em' }}>Message Preview</p>
+          <textarea
+            value={message}
+            onChange={(e) => { setMessage(e.target.value); setMessageDirty(true) }}
+            rows={5}
+            style={{
+              width:'100%', boxSizing:'border-box', resize:'vertical', minHeight:108, borderRadius:12,
+              border:'1px solid #e2e8f0', padding:'10px 12px',
+              background:'linear-gradient(145deg,#e8e8e8,#ffffff)',
+              boxShadow:'inset 2px 2px 6px rgba(0,0,0,0.08),inset -2px -2px 5px rgba(255,255,255,0.9)',
+              fontFamily:'Poppins,sans-serif', fontSize:12, color:'#111827', outline:'none',
+            }}
+          />
+          {!canMessage && (
+            <p style={{ margin:'7px 0 0', fontFamily:'Poppins,sans-serif', fontSize:10, color:'#b45309' }}>
+              Phone number required for WhatsApp or SMS. You can still copy the message.
+            </p>
+          )}
+          {feedback && (
+            <p style={{ margin:'7px 0 0', fontFamily:'Poppins,sans-serif', fontSize:10, color:'#16a34a', fontWeight:700 }}>{feedback}</p>
+          )}
+        </div>
+
+        <div style={{ padding:'12px 14px 0' }}>
+          <p style={{ margin:'0 0 6px', fontFamily:'Poppins,sans-serif', fontSize:9, fontWeight:800, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em' }}>Snooze</p>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {[
+              ['Tomorrow', toIsoDate(new Date(Date.now() + 86400000))],
+              ['In 3 days', toIsoDate(new Date(Date.now() + 3 * 86400000))],
+              ['Next Sunday', getNextSunday()],
+            ].map(([label, value]) => (
+              <button key={label} onClick={() => { onSnooze(value); setFeedback(`Snoozed until ${fmtDateL(value)}.`) }} style={{
+                padding:'5px 9px', borderRadius:14, border:'1px solid #e2e8f0', background:'#f8fafc',
+                color:'#475569', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:10, cursor:'pointer',
+              }}>{label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, padding:'14px 14px 0' }}>
+          <button onClick={() => prepareAnd('whatsapp')} style={{ ...quickBtn(canMessage ? '#16a34a' : '#cbd5e1', '#fff'), opacity: canMessage ? 1 : 0.7 }} disabled={!canMessage}>WhatsApp</button>
+          <button onClick={() => prepareAnd('sms')} style={{ ...quickBtn(canMessage ? '#0f766e' : '#cbd5e1', '#fff'), opacity: canMessage ? 1 : 0.7 }} disabled={!canMessage}>SMS</button>
+          <button onClick={() => prepareAnd('copy')} style={quickBtn('#475569','#fff')}>Copy Message</button>
+          <button onClick={onClose} style={quickBtn('#e2e8f0','#475569')}>Later</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ══════════════════════════════════════════════════════════════════════
    MAIN LEDGER PAGE
 ══════════════════════════════════════════════════════════════════════ */
@@ -801,16 +1029,21 @@ export default function Ledger({ currentUser }) {
   const [showTopPdf,   setShowTopPdf]   = useState(false)
   const [nativePdf,    setNativePdf]    = useState(null)
   const [activePerson, setActivePerson] = useState(null)   // normName key
+  const [reminderTarget, setReminderTarget] = useState(null)
 
   /* ── aggregate data ── */
   const allAccounts = useMemo(() => buildPersonAccounts(entries), [entries])
+  const urgentDueEntries = useMemo(
+    () => entries.filter(e => !e.settled && e.dueDate && !isFutureSnoozed(e)),
+    [entries]
+  )
 
   const totalLent     = useMemo(()=>entries.filter(e=>e.type==='lent'&&!e.settled).reduce((s,e)=>s+e.amount,0),[entries])
   const totalBorrowed = useMemo(()=>entries.filter(e=>e.type==='borrowed'&&!e.settled).reduce((s,e)=>s+e.amount,0),[entries])
   const netBalance    = totalLent - totalBorrowed
-  const overdueCount  = useMemo(()=>entries.filter(e=>!e.settled&&e.dueDate&&DAYS_LEFT(e.dueDate)<0).length,[entries])
-  const dueTodayCount = useMemo(()=>entries.filter(e=>!e.settled&&e.dueDate&&DAYS_LEFT(e.dueDate)===0).length,[entries])
-  const dueSoonCount  = useMemo(()=>entries.filter(e=>!e.settled&&e.dueDate&&DAYS_LEFT(e.dueDate)>0&&DAYS_LEFT(e.dueDate)<=7).length,[entries])
+  const overdueCount  = useMemo(()=>urgentDueEntries.filter(e=>DAYS_LEFT(e.dueDate)<0).length,[urgentDueEntries])
+  const dueTodayCount = useMemo(()=>urgentDueEntries.filter(e=>DAYS_LEFT(e.dueDate)===0).length,[urgentDueEntries])
+  const dueSoonCount  = useMemo(()=>urgentDueEntries.filter(e=>DAYS_LEFT(e.dueDate)>0&&DAYS_LEFT(e.dueDate)<=7).length,[urgentDueEntries])
   const alertCount    = overdueCount + dueTodayCount
 
   /* ── filtered account list ── */
@@ -847,6 +1080,59 @@ export default function Ledger({ currentUser }) {
   })
   const handleSettle = (id) => setEntries(prev=>prev.map(e=>e.id===id?{...e,settled:true,settledAt:new Date().toISOString()}:e))
   const handleDelete = (id) => setEntries(prev=>prev.filter(e=>e.id!==id))
+
+  const openReminder = useCallback((target) => {
+    if (!target) return
+
+    if (target.key) {
+      const personEntries = entries.filter(e => normName(e.person) === target.key && !e.settled)
+      const collect = personEntries.filter(e => normalizeLedgerType(e) === 'lent').reduce((sum, e) => sum + Number(e.amount || 0), 0)
+      const pay = personEntries.filter(e => normalizeLedgerType(e) === 'borrowed').reduce((sum, e) => sum + Number(e.amount || 0), 0)
+      const net = collect - pay
+      const days = target.minDays ?? (personEntries.filter(e => e.dueDate).map(e => DAYS_LEFT(e.dueDate)).sort((a, b) => a - b)[0] ?? null)
+      const resolvedAmount = Math.abs(target.amount ?? 0) || Math.abs(net) || collect || pay || 0
+
+      setReminderTarget({
+        key: target.key,
+        name: target.name,
+        phone: target.phone || '',
+        amount: resolvedAmount,
+        statusText: getReminderStatus(days),
+        minDays: days,
+      })
+      return
+    }
+
+    setReminderTarget({
+      key: normName(target.name),
+      name: target.name,
+      phone: target.phone || '',
+      amount: Math.abs(target.amount || 0),
+      statusText: target.statusText || getReminderStatus(target.minDays ?? null),
+      minDays: target.minDays ?? null,
+    })
+  }, [entries])
+
+  const markReminderPrepared = useCallback((personKey, channel) => {
+    setEntries(prev => prev.map(entry => (
+      !entry.settled && normName(entry.person) === personKey
+        ? {
+            ...entry,
+            lastReminderAt: new Date().toISOString(),
+            reminderCount: Number(entry.reminderCount || 0) + 1,
+            lastReminderChannel: channel,
+          }
+        : entry
+    )))
+  }, [setEntries])
+
+  const snoozeReminders = useCallback((personKey, snoozeUntil) => {
+    setEntries(prev => prev.map(entry => (
+      !entry.settled && normName(entry.person) === personKey
+        ? { ...entry, reminderSnoozeUntil: snoozeUntil }
+        : entry
+    )))
+  }, [setEntries])
 
   /* ── PDF export ── */
   const handleExport = async (mode, personName) => {
@@ -1106,6 +1392,7 @@ export default function Ledger({ currentUser }) {
           onClose={()=>setShowAlerts(false)}
           onOpenPerson={(key)=>{ setActivePerson(key); setShowAlerts(false) }}
           onSettle={handleSettle}
+          onRemind={(target) => { setShowAlerts(false); openReminder(target) }}
         />
       )}
 
@@ -1119,11 +1406,24 @@ export default function Ledger({ currentUser }) {
           onDelete={handleDelete}
           onEdit={()=>{}}
           onExport={handleExport}
+          onRemind={openReminder}
         />
       )}
 
       {nativePdf && (
         <NativePdfActions file={nativePdf} onClose={()=>setNativePdf(null)} />
+      )}
+
+      {reminderTarget && (
+        <ReminderModal
+          target={reminderTarget}
+          onClose={() => setReminderTarget(null)}
+          onPrepare={(channel) => markReminderPrepared(reminderTarget.key, channel)}
+          onSnooze={(snoozeUntil) => {
+            snoozeReminders(reminderTarget.key, snoozeUntil)
+            setReminderTarget(null)
+          }}
+        />
       )}
 
     </div>
