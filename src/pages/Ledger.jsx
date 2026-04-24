@@ -28,6 +28,15 @@ const colorForName = (name) => {
   return COLORS[Math.abs(h) % COLORS.length]
 }
 
+const normalizeLedgerType = (entryOrType) => {
+  const value = typeof entryOrType === 'string' ? entryOrType : entryOrType?.type
+  return value === 'borrowed' ? 'borrowed' : 'lent'
+}
+
+const getDisplayType = (entryOrType) => (
+  normalizeLedgerType(entryOrType) === 'lent' ? 'You gave' : 'You took'
+)
+
 /* ══════════════════════════════════════════════════════════════════════
    GROUP ENTRIES → PERSON ACCOUNTS
 ══════════════════════════════════════════════════════════════════════ */
@@ -182,7 +191,7 @@ function PersonCard({ account, onClick }) {
         : '4px 4px 10px rgba(0,0,0,0.08),-2px -2px 6px rgba(255,255,255,0.92)',
       border:`1px solid ${isUrgent?'rgba(252,165,165,0.6)':'rgba(255,255,255,0.8)'}`,
       borderLeft:`3px solid ${accent}`,
-      marginBottom:6, cursor:'pointer',
+      marginBottom:6, marginLeft:0, marginRight:0, cursor:'pointer',
       animation:'ldgSlideIn 0.3s ease-out both',
       transition:'transform 0.15s, box-shadow 0.15s',
     }}
@@ -219,7 +228,7 @@ function PersonCard({ account, onClick }) {
             <>
               <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:13, color:'#b8860b', margin:0, lineHeight:1.1 }}>{fmt(Math.abs(account.net))}</p>
               <p style={{ fontSize:8.5, color: isReceivable?'#16a34a':'#dc2626', margin:'1px 0 0', fontWeight:800, fontFamily:'Poppins,sans-serif', lineHeight:1.1 }}>
-                {isReceivable ? '↑ you receive' : '↓ you pay'}
+                {isReceivable ? '↑ to collect' : '↓ to pay'}
               </p>
             </>
           ) : (
@@ -237,7 +246,7 @@ function PersonCard({ account, onClick }) {
 ══════════════════════════════════════════════════════════════════════ */
 function TxRow({ entry, onSettle, onDelete, onEdit }) {
   const [open, setOpen] = useState(false)
-  const isLent  = entry.type === 'lent'
+  const isLent  = normalizeLedgerType(entry) === 'lent'
   const accent  = isLent ? '#16a34a' : '#dc2626'
   const daysLeft = DAYS_LEFT(entry.dueDate)
 
@@ -258,7 +267,7 @@ function TxRow({ entry, onSettle, onDelete, onEdit }) {
         </div>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', marginBottom:1 }}>
-            <span style={{ fontSize:11, fontWeight:800, color:accent, fontFamily:'Poppins,sans-serif' }}>{isLent?'Lent':'Borrowed'}</span>
+            <span style={{ fontSize:11, fontWeight:800, color:accent, fontFamily:'Poppins,sans-serif' }}>{getDisplayType(entry)}</span>
             {entry.category && <span style={{ fontSize:9, color:'#9ca3af', fontFamily:'Poppins,sans-serif' }}>{entry.category}</span>}
             <DueBadge daysLeft={entry.settled?null:daysLeft} settled={entry.settled} />
           </div>
@@ -362,9 +371,9 @@ function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete
           {/* Summary chips */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
             {[
-              { label:'Will Receive', value:fmt(lentTotal), color:'#16a34a' },
-              { label:'Will Pay',     value:fmt(borTotal),  color:'#dc2626' },
-              { label: net>=0?'Net Receivable':'Net Payable', value:(net>=0?'+':'-')+fmt(Math.abs(net)), color:net>=0?'#16a34a':'#dc2626' },
+              { label:'To Collect', value:fmt(lentTotal), color:'#16a34a' },
+              { label:'To Pay',     value:fmt(borTotal),  color:'#dc2626' },
+              { label: net>=0?'You will collect':'You need to pay', value:(net>=0?'+':'-')+fmt(Math.abs(net)), color:net>=0?'#16a34a':'#dc2626' },
             ].map((s,i) => (
               <div key={i} style={{ padding:'7px 6px', background:'linear-gradient(145deg,#f5f5f5,#e0e0e0)', borderRadius:10, textAlign:'center', boxShadow:'2px 2px 6px rgba(0,0,0,0.08),-1px -1px 4px rgba(255,255,255,0.9)' }}>
                 <p style={{ fontSize:8, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif', fontWeight:800 }}>{s.label}</p>
@@ -655,7 +664,7 @@ function EntryModal({ editing, prefillPerson, onSave, onClose }) {
 
         {/* Type */}
         <div style={{ display:'flex', gap:6, marginBottom:11, background:'linear-gradient(145deg,#e0e0e0,#f5f5f5)', borderRadius:12, padding:3, boxShadow:'inset 2px 2px 5px rgba(0,0,0,0.1)' }}>
-          {[['lent','↑ I Lent','#16a34a','#dcfce7','#bbf7d0'],['borrowed','↓ I Borrowed','#dc2626','#fee2e2','#fca5a5']].map(([t,label,col,bg,br])=>(
+          {[['lent','↑ I gave money','#16a34a','#dcfce7','#bbf7d0'],['borrowed','↓ I took money','#dc2626','#fee2e2','#fca5a5']].map(([t,label,col,bg,br])=>(
             <button key={t} onClick={()=>set('type',t)} style={{
               flex:1, padding:'9px', borderRadius:10,
               border: form.type===t?`1.5px solid ${br}`:'1.5px solid transparent',
@@ -723,7 +732,7 @@ function EntryModal({ editing, prefillPerson, onSave, onClose }) {
           color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14,
           boxShadow: form.type==='lent'?'4px 4px 14px rgba(22,163,74,0.3)':'4px 4px 14px rgba(220,38,38,0.3)',
         }}>
-          {editing?.id ? '💾 Save Changes' : (form.type==='lent'?'↑ Record Lent':'↓ Record Borrowed')}
+          {editing?.id ? '💾 Save Changes' : (form.type==='lent'?'↑ Save: You gave money':'↓ Save: You took money')}
         </button>
       </div>
     </div>
@@ -856,8 +865,8 @@ export default function Ledger({ currentUser }) {
 
   const FILTERS = [
     { id:'all',       label:'📋 Active',    count:allAccounts.filter(a=>!a.isFullySettled).length },
-    { id:'lent',      label:'↑ Receivable', count:allAccounts.filter(a=>a.lentAmt>0).length },
-    { id:'borrowed',  label:'↓ Payable',    count:allAccounts.filter(a=>a.borAmt>0).length },
+    { id:'lent',      label:'↑ To Collect', count:allAccounts.filter(a=>a.lentAmt>0).length },
+    { id:'borrowed',  label:'↓ To Pay',     count:allAccounts.filter(a=>a.borAmt>0).length },
     { id:'overdue',   label:'⚠ Overdue',    count:allAccounts.filter(a=>a.hasOverdue).length },
     { id:'settled',   label:'✓ Settled',    count:allAccounts.filter(a=>a.isFullySettled).length },
   ]
@@ -890,20 +899,20 @@ export default function Ledger({ currentUser }) {
         min-height:0;
         overflow-y:auto;
         overflow-x:hidden;
-        padding:7px 2px 18px;
+        padding:7px 1px 18px;
         scroll-behavior:smooth;
       }
       .ldg-mobile-pdf { display:none !important; }
       @media(max-width:640px){
         .ldg-desk-add{display:none!important;}
         .ldg-mobile-pdf{display:flex!important;}
-        .ldg-root{padding-left:2px!important;padding-right:2px!important;}
+        .ldg-root{padding-left:1px!important;padding-right:1px!important;max-width:none!important;}
         .ldg-sticky-panel{padding-bottom:6px;}
-        .ldg-list-scroll{padding-top:6px;padding-bottom:14px;}
+        .ldg-list-scroll{padding-top:6px;padding-bottom:14px;padding-left:0!important;padding-right:0!important;}
       }
     `}</style>
 
-    <div className="ldg-root" style={{ maxWidth:1180, margin:'0 auto', padding:'0 4px', width:'100%', height:'calc(100dvh - 128px)', minHeight:420, boxSizing:'border-box', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+    <div className="ldg-root" style={{ maxWidth:1180, margin:'0 auto', padding:'0 2px', width:'100%', height:'calc(100dvh - 128px)', minHeight:420, boxSizing:'border-box', overflow:'hidden', display:'flex', flexDirection:'column' }}>
 
       {/* ── FLOATING ADD ── */}
       <div style={{
@@ -929,8 +938,9 @@ export default function Ledger({ currentUser }) {
         <div style={{ display:'flex', alignItems:'center', gap:9, minWidth:0, flex:1 }}>
           <img src="/logo.jpg" alt="ACR MAX" style={{ width:36, height:36, borderRadius:'50%', objectFit:'cover', border:'1.5px solid #e2e8f0', boxShadow:'2px 2px 6px rgba(0,0,0,0.1)', flexShrink:0 }} />
           <div style={{ minWidth:0 }}>
-            <h2 style={{ fontFamily:'Poppins,sans-serif', fontSize:18, fontWeight:800, margin:'0 0 1px', color:'#1a1a1a', lineHeight:1.15 }}>🤝 Smart Ledger</h2>
-            <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', lineHeight:1.2 }}>ACR MAX · Lent · Borrowed · Reminders</p>
+            <p style={{ fontSize:9, color:'#7c3aed', margin:'0 0 1px', fontFamily:'Poppins,sans-serif', fontWeight:800, letterSpacing:'0.12em', lineHeight:1.2 }}>ACR MAX</p>
+            <h2 style={{ fontFamily:'Poppins,sans-serif', fontSize:18, fontWeight:800, margin:'0 0 1px', color:'#1a1a1a', lineHeight:1.15 }}>Smart Ledger</h2>
+            <p style={{ fontSize:10, color:'#6b7280', margin:0, fontFamily:'Poppins,sans-serif', lineHeight:1.2 }}>Private ledger · Manual reminders · Proof-ready</p>
           </div>
         </div>
         <div style={{ display:'flex', gap:7, alignItems:'center', flexShrink:0, overflow:'visible' }}>
@@ -985,8 +995,8 @@ export default function Ledger({ currentUser }) {
       {/* ── BALANCE STRIP ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,minmax(0,1fr))', gap:7, marginBottom:12, animation:'ldgSlideUp 0.4s ease-out 0.05s both' }}>
         {[
-          { label:'Will Receive', value:fmt(totalLent),   color:'#16a34a', accent:'#bbf7d0' },
-          { label:'Will Pay',     value:fmt(totalBorrowed),color:'#dc2626', accent:'#fca5a5' },
+          { label:'To Collect', value:fmt(totalLent),   color:'#16a34a', accent:'#bbf7d0' },
+          { label:'To Pay',     value:fmt(totalBorrowed),color:'#dc2626', accent:'#fca5a5' },
           { label:'Net Balance',  value:(netBalance>=0?'+':'')+fmt(Math.abs(netBalance)), color:netBalance>=0?'#16a34a':'#dc2626', accent:netBalance>=0?'#bbf7d0':'#fca5a5' },
         ].map((s,i)=>(
           <div key={i} style={{
