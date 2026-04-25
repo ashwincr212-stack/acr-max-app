@@ -618,6 +618,121 @@ function MiniOverviewCard({ label, value, sub, tone = '#2563eb' }) {
   )
 }
 
+function getCoachSeverity(signalOrStatus) {
+  const raw = typeof signalOrStatus === 'string'
+    ? signalOrStatus
+    : `${signalOrStatus?.status || ''} ${signalOrStatus?.helper || ''}`
+  const value = raw.toLowerCase()
+
+  if (['risky', 'no more spends', 'leak detected', 'over limit'].some((item) => value.includes(item))) return 'risk'
+  if (['careful', 'go light', 'stop extras', 'rising', 'control category', 'cut category', 'control ', 'cut '].some((item) => value.includes(item))) return 'watch'
+  if (['set budget', 'add entries', 'need data'].some((item) => value.includes(item))) return 'neutral'
+  if (['relaxed', 'balanced', 'spend freely', 'no leak', 'all fine', 'cooling', 'stable', 'good pace'].some((item) => value.includes(item))) return 'safe'
+
+  return 'neutral'
+}
+
+function CoachSignalCard({ emoji, title, status, helper, tone = '#2563eb', bg = 'rgba(255,255,255,0.62)', border = 'rgba(226,232,240,0.92)' }) {
+  const severity = getCoachSeverity({ status, helper })
+  const palettes = {
+    safe: {
+      shell: 'linear-gradient(160deg, rgba(255,255,255,0.96), rgba(240,253,244,0.92))',
+      border: 'rgba(34,197,94,0.28)',
+      shadow: '0 14px 30px rgba(22,163,74,0.12), 0 3px 10px rgba(15,23,42,0.06)',
+      glow: '0 0 0 1px rgba(34,197,94,0.08), inset 0 1px 0 rgba(255,255,255,0.78)',
+      badgeBg: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.98), rgba(220,252,231,0.92) 58%, rgba(134,239,172,0.58) 100%)',
+      chipBg: 'rgba(22,163,74,0.10)',
+      chipBorder: 'rgba(34,197,94,0.18)',
+    },
+    watch: {
+      shell: 'linear-gradient(160deg, rgba(255,255,255,0.96), rgba(255,251,235,0.94))',
+      border: 'rgba(245,158,11,0.28)',
+      shadow: '0 14px 30px rgba(217,119,6,0.12), 0 3px 10px rgba(15,23,42,0.06)',
+      glow: '0 0 0 1px rgba(245,158,11,0.07), inset 0 1px 0 rgba(255,255,255,0.78)',
+      badgeBg: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.98), rgba(254,243,199,0.94) 58%, rgba(252,211,77,0.56) 100%)',
+      chipBg: 'rgba(217,119,6,0.10)',
+      chipBorder: 'rgba(245,158,11,0.18)',
+    },
+    risk: {
+      shell: 'linear-gradient(160deg, rgba(255,255,255,0.97), rgba(254,242,242,0.95))',
+      border: 'rgba(239,68,68,0.30)',
+      shadow: '0 14px 30px rgba(220,38,38,0.13), 0 3px 10px rgba(15,23,42,0.06)',
+      glow: '0 0 0 1px rgba(239,68,68,0.09), inset 0 1px 0 rgba(255,255,255,0.78)',
+      badgeBg: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.99), rgba(254,226,226,0.94) 58%, rgba(252,165,165,0.58) 100%)',
+      chipBg: 'rgba(220,38,38,0.10)',
+      chipBorder: 'rgba(239,68,68,0.18)',
+    },
+    neutral: {
+      shell: 'linear-gradient(160deg, rgba(255,255,255,0.96), rgba(239,246,255,0.93))',
+      border: 'rgba(99,102,241,0.24)',
+      shadow: '0 14px 30px rgba(79,70,229,0.11), 0 3px 10px rgba(15,23,42,0.06)',
+      glow: '0 0 0 1px rgba(99,102,241,0.07), inset 0 1px 0 rgba(255,255,255,0.78)',
+      badgeBg: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.99), rgba(224,231,255,0.94) 58%, rgba(147,197,253,0.54) 100%)',
+      chipBg: 'rgba(79,70,229,0.10)',
+      chipBorder: 'rgba(99,102,241,0.18)',
+    },
+  }
+  const palette = palettes[severity]
+
+  return (
+    <div
+      className={`coach-card coach-card-${severity}`}
+      style={{
+        minHeight: 96,
+        padding: '10px 10px 9px',
+        borderRadius: 20,
+        position: 'relative',
+        overflow: 'hidden',
+        background: palette.shell,
+        border: `1px solid ${palette.border}`,
+        boxShadow: `${palette.shadow}, ${palette.glow}`,
+      }}
+    >
+      <div className="coach-card-sheen" />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: '50%',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 17,
+            lineHeight: 1,
+            background: palette.badgeBg,
+            boxShadow: `0 10px 20px ${tone}18, inset 0 1px 1px rgba(255,255,255,0.9)`,
+            border: `1px solid ${tone}24`,
+            flexShrink: 0,
+          }}
+        >
+          {emoji}
+        </span>
+        <span
+          style={{
+            padding: '4px 7px',
+            fontSize: 8.5,
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            borderRadius: 999,
+            color: tone,
+            background: palette.chipBg,
+            border: `1px solid ${palette.chipBorder}`,
+            whiteSpace: 'nowrap',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          {helper}
+        </span>
+      </div>
+      <div style={{ position: 'relative', zIndex: 1, marginTop: 9, display: 'grid', gap: 5 }}>
+        <span style={{ fontSize: 9, color: '#64748b', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.12em' }}>{title}</span>
+        <strong className="syne" style={{ fontSize: 15.5, lineHeight: 1.08, color: tone, fontWeight: 900 }}>{status}</strong>
+      </div>
+    </div>
+  )
+}
+
 function HealthRing({ score, onClick }) {
   const tone = score >= 70 ? '#16a34a' : score >= 40 ? '#d97706' : '#dc2626'
   return (
@@ -1028,6 +1143,97 @@ export default function Expense(props) {
     return items
   }, [monthStats, safeSpend, burnRate, projection, leakData, coach.categorySuggestion, dailyChallenge.target])
 
+  const coachSignals = useMemo(() => {
+    const monthlyBudget = Number(monthStats.monthlyBudget || 0)
+    const monthlyTotalSpent = Number(monthStats.totalSpent || 0)
+    const todaySpent = Number(monthStats.todaySpent || 0)
+    const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
+    const dailySpendableAmount = Number(safeSpend.dailySpendableAmount || 0)
+    const currentMonthEntries = monthStats.currentMonthLogs || []
+    const categoryTotals = monthStats.categoryTotals || {}
+    const topCategory = monthStats.topCategoryRow || null
+    const daysInMonth = Number(safeSpend.daysInMonth || projection.daysInMonth || 0)
+    const currentDay = Number(monthStats.now?.getDate?.() || 0)
+    const hasBudget = monthlyBudget > 0 && daysInMonth > 0
+    const budgetUsedPercent = hasBudget ? (monthlyTotalSpent / monthlyBudget) * 100 : 0
+    const daysPassedPercent = daysInMonth > 0 ? (currentDay / daysInMonth) * 100 : 0
+    const paceGap = budgetUsedPercent - daysPassedPercent
+    const todayDiff = hasBudget ? dailySpendableAmount - todaySpent : 0
+    const topCategoryShare = monthlyTotalSpent > 0 && topCategory ? (Number(topCategory.total || 0) / monthlyTotalSpent) * 100 : 0
+    const lowTicketLimit = hasBudget ? Math.max(200, dailySpendableAmount * 0.25) : 200
+    const lowTicketEntries = currentMonthEntries.filter((log) => Number(log.amount || 0) <= lowTicketLimit)
+    const lowTicketByCategory = lowTicketEntries.reduce((acc, log) => {
+      const key = log.category || 'Other'
+      acc[key] = (acc[key] || 0) + 1
+      return acc
+    }, {})
+    const leakRow = Object.entries(lowTicketByCategory)
+      .filter(([, count]) => count >= 3)
+      .sort((a, b) => b[1] - a[1])[0] || null
+    const leakCategory = leakRow?.[0] || ''
+
+    const dailyTotals = currentMonthEntries.reduce((acc, log) => {
+      const key = getStartOfDay(log.date).toISOString().slice(0, 10)
+      acc[key] = (acc[key] || 0) + Number(log.amount || 0)
+      return acc
+    }, {})
+    const dailySeries = Object.entries(dailyTotals)
+      .map(([date, total]) => ({ date, total }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+    const last3 = dailySeries.slice(-3)
+    const previous3 = dailySeries.slice(-6, -3)
+    const avg = (rows) => rows.length ? rows.reduce((sum, row) => sum + row.total, 0) / rows.length : 0
+    const last3Avg = avg(last3)
+    const previous3Avg = avg(previous3)
+
+    let moneyMode = 'Relaxed'
+    if (hasBudget) {
+      if (todaySpent > dailySpendableAmount || paceGap > 10) moneyMode = 'Risky'
+      else if (paceGap > 3) moneyMode = 'Careful'
+      else if (paceGap >= -3) moneyMode = 'Balanced'
+    }
+
+    let todayMove = 'Set budget'
+    if (hasBudget) {
+      if (todayDiff < 0) todayMove = 'No more spends'
+      else if (todaySpent > dailySpendableAmount * 0.8) todayMove = 'Stop extras'
+      else if (todaySpent > dailySpendableAmount * 0.5) todayMove = 'Go light'
+      else todayMove = 'Spend freely'
+    }
+
+    let trend = 'Stable'
+    if (previous3.length >= 3 && last3.length >= 3) {
+      if (last3Avg > previous3Avg * 1.08) trend = 'Rising'
+      else if (last3Avg < previous3Avg * 0.92) trend = 'Cooling'
+    } else if (todaySpent > 0 || yesterdaySpent > 0) {
+      if (todaySpent > yesterdaySpent * 1.08) trend = 'Rising'
+      else if (todaySpent < yesterdaySpent * 0.92) trend = 'Cooling'
+    }
+
+    let bestSaveMove = 'Avoid extras'
+    if (hasBudget && todaySpent > dailySpendableAmount) bestSaveMove = 'No more spends'
+    else if (leakCategory) bestSaveMove = `Cut ${leakCategory}`
+    else if (topCategory && topCategoryShare > 40) bestSaveMove = `Cut ${topCategory.name}`
+    else if (trend === 'Rising') bestSaveMove = 'Go light'
+    else if (moneyMode === 'Relaxed' || moneyMode === 'Balanced') bestSaveMove = 'Good pace'
+
+    const moneyTone = moneyMode === 'Risky' ? '#dc2626' : moneyMode === 'Careful' ? '#d97706' : moneyMode === 'Balanced' ? '#2563eb' : '#16a34a'
+    const todayTone = todayMove === 'No more spends' ? '#dc2626' : todayMove === 'Stop extras' ? '#d97706' : todayMove === 'Go light' ? '#2563eb' : todayMove === 'Spend freely' ? '#16a34a' : '#64748b'
+    const leakTone = leakCategory ? '#d97706' : '#16a34a'
+    const topTone = topCategory && topCategoryShare > 40 ? '#dc2626' : topCategory ? '#16a34a' : '#64748b'
+    const trendTone = trend === 'Rising' ? '#dc2626' : trend === 'Cooling' ? '#16a34a' : '#2563eb'
+    const moveTone = bestSaveMove === 'No more spends' ? '#dc2626' : bestSaveMove.startsWith('Cut ') ? '#d97706' : bestSaveMove === 'Go light' ? '#2563eb' : bestSaveMove === 'Good pace' ? '#16a34a' : '#64748b'
+
+    return [
+      { key: 'money-mode', emoji: '🧭', title: 'Money Mode', status: moneyMode, helper: smartAlerts.length ? 'Live alerts' : 'Pace check', tone: moneyTone, bg: `${moneyTone}12`, border: `${moneyTone}2e` },
+      { key: 'today-move', emoji: '📆', title: 'Today Move', status: todayMove, helper: hasBudget ? 'Today only' : 'Need budget', tone: todayTone, bg: `${todayTone}12`, border: `${todayTone}2e` },
+      { key: 'leak-watch', emoji: '🕳️', title: 'Leak Watch', status: leakCategory ? `${leakCategory} leak` : 'No leak', helper: leakCategory ? 'Small repeats' : 'No repeats', tone: leakTone, bg: `${leakTone}12`, border: `${leakTone}2e` },
+      { key: 'top-control', emoji: '🎯', title: 'Top Control', status: !currentMonthEntries.length ? 'Add entries' : topCategory && topCategoryShare > 40 ? `Control ${topCategory.name}` : 'All fine', helper: topCategory ? 'Top share' : 'No spend data', tone: topTone, bg: `${topTone}12`, border: `${topTone}2e` },
+      { key: 'trend', emoji: '📈', title: 'Trend', status: trend, helper: previous3.length >= 3 ? '3-day avg' : 'Daily compare', tone: trendTone, bg: `${trendTone}12`, border: `${trendTone}2e` },
+      { key: 'best-save', emoji: '⚡', title: 'Best Save Move', status: bestSaveMove, helper: hasBudget ? 'Next action' : 'Start budget', tone: moveTone, bg: `${moveTone}12`, border: `${moveTone}2e` },
+    ]
+  }, [monthStats, safeSpend, projection.daysInMonth, smartAlerts.length])
+
   const handleAdd = () => {
     if (!customAmount || Number(customAmount) <= 0) return
     if (addExpenseWithMeta) addExpenseWithMeta(noteInput, [])
@@ -1130,6 +1336,104 @@ export default function Expense(props) {
           0%, 100% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220,38,38,0.12), 0 10px 22px rgba(15,23,42,0.08); }
           50% { transform: scale(1.05); box-shadow: 0 0 0 9px rgba(220,38,38,0.15), 0 10px 22px rgba(15,23,42,0.08); }
         }
+        @keyframes coachShellGlow {
+          0%, 100% { box-shadow: 0 0 0 1px rgba(124,58,237,0.10), 0 22px 42px rgba(124,58,237,0.08), inset 0 1px 0 rgba(255,255,255,0.72); }
+          50% { box-shadow: 0 0 0 1px rgba(124,58,237,0.16), 0 24px 48px rgba(124,58,237,0.10), inset 0 1px 0 rgba(255,255,255,0.8); }
+        }
+        @keyframes coachShimmer {
+          0% { transform: translateX(-130%); opacity: 0; }
+          15% { opacity: 0.24; }
+          55% { opacity: 0.14; }
+          100% { transform: translateX(150%); opacity: 0; }
+        }
+        @keyframes coachScanLine {
+          0%, 100% { transform: translateY(0); opacity: 0.18; }
+          50% { transform: translateY(104px); opacity: 0.30; }
+        }
+        @keyframes coachDotFloat {
+          0%, 100% { transform: translate3d(0,0,0); opacity: 0.16; }
+          50% { transform: translate3d(0,-6px,0); opacity: 0.30; }
+        }
+        @keyframes coachDotPulse {
+          0%, 100% { transform: scale(1); opacity: 0.82; box-shadow: 0 0 0 0 rgba(124,58,237,0.18); }
+          50% { transform: scale(1.08); opacity: 1; box-shadow: 0 0 0 5px rgba(124,58,237,0.08); }
+        }
+        @keyframes coachCardRiskPulse {
+          0%, 100% { box-shadow: 0 14px 30px rgba(220,38,38,0.13), 0 3px 10px rgba(15,23,42,0.06), 0 0 0 0 rgba(239,68,68,0.00); }
+          50% { box-shadow: 0 16px 34px rgba(220,38,38,0.16), 0 3px 10px rgba(15,23,42,0.06), 0 0 0 5px rgba(239,68,68,0.06); }
+        }
+        @keyframes coachCardSafeGlow {
+          0%, 100% { box-shadow: 0 14px 30px rgba(22,163,74,0.12), 0 3px 10px rgba(15,23,42,0.06), 0 0 0 0 rgba(34,197,94,0.00); }
+          50% { box-shadow: 0 16px 34px rgba(22,163,74,0.14), 0 3px 10px rgba(15,23,42,0.06), 0 0 0 5px rgba(34,197,94,0.05); }
+        }
+        .coach-shell {
+          position: relative;
+          overflow: hidden;
+          border-radius: 28px;
+          background:
+            linear-gradient(155deg, rgba(255,255,255,0.96) 0%, rgba(249,250,255,0.92) 54%, rgba(245,243,255,0.92) 100%);
+          border: 1px solid rgba(255,255,255,0.72);
+          animation: coachShellGlow 4.8s ease-in-out infinite;
+        }
+        .coach-shell::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.44) 46%, transparent 64%);
+          animation: coachShimmer 5.6s linear infinite;
+          pointer-events: none;
+        }
+        .coach-shell::after {
+          content: '';
+          position: absolute;
+          left: 14px;
+          right: 14px;
+          top: 62px;
+          height: 1px;
+          background: linear-gradient(90deg, transparent 0%, rgba(124,58,237,0.10) 12%, rgba(124,58,237,0.34) 48%, rgba(59,130,246,0.18) 78%, transparent 100%);
+          filter: blur(0.2px);
+          animation: coachScanLine 6s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .coach-particles {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+        }
+        .coach-particle {
+          position: absolute;
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: radial-gradient(circle, rgba(124,58,237,0.22) 0%, rgba(124,58,237,0.08) 48%, rgba(255,255,255,0) 72%);
+          animation: coachDotFloat 5.8s ease-in-out infinite;
+        }
+        .coach-pill {
+          animation: coachDotPulse 2.6s ease-in-out infinite;
+        }
+        .coach-card {
+          transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+          will-change: transform;
+        }
+        .coach-card:hover, .coach-card:active {
+          transform: translateY(-2px);
+        }
+        .coach-card-safe {
+          animation: coachCardSafeGlow 4.8s ease-in-out infinite;
+        }
+        .coach-card-risk {
+          animation: coachCardRiskPulse 4.2s ease-in-out infinite;
+        }
+        .coach-card-sheen {
+          position: absolute;
+          inset: -30% auto auto -60%;
+          width: 78%;
+          height: 120%;
+          background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.24) 48%, transparent 100%);
+          transform: rotate(14deg);
+          animation: coachShimmer 7s linear infinite;
+          pointer-events: none;
+        }
         @media (max-width: 640px) {
           .expense-page-root {
             width: calc(100% + 24px) !important;
@@ -1152,6 +1456,7 @@ export default function Expense(props) {
           .exp-mobile-breakdown { display: flex !important; }
           .exp-analytics-table { display: none !important; }
           .exp-filter-row { grid-template-columns: minmax(0,1fr) 88px 78px !important; }
+          .coach-shell { border-radius: 24px; }
         }
         @media (min-width: 641px) {
           .exp-mobile-breakdown { display: none !important; }
@@ -1697,38 +2002,60 @@ export default function Expense(props) {
 
           {expenseTab === 'ai' ? (
             <div style={{ display: 'grid', gap: 10 }}>
-              <GlassCard style={{ padding: 11 }} accent="rgba(124,58,237,0.18)">
-                <SectionHdr title="AI Budget Coach" accent="#7c3aed" subtitle="Rule-based coach layered over your real expense data." />
-                <div className="exp-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 10 }}>
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <div style={{ padding: '10px 10px', borderRadius: 16, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
-                      <p className="syne" style={{ margin: 0, fontSize: 20, color: '#0f172a' }}>{coach.diagnosis}</p>
-                      <p style={{ margin: '7px 0 0', fontSize: 11.5, color: '#475569', lineHeight: 1.5 }}>{health.reason}</p>
+              <GlassCard className="coach-shell" style={{ padding: 10 }} accent="rgba(124,58,237,0.24)">
+                <div className="coach-particles">
+                  {[
+                    { left: '7%', top: '18%', delay: '0s' },
+                    { left: '22%', top: '78%', delay: '1.2s' },
+                    { left: '48%', top: '26%', delay: '2s' },
+                    { left: '73%', top: '68%', delay: '0.6s' },
+                    { left: '88%', top: '20%', delay: '1.8s' },
+                  ].map((particle, index) => (
+                    <span
+                      key={index}
+                      className="coach-particle"
+                      style={{ left: particle.left, top: particle.top, animationDelay: particle.delay }}
+                    />
+                  ))}
+                </div>
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#0f172a', letterSpacing: '0.02em' }}>🧠 AI BUDGET COACH</p>
+                      <p style={{ margin: '4px 0 0', fontSize: 11, color: '#64748b', fontWeight: 600 }}>Live money signals</p>
                     </div>
-                    <div style={{ padding: '10px 10px', borderRadius: 16, background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                      <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9a3412' }}>Recovery plan</p>
-                      <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#7c2d12', lineHeight: 1.5 }}>{coach.recoveryPlan}</p>
-                    </div>
-                    <div style={{ padding: '10px 10px', borderRadius: 16, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                      <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1d4ed8' }}>Category suggestion</p>
-                      <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#1e3a8a', lineHeight: 1.5 }}>{coach.categorySuggestion}</p>
+                    <div
+                      className="coach-pill"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '5px 10px',
+                        borderRadius: 999,
+                        background: 'linear-gradient(135deg, rgba(124,58,237,0.13), rgba(59,130,246,0.10))',
+                        border: '1px solid rgba(124,58,237,0.18)',
+                        boxShadow: '0 10px 22px rgba(124,58,237,0.10)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#7c3aed', boxShadow: '0 0 0 4px rgba(124,58,237,0.12)' }} />
+                      <span style={{ fontSize: 9.5, fontWeight: 900, color: '#6d28d9', letterSpacing: '0.12em' }}>SMART</span>
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <TinyStat label="Suggested daily cut" value={coach.suggestedDailyCut ? fmt(coach.suggestedDailyCut) : 'No cut needed'} tone={coach.suggestedDailyCut ? '#dc2626' : '#16a34a'} />
-                    <div style={{ padding: '10px 10px', borderRadius: 16, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
-                      <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b' }}>Top risks</p>
-                      <div style={{ display: 'grid', gap: 6, marginTop: 7 }}>
-                        {coach.risks.length ? coach.risks.map((risk) => (
-                          <p key={risk} style={{ margin: 0, fontSize: 11.5, color: '#475569', lineHeight: 1.45 }}>• {risk}</p>
-                        )) : <p style={{ margin: 0, fontSize: 11.5, color: '#64748b' }}>No major risks detected right now.</p>}
-                      </div>
-                    </div>
-                    <div style={{ padding: '10px 10px', borderRadius: 16, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                      <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#166534' }}>Motivation</p>
-                      <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#166534', lineHeight: 1.45 }}>{coach.motivation}</p>
-                    </div>
-                  </div>
+                </div>
+                <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 7 }}>
+                  {coachSignals.map((signal) => (
+                    <CoachSignalCard
+                      key={signal.key}
+                      emoji={signal.emoji}
+                      title={signal.title}
+                      status={signal.status}
+                      helper={signal.helper}
+                      tone={signal.tone}
+                      bg={signal.bg}
+                      border={signal.border}
+                    />
+                  ))}
                 </div>
               </GlassCard>
 
