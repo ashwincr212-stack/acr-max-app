@@ -276,7 +276,7 @@ function PersonCard({ account, onClick }) {
 /* ══════════════════════════════════════════════════════════════════════
    TRANSACTION ROW  (inside person detail)
 ══════════════════════════════════════════════════════════════════════ */
-function TxRow({ entry, onSettle, onDelete, onEdit }) {
+function TxRow({ entry, onSettle, onDelete, onEdit, onRemind }) {
   const [open, setOpen] = useState(false)
   const isLent  = normalizeLedgerType(entry) === 'lent'
   const accent  = isLent ? '#16a34a' : '#dc2626'
@@ -324,6 +324,9 @@ function TxRow({ entry, onSettle, onDelete, onEdit }) {
             {!entry.settled && (
               <button onClick={()=>onSettle(entry.id)} style={actionBtn('#dcfce7','#16a34a','#bbf7d0')}>✓ Settled</button>
             )}
+            {!entry.settled && (
+              <button onClick={()=>onRemind(entry)} style={actionBtn('#eff6ff','#1d4ed8','#bfdbfe')}>🔔 Remind</button>
+            )}
             <button onClick={()=>onEdit(entry)} style={actionBtn('#f0f0f3','#475569','#e2e8f0')}>✏ Edit</button>
             <button onClick={()=>onDelete(entry.id)} style={actionBtn('#fee2e2','#dc2626','#fca5a5')}>🗑</button>
           </div>
@@ -340,9 +343,9 @@ const actionBtn = (bg,col,br) => ({
 })
 
 /* ══════════════════════════════════════════════════════════════════════
-   PERSON DETAIL DRAWER
+   PERSON DETAIL VIEW
 ══════════════════════════════════════════════════════════════════════ */
-function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete, onEdit, onExport, onRemind }) {
+function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete, onExport, onRemind }) {
   const [addOpen, setAddOpen]   = useState(false)
   const [editEntry, setEditEntry] = useState(null)
   const [showExportMenu, setShowExportMenu] = useState(false)
@@ -357,7 +360,8 @@ function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete
   const net         = lentTotal - borTotal
 
   const pendingEntries = entries.filter(e=>!e.settled)
-  const waMsg = `Hi ${account.name}, this is a gentle reminder about ₹${fmt(Math.abs(net))} pending between us. Please let me know when you're able to settle. Thank you! 🙏`
+  const cleanPhone = cleanPhoneNumber(account.phone)
+  const waMsg = `Hi ${account.name}, this is a gentle reminder about ${fmt(Math.abs(net))} pending between us. Please let me know when you're able to settle. Thank you! 🙏`
 
   const handleSettleAll = () => {
     pendingEntries.forEach(e => onSettle(e.id))
@@ -365,52 +369,30 @@ function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete
   }
 
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:400, background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)', display:'flex', alignItems:'flex-end', justifyContent:'center', animation:'fadeIn 0.2s ease-out' }}
-      onClick={e => e.target===e.currentTarget && onClose()}>
-      <div style={{
-        width:'100%', maxWidth:520,
-        background:'linear-gradient(160deg,#f8f8f8,#ebebeb)',
-        borderRadius:'18px 18px 0 0', padding:'0 0 24px',
-        maxHeight:'94vh', display:'flex', flexDirection:'column',
-        boxShadow:'0 -8px 40px rgba(0,0,0,0.18)',
-        animation:'ldgSlideUpModal 0.35s cubic-bezier(.34,1.1,.64,1) both',
-      }}>
-        {/* Handle */}
-        <div style={{ width:36, height:4, borderRadius:2, background:'#d1d5db', margin:'8px auto 0', flexShrink:0 }} />
-
-        {/* Header */}
+    <div style={{ display:'flex', flexDirection:'column', minHeight:0, height:'100%', animation:'fadeIn 0.2s ease-out' }}>
+      <div style={{ padding:'0 0 24px', display:'flex', flexDirection:'column', minHeight:0, height:'100%' }}>
         <div style={{ padding:'11px 14px 10px', flexShrink:0, borderBottom:'1px solid rgba(0,0,0,0.06)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:9 }}>
-            <Avatar name={account.name} color={account.color} size={40} />
-            <div style={{ flex:1 }}>
-              <h3 style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:16, margin:'0 0 2px', color:'#1a1a1a' }}>{account.name}</h3>
+          <div style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:9 }}>
+            <button onClick={onClose} style={{ ...quickBtn('#e2e8f0','#475569'), padding:'7px 11px', flexShrink:0 }}>← Back</button>
+            <Avatar name={account.name} color={account.color} size={42} />
+            <div style={{ flex:1, minWidth:0 }}>
+              <h3 style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, margin:'0 0 2px', color:'#1a1a1a' }}>{account.name}</h3>
               <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-                {account.phone && (
-                  <>
-                    <a href={`tel:${account.phone}`} style={{ fontSize:11, color:'#1d4ed8', fontWeight:600, textDecoration:'none', fontFamily:'Poppins,sans-serif' }}>{account.phone}</a>
-                    <a href={`https://wa.me/91${account.phone.replace(/\D/g,'')}?text=${encodeURIComponent(waMsg)}`} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize:9, fontWeight:800, padding:'2px 8px', borderRadius:9, background:'#dcfce7', color:'#16a34a', border:'1px solid #bbf7d0', textDecoration:'none', fontFamily:'Poppins,sans-serif' }}>
-                      💬 WhatsApp
-                    </a>
-                  </>
-                )}
-                {pendingEntries.length > 0 && (
-                  <button onClick={() => onRemind(account)} style={{ fontSize:9, fontWeight:800, padding:'2px 8px', borderRadius:9, background:'#eff6ff', color:'#1d4ed8', border:'1px solid #bfdbfe', fontFamily:'Poppins,sans-serif', cursor:'pointer' }}>
-                    🔔 Remind
-                  </button>
+                {account.phone ? (
+                  <a href={`tel:${account.phone}`} style={{ fontSize:11, color:'#1d4ed8', fontWeight:600, textDecoration:'none', fontFamily:'Poppins,sans-serif' }}>{account.phone}</a>
+                ) : (
+                  <span style={{ fontSize:11, color:'#9ca3af', fontFamily:'Poppins,sans-serif' }}>No phone saved</span>
                 )}
                 {account.isFullySettled && <span style={badge('#dcfce7','#16a34a','#bbf7d0')}>✓ ALL CLEAR</span>}
               </div>
             </div>
-            <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:'1px solid #e2e8f0', background:'linear-gradient(145deg,#f5f5f5,#e0e0e0)', boxShadow:'2px 2px 5px rgba(0,0,0,0.08)', color:'#6b7280', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
           </div>
 
-          {/* Summary chips */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,minmax(0,1fr))', gap:6 }}>
             {[
-              { label:'To Collect', value:fmt(lentTotal), color:'#16a34a' },
-              { label:'To Pay',     value:fmt(borTotal),  color:'#dc2626' },
-              { label: net>=0?'You will collect':'You need to pay', value:(net>=0?'+':'-')+fmt(Math.abs(net)), color:net>=0?'#16a34a':'#dc2626' },
+              { label:'To Collect', value:fmt(lentTotal) },
+              { label:'To Pay', value:fmt(borTotal) },
+              { label: net>=0?'You will collect':'You need to pay', value:(net>=0?'+':'-')+fmt(Math.abs(net)) },
             ].map((s,i) => (
               <div key={i} style={{ padding:'7px 6px', background:'linear-gradient(145deg,#f5f5f5,#e0e0e0)', borderRadius:10, textAlign:'center', boxShadow:'2px 2px 6px rgba(0,0,0,0.08),-1px -1px 4px rgba(255,255,255,0.9)' }}>
                 <p style={{ fontSize:8, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif', fontWeight:800 }}>{s.label}</p>
@@ -419,7 +401,6 @@ function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete
             ))}
           </div>
 
-          {/* Settled summary if any */}
           {settledAmt > 0 && (
             <p style={{ fontSize:10, color:'#9ca3af', fontFamily:'Poppins,sans-serif', margin:'6px 0 0', textAlign:'center' }}>
               ✓ {fmt(settledAmt)} settled across {entries.filter(e=>e.settled).length} entries
@@ -427,16 +408,21 @@ function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete
           )}
         </div>
 
-        {/* Action bar */}
-        <div style={{ display:'flex', gap:7, padding:'9px 14px', flexShrink:0, borderBottom:'1px solid rgba(0,0,0,0.06)', background:'linear-gradient(145deg,#f0f0f0,#e8e8e8)' }}>
-          <button onClick={() => { setEditEntry(null); setAddOpen(true) }} style={{ flex:2, ...quickBtn('#7c3aed','#fff') }}>＋ Add Entry</button>
-          {pendingEntries.length > 1 && (
-            <button onClick={() => setSettleAll(true)} style={{ flex:2, ...quickBtn('#16a34a','#fff') }}>✓ Settle All</button>
-          )}
-          <div style={{ position:'relative', flex:1, zIndex:4600, overflow:'visible' }}>
+        <div style={{ display:'flex', gap:7, padding:'9px 14px', flexShrink:0, borderBottom:'1px solid rgba(0,0,0,0.06)', background:'linear-gradient(145deg,#f0f0f0,#e8e8e8)', flexWrap:'wrap' }}>
+          <button onClick={() => { setEditEntry(null); setAddOpen(true) }} style={{ ...quickBtn('#7c3aed','#fff'), flex:'1 1 130px' }}>＋ Add Entry</button>
+          <button onClick={() => onRemind(account)} style={{ ...quickBtn(pendingEntries.length ? '#1d4ed8' : '#cbd5e1', '#fff'), flex:'1 1 110px', opacity:pendingEntries.length ? 1 : 0.7 }} disabled={!pendingEntries.length}>🔔 Remind</button>
+          <a href={cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMsg)}` : undefined} target="_blank" rel="noopener noreferrer"
+            style={{ ...quickBtn(cleanPhone ? '#16a34a' : '#cbd5e1', '#fff'), flex:'1 1 110px', textDecoration:'none', textAlign:'center', pointerEvents:cleanPhone ? 'auto' : 'none', opacity:cleanPhone ? 1 : 0.7 }}>
+            💬 WhatsApp
+          </a>
+          <a href={account.phone ? `tel:${account.phone}` : undefined}
+            style={{ ...quickBtn(account.phone ? '#0f766e' : '#cbd5e1', '#fff'), flex:'1 1 90px', textDecoration:'none', textAlign:'center', pointerEvents:account.phone ? 'auto' : 'none', opacity:account.phone ? 1 : 0.7 }}>
+            📞 Call
+          </a>
+          <div style={{ position:'relative', flex:'1 1 90px', minWidth:90, zIndex:4600, overflow:'visible' }}>
             <button onClick={() => setShowExportMenu(m=>!m)} style={{ width:'100%', ...quickBtn('#475569','#fff') }}>↓ PDF</button>
             {showExportMenu && (
-              <div style={{ position:'absolute', bottom:'calc(100% + 6px)', right:0, background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, boxShadow:'0 14px 34px rgba(15,23,42,0.2)', overflow:'visible', zIndex:4700, minWidth:160 }}>
+              <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, boxShadow:'0 14px 34px rgba(15,23,42,0.2)', overflow:'visible', zIndex:4700, minWidth:160 }}>
                 {[
                   ['This account', () => onExport('person', account.name)],
                   ['All pending',  () => onExport('pending')],
@@ -450,10 +436,12 @@ function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete
               </div>
             )}
           </div>
+          {pendingEntries.length > 1 && (
+            <button onClick={() => setSettleAll(true)} style={{ ...quickBtn('#16a34a','#fff'), flex:'1 1 120px' }}>✓ Settle All</button>
+          )}
         </div>
 
-        {/* Transaction list */}
-        <div style={{ overflowY:'auto', flex:1, padding:'10px 14px' }}>
+        <div style={{ overflowY:'auto', flex:1, minHeight:0, padding:'10px 14px' }}>
           <p style={{ fontSize:10, fontWeight:800, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 8px', fontFamily:'Poppins,sans-serif' }}>
             Transaction History · {entries.length} entr{entries.length===1?'y':'ies'}
           </p>
@@ -465,6 +453,14 @@ function PersonDetail({ account, allEntries, onClose, onSave, onSettle, onDelete
                 onSettle={onSettle}
                 onDelete={onDelete}
                 onEdit={(e) => { setEditEntry(e); setAddOpen(true) }}
+                onRemind={(entryToRemind) => onRemind({
+                  key: account.key,
+                  name: account.name,
+                  phone: entryToRemind.phone || account.phone || '',
+                  amount: entryToRemind.amount,
+                  minDays: DAYS_LEFT(entryToRemind.dueDate),
+                  statusText: getReminderStatus(DAYS_LEFT(entryToRemind.dueDate)),
+                })}
               />
             ))
           )}
@@ -659,6 +655,7 @@ function EntryModal({ editing, prefillPerson, onSave, onClose }) {
   const [error, setError] = useState('')
   const [showContactTrust, setShowContactTrust] = useState(false)
   const [contactHelp, setContactHelp] = useState('')
+  const [showMore, setShowMore] = useState(Boolean(editing?.category || editing?.color))
 
   const handleChooseContact = useCallback(async () => {
     const contactApi = navigator?.contacts
@@ -718,18 +715,16 @@ function EntryModal({ editing, prefillPerson, onSave, onClose }) {
   )
 
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)', display:'flex', alignItems:'flex-end', justifyContent:'center', animation:'fadeIn 0.2s ease-out' }}
+    <div style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(15,23,42,0.18)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, animation:'fadeIn 0.16s ease-out' }}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{
-        width:'100%', maxWidth:500,
+        width:'100%', maxWidth:460,
         background:'linear-gradient(160deg,#f8f8f8,#ebebeb)',
-        borderRadius:'18px 18px 0 0', padding:'14px 14px 24px',
-        maxHeight:'94vh', overflowY:'auto',
-        boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',
-        animation:'ldgSlideUpModal 0.35s cubic-bezier(.34,1.1,.64,1) both',
+        borderRadius:18, padding:'14px 14px 16px',
+        maxHeight:'88vh', overflowY:'auto',
+        boxShadow:'0 18px 42px rgba(15,23,42,0.2)',
+        animation:'fadeIn 0.16s ease-out',
       }}>
-        <div style={{ width:36, height:4, borderRadius:2, background:'#d1d5db', margin:'-2px auto 11px' }} />
-
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
           <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, color:'#1a1a1a', fontSize:15, margin:0 }}>
             {editing?.id ? '✏ Edit Entry' : '＋ New Entry'}
@@ -771,17 +766,13 @@ function EntryModal({ editing, prefillPerson, onSave, onClose }) {
           )}
         </div>
 
-        <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-          <div style={{ flex:1 }}><Lbl t="Amount (₹)" /><input type="number" value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="0" style={inputSt} /></div>
-          <div style={{ flex:1 }}><Lbl t="Category" /><select value={form.category} onChange={e=>set('category',e.target.value)} style={{ ...inputSt, cursor:'pointer' }}>{CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
-        </div>
+        <div style={{ marginBottom:10 }}><Lbl t="Amount (₹)" /><input type="number" value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="0" style={inputSt} /></div>
 
-        {/* Reason tags */}
         <div style={{ marginBottom:10 }}>
-          <Lbl t="Reason" />
+          <Lbl t="Purpose" />
           <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:7 }}>
             {REASON_TAGS.map(tag=>(
-              <button key={tag} onClick={()=>set('note',tag)} style={{
+              <button type="button" key={tag} onClick={()=>set('note',tag)} style={{
                 padding:'4px 9px', borderRadius:16, fontSize:10, fontWeight:700, cursor:'pointer',
                 fontFamily:'Poppins,sans-serif',
                 border: form.note===tag?'1.5px solid #7c3aed':'1px solid #e2e8f0',
@@ -800,28 +791,56 @@ function EntryModal({ editing, prefillPerson, onSave, onClose }) {
 
         <div style={{ display:'flex', gap:8, marginBottom:10 }}>
           <div style={{ flex:1 }}><Lbl t="Date" /><input type="date" value={form.date} onChange={e=>set('date',e.target.value)} style={{ ...inputSt, colorScheme:'light' }} /></div>
-          <div style={{ flex:1 }}><Lbl t="Due Date" /><input type="date" value={form.dueDate} onChange={e=>set('dueDate',e.target.value)} style={{ ...inputSt, colorScheme:'light' }} /></div>
+          <div style={{ flex:1 }}><Lbl t="Reminder Due Date" /><input type="date" value={form.dueDate} onChange={e=>set('dueDate',e.target.value)} style={{ ...inputSt, colorScheme:'light' }} /></div>
         </div>
 
         <div style={{ marginBottom:12 }}>
-          <Lbl t="Avatar Color" />
-          <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
-            {COLORS.map(c=>(
-              <button key={c} onClick={()=>set('color',c)} style={{ width:24, height:24, borderRadius:'50%', background:c, cursor:'pointer', border:form.color===c?'3px solid #1a1a1a':'2px solid rgba(255,255,255,0.8)', boxShadow:'2px 2px 5px rgba(0,0,0,0.1)', transform:form.color===c?'scale(1.14)':'scale(1)', transition:'all 0.15s' }} />
-            ))}
-          </div>
+          <button type="button" onClick={() => setShowMore(v => !v)} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', background:'none', border:'none', padding:0, cursor:'pointer' }}>
+            <span style={{ fontSize:10, fontWeight:800, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'Poppins,sans-serif' }}>More options</span>
+            <span style={{ fontSize:12, color:'#64748b' }}>{showMore ? '▲' : '▼'}</span>
+          </button>
+          {showMore && (
+            <div style={{ marginTop:8, padding:'10px', borderRadius:12, background:'linear-gradient(145deg,#f5f5f5,#ececec)', border:'1px solid #e2e8f0' }}>
+              <div style={{ marginBottom:10 }}>
+                <Lbl t="Category" />
+                <select value={form.category} onChange={e=>set('category',e.target.value)} style={{ ...inputSt, cursor:'pointer' }}>{CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select>
+              </div>
+              <div style={{ marginBottom:10 }}>
+                <Lbl t="Avatar Color" />
+                <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
+                  {COLORS.map(c=>(
+                    <button type="button" key={c} onClick={()=>set('color',c)} style={{ width:24, height:24, borderRadius:'50%', background:c, cursor:'pointer', border:form.color===c?'3px solid #1a1a1a':'2px solid rgba(255,255,255,0.8)', boxShadow:'2px 2px 5px rgba(0,0,0,0.1)', transform:form.color===c?'scale(1.14)':'scale(1)', transition:'all 0.15s' }} />
+                  ))}
+                </div>
+              </div>
+              <p style={{ margin:0, fontSize:10, color:'#94a3b8', fontFamily:'Poppins,sans-serif', lineHeight:1.35 }}>
+                Payment mode and UPI stay unchanged here so the current ledger logic remains intact.
+              </p>
+            </div>
+          )}
         </div>
 
         {error && <p style={{ color:'#dc2626', fontSize:11, marginBottom:10, fontWeight:700, fontFamily:'Poppins,sans-serif' }}>⚠ {error}</p>}
 
-        <button onClick={handleSave} style={{
-          width:'100%', padding:'12px', borderRadius:12, border:'none', cursor:'pointer',
-          background: form.type==='lent'?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#dc2626,#ef4444)',
-          color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14,
-          boxShadow: form.type==='lent'?'4px 4px 14px rgba(22,163,74,0.3)':'4px 4px 14px rgba(220,38,38,0.3)',
-        }}>
-          {editing?.id ? '💾 Save Changes' : (form.type==='lent'?'↑ Save: You gave money':'↓ Save: You took money')}
-        </button>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <button onClick={handleSave} style={{
+            width:'100%', padding:'12px', borderRadius:12, border:'none', cursor:'pointer',
+            background: form.type==='lent'?'linear-gradient(135deg,#16a34a,#22c55e)':'linear-gradient(135deg,#dc2626,#ef4444)',
+            color:'#fff', fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:14,
+            boxShadow: form.type==='lent'?'4px 4px 14px rgba(22,163,74,0.3)':'4px 4px 14px rgba(220,38,38,0.3)',
+          }}>
+            {editing?.id ? '💾 Save Changes' : (form.type==='lent'?'↑ Save Entry':'↓ Save Entry')}
+          </button>
+          <button onClick={onClose} style={quickBtn('#e2e8f0','#475569')}>Cancel</button>
+        </div>
+
+        {showContactTrust && (
+          <ContactTrustModal
+            onClose={() => setShowContactTrust(false)}
+            onChooseContact={handleChooseContact}
+            unsupportedMessage={contactHelp.includes('Contact picker') || contactHelp.includes('Contact access') ? contactHelp : ''}
+          />
+        )}
       </div>
     </div>
   )
@@ -871,13 +890,6 @@ function NativePdfActions({ file, onClose }) {
         }}>Cancel</button>
       </div>
 
-      {showContactTrust && (
-        <ContactTrustModal
-          onClose={() => setShowContactTrust(false)}
-          onChooseContact={handleChooseContact}
-          unsupportedMessage={contactHelp.includes('Contact picker') || contactHelp.includes('Contact access') ? contactHelp : ''}
-        />
-      )}
     </div>
   )
 }
@@ -1322,7 +1334,19 @@ export default function Ledger({ currentUser }) {
     `}</style>
 
     <div className="ldg-root" style={{ maxWidth:1180, margin:'0 auto', padding:'0 2px', width:'100%', height:'calc(100dvh - 128px)', minHeight:420, boxSizing:'border-box', overflow:'hidden', display:'flex', flexDirection:'column' }}>
-
+      {activeAccount ? (
+        <PersonDetail
+          account={activeAccount}
+          allEntries={entries}
+          onClose={()=>setActivePerson(null)}
+          onSave={handleSave}
+          onSettle={handleSettle}
+          onDelete={handleDelete}
+          onExport={handleExport}
+          onRemind={openReminder}
+        />
+      ) : (
+        <>
       {/* ── FLOATING ADD ── */}
       <div style={{
   position:'fixed',
@@ -1503,6 +1527,8 @@ export default function Ledger({ currentUser }) {
         </div>
       )}
       </div>
+      </>
+      )}
 
       {/* ── MODALS ── */}
       {showModal && (
@@ -1516,20 +1542,6 @@ export default function Ledger({ currentUser }) {
           onOpenPerson={(key)=>{ setActivePerson(key); setShowAlerts(false) }}
           onSettle={handleSettle}
           onRemind={(target) => { setShowAlerts(false); openReminder(target) }}
-        />
-      )}
-
-      {activeAccount && (
-        <PersonDetail
-          account={activeAccount}
-          allEntries={entries}
-          onClose={()=>setActivePerson(null)}
-          onSave={handleSave}
-          onSettle={handleSettle}
-          onDelete={handleDelete}
-          onEdit={()=>{}}
-          onExport={handleExport}
-          onRemind={openReminder}
         />
       )}
 
