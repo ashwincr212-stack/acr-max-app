@@ -234,24 +234,24 @@ const calculateBurnRate = ({ averageDailySpend, monthlyBudget, daysInMonth }) =>
   return { idealDailyBudget, burnRate, message }
 }
 
-const calculateSafeSpend = ({ monthlyBudget, totalSpent, now }) => {
+const calculateSafeSpend = ({ monthlyBudget, totalSpent, todaySpent, now }) => {
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const hasBudget = monthlyBudget > 0
+  const dailySpendableAmount = hasBudget ? monthlyBudget / daysInMonth : 0
+  const todayDifference = dailySpendableAmount - todaySpent
   const remainingBudget = monthlyBudget - totalSpent
   const remainingDays = Math.max(daysInMonth - now.getDate() + 1, 1)
-  const safeSpendToday = remainingBudget / remainingDays
-  const perDay = Math.abs(safeSpendToday)
+  const safeSpendToday = dailySpendableAmount
   return {
+    hasBudget,
+    daysInMonth,
+    dailySpendableAmount,
+    todayDifference,
     remainingBudget,
     remainingDays,
     safeSpendToday,
-    message:
-      remainingBudget >= 0
-        ? `Safe spend today: ${fmt(perDay)}`
-        : `Recovery needed: ${fmt(perDay)}/day`,
-    sub:
-      remainingBudget >= 0
-        ? 'Stay under this to finish within budget.'
-        : 'Daily cuts from here reduce overshoot.',
+    message: hasBudget ? `${fmt(dailySpendableAmount)}/day` : 'Set budget',
+    sub: hasBudget ? 'Monthly budget / days in this month.' : 'Add budget to track daily spending.',
   }
 }
 
@@ -821,10 +821,32 @@ export default function Expense(props) {
       calculateSafeSpend({
         monthlyBudget: monthStats.monthlyBudget,
         totalSpent: monthStats.totalSpent,
+        todaySpent: monthStats.todaySpent,
         now: monthStats.now,
       }),
     [monthStats]
   )
+  const todaySpendStatus = useMemo(() => {
+    if (!safeSpend.hasBudget) {
+      return {
+        value: 'Set budget',
+        sub: 'Add budget to track daily spending.',
+        tone: '#64748b',
+      }
+    }
+    if (monthStats.todaySpent <= safeSpend.dailySpendableAmount) {
+      return {
+        value: `${fmt(safeSpend.todayDifference)} left today`,
+        sub: 'Under daily spend limit.',
+        tone: '#16a34a',
+      }
+    }
+    return {
+      value: `${fmt(Math.abs(safeSpend.todayDifference))} over today`,
+      sub: 'Daily spend limit exceeded.',
+      tone: '#dc2626',
+    }
+  }, [monthStats.todaySpent, safeSpend])
 
   const todayLogs = useMemo(
     () => monthStats.currentMonthLogs.filter((log) => isSameDay(log.date, monthStats.now)),
@@ -959,11 +981,11 @@ export default function Expense(props) {
         severity: 'high',
       })
     })
-    if (monthStats.todaySpent > Math.max(safeSpend.safeSpendToday, 0) && safeSpend.remainingBudget >= 0) {
+    if (safeSpend.hasBudget && monthStats.todaySpent > safeSpend.dailySpendableAmount) {
       items.push({
-        icon: '📅',
-        title: 'High spending today',
-        text: `Today is already at ${fmt(monthStats.todaySpent)} versus a safe pace of ${fmt(safeSpend.safeSpendToday)}.`,
+        icon: '!',
+        title: 'Daily spend limit exceeded',
+        text: `You spent ${fmt(Math.abs(safeSpend.todayDifference))} over today's daily limit.`,
         severity: 'medium',
       })
     }
@@ -978,8 +1000,8 @@ export default function Expense(props) {
     if (projection.projectedDelta > 0) {
       items.push({
         icon: '🔮',
-        title: 'Month-end prediction',
-        text: `Expected month-end spend is ${fmt(projection.projectedSpend)}, likely over by ${fmt(projection.projectedDelta)}.`,
+        title: 'Projection warning',
+        text: `Expected spend is ${fmt(projection.projectedSpend)}, likely over by ${fmt(projection.projectedDelta)}.`,
         severity: 'high',
       })
     }
@@ -1448,12 +1470,12 @@ export default function Expense(props) {
 
           {expenseTab === 'overview' ? (
             <div style={{ display: 'grid', gap: 10 }}>
-              <div className="exp-grid-overview" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
-                <MiniOverviewCard label="Safe Spend" value={safeSpend.remainingBudget >= 0 ? fmt(Math.max(safeSpend.safeSpendToday, 0)) : `${fmt(Math.abs(safeSpend.safeSpendToday))}/d`} sub={safeSpend.remainingBudget >= 0 ? 'Stay under it today.' : 'Recovery pace needed.'} tone={safeSpend.remainingBudget >= 0 ? '#16a34a' : '#dc2626'} />
-                <MiniOverviewCard label="Burn Rate" value={`${burnRate.burnRate.toFixed(1)}x`} sub={burnRate.burnRate > 1.1 ? 'Spending too fast.' : burnRate.burnRate < 0.9 ? 'Below plan pace.' : 'Close to plan.'} tone={burnRate.burnRate > 1.1 ? '#dc2626' : burnRate.burnRate < 0.9 ? '#16a34a' : '#d97706'} />
-                <MiniOverviewCard label="Month-End" value={fmt(projection.projectedSpend)} sub={projection.projectedDelta > 0 ? `Over by ${fmt(projection.projectedDelta)}` : `Under by ${fmt(Math.abs(projection.projectedDelta))}`} tone={projection.projectedDelta > 0 ? '#dc2626' : '#16a34a'} />
-                <MiniOverviewCard label="Today vs Yesterday" value={dailyComparison ? `${dailyComparison.diff <= 0 ? '↓' : '↑'} ${fmt(Math.abs(dailyComparison.diff))}` : '--'} sub={dailyComparison ? dailyComparison.diff <= 0 ? 'Lower than yesterday.' : 'Higher than yesterday.' : 'Need more entries.'} tone={dailyComparison ? dailyComparison.diff <= 0 ? '#16a34a' : '#dc2626' : '#64748b'} />
-              </div>
+              <div className="exp-grid-overview" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                <div style={{ display: 'grid', gap: 8 }}><MiniOverviewCard label="Daily Spendable Amount" value={safeSpend.hasBudget ? `${fmt(safeSpend.dailySpendableAmount)}/day` : 'Set budget'} sub={safeSpend.hasBudget ? 'Monthly budget / days in this month.' : 'Add budget to track daily spending.'} tone={safeSpend.hasBudget ? '#2563eb' : '#64748b'} /><MiniOverviewCard label="Today's Spend Status" value={todaySpendStatus.value} sub={todaySpendStatus.sub} tone={todaySpendStatus.tone} /></div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <MiniOverviewCard label="Burn Rate" value={`${burnRate.burnRate.toFixed(1)}x`} sub={burnRate.burnRate > 1.1 ? 'Spending too fast.' : burnRate.burnRate < 0.9 ? 'Below plan pace.' : 'Close to plan.'} tone={burnRate.burnRate > 1.1 ? '#dc2626' : burnRate.burnRate < 0.9 ? '#16a34a' : '#d97706'} />
+                  <MiniOverviewCard label="Today vs Yesterday" value={dailyComparison ? `${dailyComparison.diff <= 0 ? 'Down' : 'Up'} ${fmt(Math.abs(dailyComparison.diff))}` : '--'} sub={dailyComparison ? dailyComparison.diff <= 0 ? 'Lower than yesterday.' : 'Higher than yesterday.' : 'Need more entries.'} tone={dailyComparison ? dailyComparison.diff <= 0 ? '#16a34a' : '#dc2626' : '#64748b'} />
+                </div></div>
 
               <GlassCard style={{ padding: 11 }} accent="rgba(59,130,246,0.15)">
                 <SectionHdr title="Money Leak Detector" accent="#2563eb" subtitle={leakData.totalLeakAmount ? `${fmt(leakData.totalLeakAmount)} found in repeat spends.` : 'No repeated low-ticket leak found yet.'} />
@@ -1803,3 +1825,4 @@ const tdStyle = (align, color) => ({
   color: color || '#475569',
   fontWeight: align === 'left' ? 800 : 700,
 })
+
