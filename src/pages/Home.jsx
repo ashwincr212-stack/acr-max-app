@@ -528,24 +528,58 @@ function extractAstroSummary(rawResult) {
   // Resolve the actual payload object regardless of how fetchAstroDoc wraps it
   const data = getAstroPayload(rawResult)
 
-  // Festivals: support several shapes — top-level, rawFestivals, or a single string
-  const rawFestivals = data?.rawFestivals || data?.festivalsData || {}
-  const festivalList = [
-    ...(Array.isArray(rawFestivals?.festival_list) ? rawFestivals.festival_list : []),
-    ...(Array.isArray(rawFestivals?.festivals) ? rawFestivals.festivals : []),
-    ...(Array.isArray(data?.festivals) ? data.festivals : []),
-    ...(Array.isArray(data?.festival_list) ? data.festival_list : []),
+  // ── Festival: try every possible shape exhaustively ──
+  const festivalSources = [
+    data?.rawFestivals,
+    data?.festivalsData,
+    data?.normalized?.rawFestivals,
+    data?.response?.rawFestivals,
   ]
-  const firstFestival = festivalList.find(Boolean)
-  let festivalName =
-    firstFestival?.festival_name ||
-    firstFestival?.name ||
-    firstFestival?.title ||
-    (typeof firstFestival === 'string' ? firstFestival : '') ||
-    (typeof data?.festival === 'string' ? data.festival : '') ||
-    (typeof data?.festival?.name === 'string' ? data.festival.name : '') ||
+  let festivalList = []
+  for (const src of festivalSources) {
+    if (!src) continue
+    if (Array.isArray(src?.festival_list)) festivalList = festivalList.concat(src.festival_list)
+    if (Array.isArray(src?.festivals))     festivalList = festivalList.concat(src.festivals)
+    if (Array.isArray(src?.festival))      festivalList = festivalList.concat(src.festival)
+  }
+  // Also try top-level arrays
+  if (Array.isArray(data?.festivals))     festivalList = festivalList.concat(data.festivals)
+  if (Array.isArray(data?.festival_list)) festivalList = festivalList.concat(data.festival_list)
+  if (Array.isArray(data?.festival))      festivalList = festivalList.concat(data.festival)
+  if (Array.isArray(data?.normalized?.festivals)) festivalList = festivalList.concat(data.normalized.festivals)
+  if (Array.isArray(data?.response?.festivals))   festivalList = festivalList.concat(data.response.festivals)
+
+  // Extract name from each item
+  const pickFestivalName = (item) => {
+    if (!item) return ''
+    if (typeof item === 'string') return item.trim()
+    return (
+      item.festival_name || item.festivalName ||
+      item.name || item.title || item.festival ||
+      item.summary || item.description || ''
+    ).toString().trim()
+  }
+
+  const validFestivals = festivalList.map(pickFestivalName).filter(Boolean)
+
+  // Also check scalar fields
+  const scalarFestival =
+    (typeof data?.festival === 'string' ? data.festival.trim() : '') ||
+    (typeof data?.festival?.name === 'string' ? data.festival.name.trim() : '') ||
+    (typeof data?.festivalName === 'string' ? data.festivalName.trim() : '') ||
+    (typeof data?.normalized?.festival === 'string' ? data.normalized.festival.trim() : '') ||
     ''
-  if (!festivalName) festivalName = 'No festival today'
+
+  if (scalarFestival && !validFestivals.includes(scalarFestival)) {
+    validFestivals.unshift(scalarFestival)
+  }
+
+  let festivalDisplay = 'No festival today'
+  if (validFestivals.length === 1) {
+    festivalDisplay = validFestivals[0]
+  } else if (validFestivals.length > 1) {
+    festivalDisplay = `${validFestivals[0]}  +${validFestivals.length - 1} more`
+  }
 
   const goodWindow =
     (typeof data?.abhijitMuhurta === 'string' && data.abhijitMuhurta) ||
@@ -566,7 +600,7 @@ function extractAstroSummary(rawResult) {
   return {
     title: 'Daily Panchang',
     window: goodWindow || '',
-    festival: festivalName,
+    festival: festivalDisplay,
     sunrise: readSunrise(data),
     sunset: readSunset(data),
     moonrise: pickTimeLike(data, ['moonrise', 'Moonrise', 'moon_rise', 'moonRise']),
@@ -591,14 +625,11 @@ function extractAstroSummary(rawResult) {
       ['abhijitMuhurta', 'abhijit_muhurta', 'abhijit', 'abhijitMuhurat', 'abhijit_muhurat'],
       ['abhijit_muhurta', 'abhijitMuhurta', 'abhijit']
     ),
+    // Only name — no range — for tile display
     tithiName: tithiDetail.name || firstFilled(readPath(data, 'tithi.name'), data?.tithi_name, typeof data?.tithi === 'string' ? data.tithi : ''),
-    tithiRange: tithiDetail.range,
     nakshatraName: nakDetail.name || firstFilled(readPath(data, 'nakshatra.name'), data?.nakshatra_name, typeof data?.nakshatra === 'string' ? data.nakshatra : ''),
-    nakshatraRange: nakDetail.range,
     yogaName: yogaDetail.name || firstFilled(readPath(data, 'yoga.name'), data?.yoga_name, typeof data?.yoga === 'string' ? data.yoga : ''),
-    yogaRange: yogaDetail.range,
     karanaName: karanaDetail.name || firstFilled(readPath(data, 'karana.name'), data?.karana_name, typeof data?.karana === 'string' ? data.karana : ''),
-    karanaRange: karanaDetail.range,
   }
 }
 
@@ -699,19 +730,21 @@ function PremiumAstroCard({ snapshot, onOpen, onLocationChange }) {
   const ps = snapshot.periodStatus || {}
   const mode = ps.mode || 'neutral'
 
-  const sunMoonChips = [
-    snapshot.sunrise && { icon: '🌅', label: 'Rise', val: formatShortTime(snapshot.sunrise) },
-    snapshot.sunset  && { icon: '🌇', label: 'Set',  val: formatShortTime(snapshot.sunset)  },
-    snapshot.moonrise && { icon: '🌕', label: 'Rise', val: formatShortTime(snapshot.moonrise) },
-    snapshot.moonset  && { icon: '🌑', label: 'Set',  val: formatShortTime(snapshot.moonset)  },
+  const sunMoonRows = [
+    snapshot.sunrise  && { type: 'sun',  subtype: 'rise', label: 'Sunrise',  val: formatShortTime(snapshot.sunrise)  },
+    snapshot.sunset   && { type: 'sun',  subtype: 'set',  label: 'Sunset',   val: formatShortTime(snapshot.sunset)   },
+    snapshot.moonrise && { type: 'moon', subtype: 'rise', label: 'Moonrise', val: formatShortTime(snapshot.moonrise) },
+    snapshot.moonset  && { type: 'moon', subtype: 'set',  label: 'Moonset',  val: formatShortTime(snapshot.moonset)  },
   ].filter(Boolean)
 
   const tiles = [
-    { icon: '🌙', label: 'TITHI',     name: snapshot.tithiName     || '—', range: snapshot.tithiRange     },
-    { icon: '✨', label: 'NAKSHATRA', name: snapshot.nakshatraName  || '—', range: snapshot.nakshatraRange },
-    { icon: '🪷', label: 'YOGA',      name: snapshot.yogaName       || '—', range: snapshot.yogaRange      },
-    { icon: '⚛︎', label: 'KARANA',   name: snapshot.karanaName     || '—', range: snapshot.karanaRange    },
+    { label: 'TITHI',     name: snapshot.tithiName     || '—' },
+    { label: 'NAKSHATRA', name: snapshot.nakshatraName  || '—' },
+    { label: 'YOGA',      name: snapshot.yogaName       || '—' },
+    { label: 'KARANA',    name: snapshot.karanaName     || '—' },
   ]
+
+  const hasFestival = snapshot.festival && snapshot.festival !== 'No festival today'
 
   return (
     <button
@@ -719,16 +752,19 @@ function PremiumAstroCard({ snapshot, onOpen, onLocationChange }) {
       onClick={onOpen}
       style={{ '--period-glow': ps.glowColor || 'rgba(99,102,241,0.14)' }}
     >
+      {/* star field */}
       <div className="acr-astro-stars" aria-hidden="true">
-        <i /><i /><i /><i /><i /><i />
+        <i /><i /><i /><i /><i /><i /><i /><i />
       </div>
+      <span className="acr-astro-orb1" aria-hidden="true" />
+      <span className="acr-astro-orb2" aria-hidden="true" />
 
-      {/* ── Header row ── */}
+      {/* header */}
       <div className="acr-astro-head">
         <div className="acr-astro-head-left">
-          <div className="acr-astro-badge">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
+          <div className="acr-astro-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="#C7D2FE">
+              <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
             </svg>
           </div>
           <div>
@@ -739,7 +775,6 @@ function PremiumAstroCard({ snapshot, onOpen, onLocationChange }) {
             <div className="acr-astro-city-sub">{meta.emoji} {meta.tagline}, {snapshot.location}</div>
           </div>
         </div>
-
         <div className="acr-astro-loc" onClick={(e) => e.stopPropagation()}>
           <select value={snapshot.location} onChange={(e) => onLocationChange(e.target.value)}>
             {LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
@@ -748,102 +783,88 @@ function PremiumAstroCard({ snapshot, onOpen, onLocationChange }) {
         </div>
       </div>
 
-      {/* ── Main row: mandala + period status ── */}
+      {/* festival banner — always shown */}
+      <div className={`acr-astro-festival-row${hasFestival ? '' : ' acr-astro-festival-row-dim'}`}>
+        <span className="acr-astro-festival-gem" aria-hidden="true">✦</span>
+        <span className="acr-astro-festival-name">{hasFestival ? snapshot.festival : 'No festival today'}</span>
+      </div>
+
+      {/* mandala + period */}
       <div className="acr-astro-main">
-        {/* mandala */}
         <div className="acr-astro-mandala-wrap" aria-hidden="true">
           <svg viewBox="0 0 120 120" className="acr-astro-mandala">
             <defs>
-              <radialGradient id="mG" cx="50%" cy="50%" r="50%">
+              <radialGradient id="mG2" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="#FDE68A" />
                 <stop offset="55%" stopColor="#F59E0B" />
                 <stop offset="100%" stopColor="#92400E" />
               </radialGradient>
-              <radialGradient id="mGlow" cx="50%" cy="50%" r="60%">
-                <stop offset="0%" stopColor="rgba(251,191,36,0.5)" />
+              <radialGradient id="mGlow2" cx="50%" cy="50%" r="60%">
+                <stop offset="0%" stopColor="rgba(251,191,36,0.42)" />
                 <stop offset="100%" stopColor="rgba(251,191,36,0)" />
               </radialGradient>
             </defs>
-            <circle cx="60" cy="60" r="56" fill="url(#mGlow)" />
+            <circle cx="60" cy="60" r="56" fill="url(#mGlow2)" />
             {Array.from({ length: 16 }).map((_, i) => {
               const a = (i * 22.5 * Math.PI) / 180
-              return <line key={i} x1={60 + Math.cos(a) * 38} y1={60 + Math.sin(a) * 38} x2={60 + Math.cos(a) * 52} y2={60 + Math.sin(a) * 52} stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" opacity="0.82" />
+              return <line key={i} x1={60 + Math.cos(a) * 38} y1={60 + Math.sin(a) * 38} x2={60 + Math.cos(a) * 51} y2={60 + Math.sin(a) * 51} stroke="#F59E0B" strokeWidth="1.3" strokeLinecap="round" opacity="0.75" />
             })}
-            <circle cx="60" cy="60" r="34" fill="none" stroke="#F59E0B" strokeWidth="1.4" opacity="0.65" />
-            <g transform="rotate(45 60 60)"><rect x="34" y="34" width="52" height="52" fill="none" stroke="#FBBF24" strokeWidth="1.5" /></g>
-            <rect x="36" y="36" width="48" height="48" fill="none" stroke="#FBBF24" strokeWidth="1.3" opacity="0.82" />
-            <polygon points="60,38 78,68 42,68" fill="none" stroke="#F59E0B" strokeWidth="1.3" />
-            <polygon points="60,82 42,52 78,52" fill="none" stroke="#F59E0B" strokeWidth="1.3" />
-            <circle cx="60" cy="60" r="11" fill="url(#mG)" />
-            <circle cx="60" cy="60" r="5" fill="#FEF3C7" />
+            <circle cx="60" cy="60" r="34" fill="none" stroke="#F59E0B" strokeWidth="1.2" opacity="0.58" />
+            <g transform="rotate(45 60 60)"><rect x="34" y="34" width="52" height="52" fill="none" stroke="#FBBF24" strokeWidth="1.3" /></g>
+            <rect x="36" y="36" width="48" height="48" fill="none" stroke="#FBBF24" strokeWidth="1.1" opacity="0.76" />
+            <polygon points="60,38 78,68 42,68" fill="none" stroke="#F59E0B" strokeWidth="1.2" />
+            <polygon points="60,82 42,52 78,52" fill="none" stroke="#F59E0B" strokeWidth="1.2" />
+            {Array.from({ length: 8 }).map((_, i) => {
+              const a = (i * 45 * Math.PI) / 180
+              return <ellipse key={i} cx={60 + Math.cos(a) * 47} cy={60 + Math.sin(a) * 47} rx="3.5" ry="1.8" transform={`rotate(${i * 45} ${60 + Math.cos(a) * 47} ${60 + Math.sin(a) * 47})`} fill="#F59E0B" opacity="0.32" />
+            })}
+            <circle cx="60" cy="60" r="11" fill="url(#mG2)" />
+            <circle cx="60" cy="60" r="4.5" fill="#FEF3C7" />
           </svg>
         </div>
 
-        {/* period status panel */}
         <div className="acr-astro-period-panel">
-          {/* period chip + label */}
-          <div className="acr-astro-period-top">
-            <span
-              className="acr-astro-period-chip"
-              style={{ background: `${ps.chipColor || '#64748B'}22`, color: ps.chipColor || '#94A3B8', border: `1px solid ${ps.chipColor || '#64748B'}44` }}
-            >
-              {ps.isActive ? '● ' : '◎ '}
-              {ps.label || 'No data'}
-            </span>
-          </div>
-
-          {/* time range */}
-          {ps.timeRange ? (
+          <span
+            className="acr-astro-period-chip"
+            style={{ background: `${ps.chipColor || '#64748B'}1E`, color: ps.chipColor || '#94A3B8', border: `1px solid ${ps.chipColor || '#64748B'}48` }}
+          >
+            <span className={`acr-period-dot${ps.isActive ? ' acr-period-dot-pulse' : ''}`}
+              style={{ background: ps.chipColor || '#64748B' }} />
+            {ps.label || 'No period data'}
+          </span>
+          {ps.timeRange && (
             <div className="acr-astro-period-range" style={{ color: ps.textColor || '#94A3B8' }}>
               {ps.timeRange}
             </div>
-          ) : null}
-
-          {/* live timer */}
+          )}
           {ps.hasData && ps.timerSecs > 0 && (
             <LiveTimer secs={ps.timerSecs} label={ps.timerLabel} textColor={ps.textColor} />
           )}
-
-          {/* remark */}
-          <div className="acr-astro-period-remark">
-            {ps.remark || 'Period timing unavailable.'}
-          </div>
-
-          {/* festival inline */}
-          {snapshot.festival && snapshot.festival !== 'No festival today' && (
-            <div className="acr-astro-festival-chip">
-              🎉 {snapshot.festival}
-            </div>
-          )}
+          <div className="acr-astro-period-remark">{ps.remark || 'Period timing unavailable.'}</div>
         </div>
       </div>
 
-      {/* ── Sun / Moon chips ── */}
-      {sunMoonChips.length > 0 && (
+      {/* sun/moon — CSS icons */}
+      {sunMoonRows.length > 0 && (
         <div className="acr-astro-sunmoon">
-          {sunMoonChips.map((c, i) => (
+          {sunMoonRows.map((r, i) => (
             <div key={i} className="acr-astro-sunmoon-chip">
-              <span>{c.icon}</span>
-              <span className="acr-astro-sunmoon-lbl">{c.label}</span>
-              <strong>{c.val}</strong>
+              <span className={`acr-cel-icon acr-cel-${r.type}-${r.subtype}`} aria-hidden="true" />
+              <div className="acr-sunmoon-text">
+                <span className="acr-sunmoon-lbl">{r.label}</span>
+                <strong className="acr-sunmoon-val">{r.val}</strong>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* ── 4 panchang tiles ── */}
+      {/* panchang tiles — name only */}
       <div className="acr-astro-tiles">
         {tiles.map((t) => (
           <div key={t.label} className="acr-astro-tile">
-            <div className="acr-astro-tile-head">
-              <span className="acr-astro-tile-icon">{t.icon}</span>
-              <span className="acr-astro-tile-label">{t.label}</span>
-            </div>
+            <span className="acr-astro-tile-label">{t.label}</span>
             <strong className="acr-astro-tile-name">{t.name}</strong>
-            {t.range
-              ? <span className="acr-astro-tile-range">{t.range}</span>
-              : <span className="acr-astro-tile-range acr-astro-tile-range-dim">—</span>
-            }
           </div>
         ))}
       </div>
@@ -901,10 +922,10 @@ export default function Home({
     yamagandham: '',
     gulikaKalam: '',
     abhijitMuhurta: '',
-    tithiName: '', tithiRange: '',
-    nakshatraName: '', nakshatraRange: '',
-    yogaName: '', yogaRange: '',
-    karanaName: '', karanaRange: '',
+    tithiName: '',
+    nakshatraName: '',
+    yogaName: '',
+    karanaName: '',
   })
 
   const username = currentUser?.username?.toLowerCase?.() || ''
@@ -975,10 +996,10 @@ export default function Home({
         yamagandham: summary.yamagandham,
         gulikaKalam: summary.gulikaKalam,
         abhijitMuhurta: summary.abhijitMuhurta,
-        tithiName: summary.tithiName, tithiRange: summary.tithiRange,
-        nakshatraName: summary.nakshatraName, nakshatraRange: summary.nakshatraRange,
-        yogaName: summary.yogaName, yogaRange: summary.yogaRange,
-        karanaName: summary.karanaName, karanaRange: summary.karanaRange,
+        tithiName: summary.tithiName,
+        nakshatraName: summary.nakshatraName,
+        yogaName: summary.yogaName,
+        karanaName: summary.karanaName,
       })
     }
     loadAstro()
@@ -1108,10 +1129,10 @@ export default function Home({
         yamagandham: astroSnapshot.yamagandham,
         gulikaKalam: astroSnapshot.gulikaKalam,
         abhijitMuhurta: astroSnapshot.abhijitMuhurta,
-        tithiName: astroSnapshot.tithiName, tithiRange: astroSnapshot.tithiRange,
-        nakshatraName: astroSnapshot.nakshatraName, nakshatraRange: astroSnapshot.nakshatraRange,
-        yogaName: astroSnapshot.yogaName, yogaRange: astroSnapshot.yogaRange,
-        karanaName: astroSnapshot.karanaName, karanaRange: astroSnapshot.karanaRange,
+        tithiName: astroSnapshot.tithiName,
+        nakshatraName: astroSnapshot.nakshatraName,
+        yogaName: astroSnapshot.yogaName,
+        karanaName: astroSnapshot.karanaName,
         periodStatus: astroStatus,
         fullDayPct,
         dayPct: astroDayPct,
@@ -1220,60 +1241,89 @@ export default function Home({
           position:relative; overflow:hidden; width:100%; border:none; cursor:pointer; text-align:left;
           border-radius:20px; padding:12px 12px 11px; color:#fff;
           background:
-            radial-gradient(circle at 15% 18%, rgba(99,102,241,0.32), transparent 34%),
-            radial-gradient(circle at 85% 85%, rgba(56,189,248,0.16), transparent 30%),
-            linear-gradient(160deg,#0B1224 0%,#111B36 52%,#0F1830 100%);
-          box-shadow:0 16px 36px rgba(15,23,42,0.26), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(99,102,241,0.18);
+            radial-gradient(ellipse at 20% 0%, rgba(120,80,255,0.28) 0%, transparent 55%),
+            radial-gradient(ellipse at 85% 90%, rgba(56,189,248,0.18) 0%, transparent 45%),
+            radial-gradient(ellipse at 50% 50%, rgba(30,41,90,0.6) 0%, transparent 80%),
+            linear-gradient(168deg,#07101F 0%,#0D1A30 40%,#091526 70%,#060E1C 100%);
+          box-shadow:0 18px 40px rgba(4,9,30,0.55), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(99,102,241,0.2);
           transition:transform 0.14s ease;
         }
         .acr-astro:active { transform:scale(0.99); }
         .acr-astro-caution {
-          box-shadow:0 16px 36px var(--period-glow,rgba(239,68,68,0.22)), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(248,113,113,0.32);
+          background:
+            radial-gradient(ellipse at 20% 0%, rgba(200,40,40,0.24) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 90%, rgba(120,20,20,0.18) 0%, transparent 45%),
+            linear-gradient(168deg,#12060A 0%,#1A0A0D 40%,#120608 100%);
+          box-shadow:0 18px 40px rgba(30,0,0,0.55), inset 0 1px 0 rgba(255,120,120,0.05), 0 0 0 1px rgba(248,113,113,0.32);
         }
         .acr-astro-good {
-          box-shadow:0 16px 36px var(--period-glow,rgba(16,185,129,0.18)), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(52,211,153,0.28);
+          background:
+            radial-gradient(ellipse at 20% 0%, rgba(10,120,80,0.26) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 90%, rgba(20,80,50,0.18) 0%, transparent 45%),
+            linear-gradient(168deg,#060F0A 0%,#091610 40%,#060F09 100%);
+          box-shadow:0 18px 40px rgba(0,20,10,0.55), inset 0 1px 0 rgba(100,255,180,0.05), 0 0 0 1px rgba(52,211,153,0.28);
         }
         .acr-astro-neutral {
-          box-shadow:0 16px 36px rgba(99,102,241,0.14), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(99,102,241,0.18);
+          box-shadow:0 18px 40px rgba(4,9,30,0.55), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(99,102,241,0.2);
         }
 
-        .acr-astro-stars { position:absolute; inset:0; pointer-events:none; }
-        .acr-astro-stars i {
-          position:absolute; border-radius:999px; background:rgba(255,255,255,0.85);
-          box-shadow:0 0 8px rgba(191,219,254,0.65);
+        /* nebula orbs */
+        .acr-astro-orb1, .acr-astro-orb2 {
+          position:absolute; border-radius:50%; pointer-events:none; z-index:0;
+          animation:acrOrbPulse 8s ease-in-out infinite;
         }
-        .acr-astro-stars i:nth-child(1) { width:3px; height:3px; top:16px; right:110px; animation:acrStar 4.6s ease-in-out infinite; }
-        .acr-astro-stars i:nth-child(2) { width:2px; height:2px; top:55px; right:28px; animation:acrStar 5.2s ease-in-out infinite 0.6s; }
-        .acr-astro-stars i:nth-child(3) { width:2px; height:2px; top:105px; left:148px; animation:acrStar 4.8s ease-in-out infinite 1.1s; }
-        .acr-astro-stars i:nth-child(4) { width:3px; height:3px; bottom:80px; left:18px; animation:acrStar 5.4s ease-in-out infinite 1.6s; }
-        .acr-astro-stars i:nth-child(5) { width:2px; height:2px; bottom:44px; right:72px; animation:acrStar 4.2s ease-in-out infinite 0.8s; }
-        .acr-astro-stars i:nth-child(6) { width:2px; height:2px; top:82px; left:46%; animation:acrStar 5s ease-in-out infinite 1.4s; }
-        @keyframes acrStar { 0%,100%{opacity:0.35;transform:translateY(0)} 50%{opacity:1;transform:translateY(-1px)} }
+        .acr-astro-orb1 {
+          width:120px; height:120px; left:-30px; top:-30px;
+          background:radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 70%);
+        }
+        .acr-astro-orb2 {
+          width:90px; height:90px; right:-20px; bottom:20px;
+          background:radial-gradient(circle, rgba(56,189,248,0.16) 0%, transparent 70%);
+          animation-delay:3s;
+        }
+        @keyframes acrOrbPulse { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
+
+        /* star field — 8 stars */
+        .acr-astro-stars { position:absolute; inset:0; pointer-events:none; z-index:0; }
+        .acr-astro-stars i {
+          position:absolute; border-radius:50%;
+          background:#fff;
+          box-shadow:0 0 6px 1px rgba(200,220,255,0.7);
+        }
+        .acr-astro-stars i:nth-child(1) { width:2.5px;height:2.5px; top:14%; right:28%; animation:acrStar 4.6s ease-in-out infinite; }
+        .acr-astro-stars i:nth-child(2) { width:2px;height:2px; top:40%; right:8%; animation:acrStar 5.2s ease-in-out infinite 0.6s; }
+        .acr-astro-stars i:nth-child(3) { width:1.5px;height:1.5px; top:68%; left:42%; animation:acrStar 4.8s ease-in-out infinite 1.1s; }
+        .acr-astro-stars i:nth-child(4) { width:2.5px;height:2.5px; bottom:22%; left:12%; animation:acrStar 5.4s ease-in-out infinite 1.6s; }
+        .acr-astro-stars i:nth-child(5) { width:2px;height:2px; bottom:38%; right:20%; animation:acrStar 4.2s ease-in-out infinite 0.8s; }
+        .acr-astro-stars i:nth-child(6) { width:1.5px;height:1.5px; top:55%; left:60%; animation:acrStar 5s ease-in-out infinite 1.4s; }
+        .acr-astro-stars i:nth-child(7) { width:2px;height:2px; top:25%; left:30%; animation:acrStar 4.4s ease-in-out infinite 2s; }
+        .acr-astro-stars i:nth-child(8) { width:1.5px;height:1.5px; bottom:15%; right:40%; animation:acrStar 5.8s ease-in-out infinite 0.4s; }
+        @keyframes acrStar { 0%,100%{opacity:0.25;transform:scale(1)} 50%{opacity:0.95;transform:scale(1.3)} }
         .acr-astro > * { position:relative; z-index:1; }
 
         /* header */
-        .acr-astro-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:9px; }
+        .acr-astro-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:7px; }
         .acr-astro-head-left { display:flex; align-items:flex-start; gap:8px; min-width:0; flex:1; }
         .acr-astro-badge {
-          width:28px; height:28px; border-radius:8px; flex-shrink:0;
-          background:rgba(255,255,255,0.09); border:1px solid rgba(165,180,252,0.28);
-          color:#C7D2FE; display:flex; align-items:center; justify-content:center; margin-top:1px;
+          width:26px; height:26px; border-radius:8px; flex-shrink:0;
+          background:rgba(165,180,252,0.12); border:1px solid rgba(165,180,252,0.25);
+          display:flex; align-items:center; justify-content:center; margin-top:1px;
         }
         .acr-astro-title-row { display:flex; align-items:center; gap:7px; }
         .acr-astro-main-title { font-size:17px; font-weight:800; color:#F8FAFC; letter-spacing:0.01em; }
         .acr-astro-live-badge {
           padding:2px 7px; border-radius:999px; font-size:8.5px; font-weight:800; letter-spacing:0.1em;
           background:linear-gradient(135deg,#6366F1,#8B5CF6); color:#fff;
-          box-shadow:0 3px 8px rgba(99,102,241,0.32);
+          box-shadow:0 3px 8px rgba(99,102,241,0.35);
           animation:acrLive 2.8s ease-in-out infinite;
         }
-        @keyframes acrLive { 0%,100%{opacity:1} 50%{opacity:0.78} }
-        .acr-astro-city-sub { font-size:10.5px; color:#93C5FD; font-weight:600; margin-top:2px; }
+        @keyframes acrLive { 0%,100%{opacity:1} 50%{opacity:0.72} }
+        .acr-astro-city-sub { font-size:10.5px; color:#93C5FD; font-weight:600; margin-top:2px; opacity:0.88; }
 
         .acr-astro-loc {
           display:flex; align-items:center; gap:3px; flex-shrink:0;
           padding:5px 8px; border-radius:999px;
-          background:rgba(255,255,255,0.10); border:1px solid rgba(165,180,252,0.22);
+          background:rgba(255,255,255,0.08); border:1px solid rgba(165,180,252,0.2);
         }
         .acr-astro-loc select {
           border:none; background:transparent; color:#F8FAFC; font-size:11px; font-weight:700;
@@ -1281,75 +1331,112 @@ export default function Home({
         }
         .acr-astro-loc-arrow { font-size:10px; color:#A5B4FC; pointer-events:none; }
 
-        /* main grid */
-        .acr-astro-main { display:grid; grid-template-columns:88px minmax(0,1fr); gap:10px; margin-bottom:8px; }
-        .acr-astro-mandala-wrap {
-          width:88px; height:88px; display:flex; align-items:center; justify-content:center;
-          filter:drop-shadow(0 3px 14px rgba(245,158,11,0.38));
+        /* festival banner */
+        .acr-astro-festival-row {
+          display:flex; align-items:center; gap:6px;
+          padding:5px 8px; border-radius:8px; margin-bottom:8px;
+          background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.18);
         }
-        .acr-astro-mandala { width:100%; height:100%; animation:acrMandalaSpin 70s linear infinite; }
+        .acr-astro-festival-row-dim {
+          background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.08);
+        }
+        .acr-astro-festival-gem { font-size:11px; color:#FDE68A; flex-shrink:0; line-height:1; }
+        .acr-astro-festival-row-dim .acr-astro-festival-gem { color:#475569; }
+        .acr-astro-festival-name {
+          font-size:11px; font-weight:700; color:#FDE68A; line-height:1.2;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .acr-astro-festival-row-dim .acr-astro-festival-name { color:#475569; font-weight:500; }
+
+        /* mandala + period grid */
+        .acr-astro-main { display:grid; grid-template-columns:82px minmax(0,1fr); gap:10px; margin-bottom:8px; }
+        .acr-astro-mandala-wrap {
+          width:82px; height:82px; display:flex; align-items:center; justify-content:center;
+          filter:drop-shadow(0 2px 12px rgba(245,158,11,0.42)) drop-shadow(0 0 6px rgba(251,191,36,0.22));
+        }
+        .acr-astro-mandala { width:100%; height:100%; animation:acrMandalaSpin 75s linear infinite; }
         @keyframes acrMandalaSpin { to{ transform:rotate(360deg); } }
 
         /* period panel */
         .acr-astro-period-panel { display:flex; flex-direction:column; gap:5px; justify-content:center; min-width:0; }
-        .acr-astro-period-top { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
         .acr-astro-period-chip {
-          display:inline-flex; align-items:center; gap:3px;
-          padding:3px 9px; border-radius:999px; font-size:10.5px; font-weight:800; letter-spacing:0.04em;
-          white-space:nowrap;
+          display:inline-flex; align-items:center; gap:6px;
+          padding:4px 10px; border-radius:999px; font-size:10.5px; font-weight:800; letter-spacing:0.03em;
+          white-space:nowrap; align-self:flex-start;
         }
+        .acr-period-dot {
+          width:6px; height:6px; border-radius:50%; flex-shrink:0;
+        }
+        .acr-period-dot-pulse {
+          animation:acrDotPulse 1.4s ease-in-out infinite;
+        }
+        @keyframes acrDotPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.55;transform:scale(0.75)} }
         .acr-astro-period-range {
-          font-size:12px; font-weight:700; letter-spacing:0.01em;
+          font-size:12px; font-weight:700; letter-spacing:0.01em; padding-left:2px;
         }
         .acr-astro-timer {
           font-size:11px; font-weight:800; font-variant-numeric:tabular-nums;
-          background:rgba(255,255,255,0.06); border-radius:6px; padding:2px 6px;
-          display:inline-block;
+          background:rgba(255,255,255,0.07); border-radius:6px; padding:2px 7px;
+          display:inline-block; align-self:flex-start;
         }
         .acr-astro-period-remark {
-          font-size:10px; line-height:1.4; color:rgba(203,213,225,0.75); font-weight:500;
-        }
-        .acr-astro-festival-chip {
-          font-size:10px; font-weight:700; color:#FDE68A;
-          background:rgba(251,191,36,0.10); border:1px solid rgba(251,191,36,0.18);
-          border-radius:6px; padding:3px 7px;
-          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-          display:inline-block; max-width:100%;
+          font-size:9.5px; line-height:1.45; color:rgba(203,213,225,0.68); font-weight:500; padding-left:2px;
         }
 
-        /* sun/moon chips */
+        /* sun / moon chips — CSS-only icons */
         .acr-astro-sunmoon {
-          display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;
+          display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-bottom:8px;
         }
         .acr-astro-sunmoon-chip {
-          display:inline-flex; align-items:center; gap:4px;
-          padding:3px 8px; border-radius:8px;
-          background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.09);
-          font-size:10.5px; color:#E2E8F0;
+          display:flex; align-items:center; gap:5px;
+          padding:4px 6px; border-radius:9px;
+          background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
         }
-        .acr-astro-sunmoon-lbl { font-size:9px; color:#94A3B8; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
-        .acr-astro-sunmoon-chip strong { font-size:11px; font-weight:800; color:#F8FAFC; }
+        /* CSS celestial icons */
+        .acr-cel-icon {
+          width:18px; height:18px; border-radius:50%; flex-shrink:0; position:relative; display:block;
+        }
+        /* sun rise — warm orange disc with rays */
+        .acr-cel-sun-rise {
+          background:radial-gradient(circle at 50% 50%, #FDE68A 0%, #F59E0B 60%, rgba(245,158,11,0) 100%);
+          box-shadow:0 0 6px 2px rgba(251,191,36,0.55), 0 0 12px rgba(251,191,36,0.25);
+        }
+        /* sun set — deeper amber */
+        .acr-cel-sun-set {
+          background:radial-gradient(circle at 50% 50%, #FCD34D 0%, #D97706 60%, rgba(217,119,6,0) 100%);
+          box-shadow:0 0 5px 2px rgba(217,119,6,0.5), 0 0 10px rgba(217,119,6,0.2);
+        }
+        /* moon rise — cool silver disc */
+        .acr-cel-moon-rise {
+          background:radial-gradient(circle at 40% 38%, #F8FAFC 0%, #CBD5E1 45%, rgba(148,163,184,0) 100%);
+          box-shadow:0 0 5px 2px rgba(203,213,225,0.45), 0 0 10px rgba(148,163,184,0.2);
+        }
+        /* moon set — dimmer silver */
+        .acr-cel-moon-set {
+          background:radial-gradient(circle at 40% 38%, #E2E8F0 0%, #94A3B8 55%, rgba(100,116,139,0) 100%);
+          box-shadow:0 0 4px 1px rgba(148,163,184,0.38);
+          opacity:0.72;
+        }
+        .acr-sunmoon-text { display:flex; flex-direction:column; gap:0; min-width:0; }
+        .acr-sunmoon-lbl { font-size:8px; color:#94A3B8; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
+        .acr-sunmoon-val { font-size:10.5px; font-weight:800; color:#F8FAFC; white-space:nowrap; }
 
-        /* panchang tiles */
+        /* panchang tiles — name only */
         .acr-astro-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
         .acr-astro-tile {
-          padding:7px 6px; border-radius:11px;
-          background:rgba(15,23,42,0.48); border:1px solid rgba(99,102,241,0.16);
-          min-width:0; display:flex; flex-direction:column; gap:2px;
+          padding:7px 7px 8px; border-radius:11px;
+          background:rgba(8,16,36,0.55); border:1px solid rgba(99,102,241,0.18);
+          min-width:0; display:flex; flex-direction:column; gap:3px;
+          backdrop-filter:blur(2px);
         }
-        .acr-astro-tile-head { display:flex; align-items:center; gap:4px; }
-        .acr-astro-tile-icon { font-size:10px; line-height:1; }
-        .acr-astro-tile-label { font-size:7.5px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#818CF8; line-height:1; }
+        .acr-astro-tile-label {
+          display:block; font-size:7.5px; font-weight:800; letter-spacing:0.08em;
+          text-transform:uppercase; color:#818CF8; line-height:1;
+        }
         .acr-astro-tile-name {
-          display:block; font-size:11px; line-height:1.25; color:#F8FAFC; font-weight:800;
+          display:block; font-size:12px; line-height:1.25; color:#F8FAFC; font-weight:800;
           word-break:break-word; hyphens:auto;
         }
-        .acr-astro-tile-range {
-          font-size:8.5px; line-height:1.35; color:#CBD5E1; font-weight:600; white-space:pre-line;
-          display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
-        }
-        .acr-astro-tile-range-dim { color:#475569; }
-
         /* ----- Skill / Surprises ----- */
         .acr-feature-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         .acr-feature {
