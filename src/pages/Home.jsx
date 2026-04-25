@@ -74,16 +74,40 @@ function pctText(current, base, suffix) {
 function normalizeTimeValue(value) {
   if (!value) return ''
   if (typeof value !== 'string') return ''
-  const match = value.match(/(\d{1,2}):(\d{2})/)
+  const trimmed = value.trim()
+  // Capture hour, minute, and optional AM/PM in one shot
+  const match = trimmed.match(/(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?/)
   if (!match) return ''
-  const hour = Number(match[1])
+  let hour = Number(match[1])
   const minute = Number(match[2])
+  const meridiem = (match[3] || '').toUpperCase()
   if (Number.isNaN(hour) || Number.isNaN(minute)) return ''
+  if (meridiem === 'AM' && hour === 12) hour = 0
+  else if (meridiem === 'PM' && hour < 12) hour += 12
+  if (hour > 23 || minute > 59) return ''
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
 function formatShortTime(value) {
-  const normalized = normalizeTimeValue(value)
+  // Accept Date / Firestore Timestamp / number directly
+  let str = value
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+  }
+  if (value && typeof value === 'object' && typeof value.toDate === 'function') {
+    const d = value.toDate()
+    if (d instanceof Date && !Number.isNaN(d.getTime())) {
+      return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+    }
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const d = new Date(value)
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+    }
+  }
+  if (typeof value !== 'string') return '—'
+  const normalized = normalizeTimeValue(str)
   if (!normalized) return '—'
   const [hourText, minuteText] = normalized.split(':')
   const hour = Number(hourText)
@@ -228,52 +252,207 @@ function getCurrentAstroStatus(astroData, now) {
   }
 }
 
+/* Home-only payload resolver. fetchAstroDoc may return:
+ *   { data: <docData> }       — wrapped (Home assumed this)
+ *   <docData> directly         — same shape Astro.jsx's fetchPanchang returns
+ *   { data: { normalized } }   — pre-normalized shape
+ *   { data: { panchang } }     — nested under .panchang or .raw
+ * Try each shape in order and pick the first that has any astro-shaped key. */
+function getAstroPayload(result) {
+  if (!result || typeof result !== 'object') return {}
+  const candidates = [
+    result?.data?.normalized,
+    result?.normalized,
+    result?.data?.panchang,
+    result?.data?.raw,
+    result?.data,
+    result,
+  ]
+  const looksLikeAstro = (o) =>
+    o && typeof o === 'object' && (
+      'sunrise' in o || 'Sunrise' in o || 'sun_rise' in o ||
+      'sunset' in o || 'Sunset' in o || 'sun_set' in o ||
+      'tithi' in o || 'Tithi' in o ||
+      'nakshatra' in o || 'Nakshatra' in o ||
+      'rahuKalam' in o || 'rahu_kalam' in o || 'rahukalam' in o ||
+      'yamagandam' in o || 'yama_gandam' in o || 'yamagandham' in o ||
+      'sun' in o || 'timings' in o
+    )
+  for (const c of candidates) {
+    if (looksLikeAstro(c)) return c
+  }
+  // Fall back to the first non-empty object so downstream extraction still has something to walk
+  for (const c of candidates) {
+    if (c && typeof c === 'object' && Object.keys(c).length) return c
+  }
+  return {}
+}
+
+/* Pull a time-ish value out of a node — supports plain strings, Firestore timestamps,
+ * Date objects, numbers, and objects with a .time / .value field. */
+function pickTimeLike(node, keys) {
+  for (const key of keys) {
+    if (!key) continue
+    const v = key.includes('.') ? readPath(node, key) : node?.[key]
+    if (v == null) continue
+    if (typeof v === 'string' && v.trim()) return v.trim()
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (v instanceof Date) return v
+    if (typeof v?.toDate === 'function') return v
+    if (typeof v === 'object') {
+      // Some APIs wrap as { time: "06:02 AM" } or { value: ... }
+      if (typeof v.time === 'string' && v.time.trim()) return v.time.trim()
+      if (typeof v.value === 'string' && v.value.trim()) return v.value.trim()
+    }
+  }
+  return ''
+}
+
+/* Read sunrise / sunset across many possible shapes. */
+function readSunrise(payload) {
+  return pickTimeLike(payload, [
+    'sunrise', 'Sunrise', 'sunRise', 'sun_rise', 'sunrise_time', 'sun_rise_time',
+    'sun.rise', 'timings.sunrise', 'timings.sun_rise',
+    'normalized.sunrise', 'panchang.sunrise',
+  ])
+}
+function readSunset(payload) {
+  return pickTimeLike(payload, [
+    'sunset', 'Sunset', 'sunSet', 'sun_set', 'sunset_time', 'sun_set_time',
+    'sun.set', 'timings.sunset', 'timings.sun_set',
+    'normalized.sunset', 'panchang.sunset',
+  ])
+}
+
+/* Read a kalam range — may be a single canonical string ("6:00 AM - 7:30 AM"),
+ * an object with start/end, or split top-level fields like rahu_kalam_start / rahu_kalam_end. */
+function readKalamRange(payload, keyVariants, splitPrefixes = []) {
+  for (const key of keyVariants) {
+    if (!key) continue
+    const v = key.includes('.') ? readPath(payload, key) : payload?.[key]
+    if (v == null) continue
+    if (typeof v === 'string' && v.trim()) return v.trim()
+    if (typeof v === 'object' && !Array.isArray(v)) {
+      const s = v.start || v.from || v.begin || v.startTime || v.start_time
+      const e = v.end || v.to || v.close || v.endTime || v.end_time
+      if (s && e) return `${s} - ${e}`
+      // Some shapes nest the range as a string under .range or .time
+      if (typeof v.range === 'string' && v.range.trim()) return v.range.trim()
+      if (typeof v.time === 'string' && v.time.trim()) return v.time.trim()
+    }
+  }
+  // split-field fallback (rahu_kalam_start + rahu_kalam_end)
+  for (const prefix of splitPrefixes) {
+    const s = payload?.[`${prefix}_start`] || payload?.[`${prefix}Start`] || payload?.[`${prefix}_from`]
+    const e = payload?.[`${prefix}_end`]   || payload?.[`${prefix}End`]   || payload?.[`${prefix}_to`]
+    if (s && e) return `${String(s).trim()} - ${String(e).trim()}`
+  }
+  return ''
+}
+
 /* extract panchang detail with start/end labels for tile display */
 function extractPanchangDetail(rawDetail) {
-  if (!rawDetail) return { name: '', range: '' }
+  if (rawDetail == null) return { name: '', range: '' }
   if (typeof rawDetail === 'string') return { name: rawDetail.trim(), range: '' }
+  if (Array.isArray(rawDetail)) {
+    // Some APIs return an array of phases for the day; pick the first
+    return extractPanchangDetail(rawDetail[0])
+  }
+  if (typeof rawDetail !== 'object') return { name: String(rawDetail), range: '' }
+
+  // Unwrap one nesting layer if needed (e.g. { normalized: {...} } or { details: {...} })
+  if (rawDetail.normalized && typeof rawDetail.normalized === 'object') {
+    const inner = extractPanchangDetail(rawDetail.normalized)
+    if (inner.name || inner.range) return inner
+  }
+  if (rawDetail.details && typeof rawDetail.details === 'object') {
+    const inner = extractPanchangDetail(rawDetail.details)
+    if (inner.name || inner.range) return inner
+  }
 
   const name =
     rawDetail.name || rawDetail.Name || rawDetail.title ||
-    rawDetail.tithi_name || rawDetail.nakshatra_name ||
-    rawDetail.yoga_name || rawDetail.karana_name || ''
+    rawDetail.tithi_name || rawDetail.tithiName ||
+    rawDetail.nakshatra_name || rawDetail.nakshatraName ||
+    rawDetail.yoga_name || rawDetail.yogaName ||
+    rawDetail.karana_name || rawDetail.karanaName ||
+    rawDetail.value || ''
 
-  const startStr = rawDetail.start || rawDetail.Start || rawDetail.start_time || rawDetail.from || ''
-  const endStr = rawDetail.endTime || rawDetail.end_time || rawDetail.end || rawDetail.End || rawDetail.ends || rawDetail.to || ''
+  const startStr =
+    rawDetail.start || rawDetail.Start || rawDetail.start_time || rawDetail.startTime ||
+    rawDetail.from || rawDetail.begin || rawDetail.beginTime || ''
+  const endStr =
+    rawDetail.endTime || rawDetail.end_time || rawDetail.EndTime ||
+    rawDetail.end || rawDetail.End || rawDetail.ends ||
+    rawDetail.to || rawDetail.until || ''
+
+  const fmtTime = (v) => {
+    if (v == null) return ''
+    if (v instanceof Date && !Number.isNaN(v.getTime())) {
+      return v.toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+    }
+    if (typeof v?.toDate === 'function') {
+      const d = v.toDate()
+      if (d instanceof Date && !Number.isNaN(d.getTime())) {
+        return d.toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+      }
+    }
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      const d = new Date(v)
+      if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+      }
+    }
+    return String(v).trim()
+  }
+
+  const startFmt = fmtTime(startStr)
+  const endFmt = fmtTime(endStr)
 
   let range = ''
-  if (startStr && endStr) {
-    range = `${String(startStr).trim()}\nto ${String(endStr).trim()}`
-  } else if (endStr) {
-    range = `until ${String(endStr).trim()}`
-  } else if (startStr) {
-    range = String(startStr).trim()
+  if (startFmt && endFmt) {
+    range = `${startFmt}\nto ${endFmt}`
+  } else if (endFmt) {
+    range = `until ${endFmt}`
+  } else if (startFmt) {
+    range = startFmt
   }
 
   return { name: String(name || '').trim(), range }
 }
 
-function extractAstroSummary(data) {
-  const rawFestivals = data?.rawFestivals || {}
+function extractAstroSummary(rawResult) {
+  // Resolve the actual payload object regardless of how fetchAstroDoc wraps it
+  const data = getAstroPayload(rawResult)
+
+  // Festivals: support several shapes — top-level, rawFestivals, or a single string
+  const rawFestivals = data?.rawFestivals || data?.festivalsData || {}
   const festivalList = [
     ...(Array.isArray(rawFestivals?.festival_list) ? rawFestivals.festival_list : []),
     ...(Array.isArray(rawFestivals?.festivals) ? rawFestivals.festivals : []),
     ...(Array.isArray(data?.festivals) ? data.festivals : []),
+    ...(Array.isArray(data?.festival_list) ? data.festival_list : []),
   ]
   const firstFestival = festivalList.find(Boolean)
-  const festivalName =
+  let festivalName =
     firstFestival?.festival_name ||
     firstFestival?.name ||
     firstFestival?.title ||
-    'No festival today'
+    (typeof firstFestival === 'string' ? firstFestival : '') ||
+    (typeof data?.festival === 'string' ? data.festival : '') ||
+    (typeof data?.festival?.name === 'string' ? data.festival.name : '') ||
+    ''
+  if (!festivalName) festivalName = 'No festival today'
 
   const goodWindow =
-    data?.abhijitMuhurta ||
-    data?.abhijit_muhurta ||
-    data?.abhijit ||
-    data?.brahma_muhurta ||
-    data?.brahmaMuhurta ||
-    data?.dur_muhurta ||
+    (typeof data?.abhijitMuhurta === 'string' && data.abhijitMuhurta) ||
+    (typeof data?.abhijit_muhurta === 'string' && data.abhijit_muhurta) ||
+    (typeof data?.abhijit === 'string' && data.abhijit) ||
+    (typeof data?.brahma_muhurta === 'string' && data.brahma_muhurta) ||
+    (typeof data?.brahmaMuhurta === 'string' && data.brahmaMuhurta) ||
+    (typeof data?.dur_muhurta === 'string' && data.dur_muhurta) ||
+    (data?.abhijitMuhurta?.start && data?.abhijitMuhurta?.end
+      ? `${data.abhijitMuhurta.start} - ${data.abhijitMuhurta.end}` : '') ||
     ''
 
   const tithiDetail = extractPanchangDetail(data?.tithi || data?.Tithi)
@@ -285,17 +464,25 @@ function extractAstroSummary(data) {
     title: 'Daily Panchang',
     window: goodWindow || '',
     festival: festivalName,
-    sunrise: data?.sunrise || data?.sun_rise || data?.sunRise || '',
-    sunset: data?.sunset || data?.sun_set || data?.sunSet || '',
-    rahuKalam: getAstroValue(data, ['rahuKalam', 'rahu_kalam', 'rahu kalam', 'rahukaalam']),
-    yamagandham: getAstroValue(data, ['yamagandham', 'yamagandam', 'yama_gandam', 'yama gandam']),
-    tithiName: tithiDetail.name || firstFilled(readPath(data, 'tithi.name'), data?.tithi_name, data?.tithi),
+    sunrise: readSunrise(data),
+    sunset: readSunset(data),
+    rahuKalam: readKalamRange(
+      data,
+      ['rahuKalam', 'rahu_kalam', 'rahukalam', 'rahukaalam', 'rahuKaal', 'rahu_kal', 'rahu kalam', 'RahuKalam'],
+      ['rahu_kalam', 'rahuKalam', 'rahu']
+    ),
+    yamagandham: readKalamRange(
+      data,
+      ['yamagandham', 'yamagandam', 'yama_gandam', 'yamaGandam', 'yama gandam', 'Yamagandam', 'YamaGandam'],
+      ['yama_gandam', 'yamagandam', 'yamagandham', 'yamaGandam', 'yama']
+    ),
+    tithiName: tithiDetail.name || firstFilled(readPath(data, 'tithi.name'), data?.tithi_name, typeof data?.tithi === 'string' ? data.tithi : ''),
     tithiRange: tithiDetail.range,
-    nakshatraName: nakDetail.name || firstFilled(readPath(data, 'nakshatra.name'), data?.nakshatra_name, data?.nakshatra),
+    nakshatraName: nakDetail.name || firstFilled(readPath(data, 'nakshatra.name'), data?.nakshatra_name, typeof data?.nakshatra === 'string' ? data.nakshatra : ''),
     nakshatraRange: nakDetail.range,
-    yogaName: yogaDetail.name || firstFilled(readPath(data, 'yoga.name'), data?.yoga_name, data?.yoga),
+    yogaName: yogaDetail.name || firstFilled(readPath(data, 'yoga.name'), data?.yoga_name, typeof data?.yoga === 'string' ? data.yoga : ''),
     yogaRange: yogaDetail.range,
-    karanaName: karanaDetail.name || firstFilled(readPath(data, 'karana.name'), data?.karana_name, data?.karana),
+    karanaName: karanaDetail.name || firstFilled(readPath(data, 'karana.name'), data?.karana_name, typeof data?.karana === 'string' ? data.karana : ''),
     karanaRange: karanaDetail.range,
   }
 }
@@ -650,7 +837,8 @@ export default function Home({
     const loadAstro = async () => {
       const result = await fetchAstroDoc(astroSnapshot.location, astroLang, getTodayIST())
       if (ignore) return
-      const summary = extractAstroSummary(result?.data || null)
+      // extractAstroSummary now resolves the payload internally — pass result as-is
+      const summary = extractAstroSummary(result)
       setAstroSnapshot({
         location: astroSnapshot.location,
         title: summary.title,
