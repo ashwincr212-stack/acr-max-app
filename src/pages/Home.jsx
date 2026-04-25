@@ -214,42 +214,145 @@ function isNowWithinRange(range, now) {
   return nowMinutes >= start && nowMinutes <= end
 }
 
-function getCurrentAstroStatus(astroData, now) {
-  const rahuRaw = getAstroValue(astroData, ['rahuKalam', 'rahu_kalam', 'rahu kalam', 'rahukaalam'])
-  const yamaRaw = getAstroValue(astroData, ['yamagandham', 'yamagandam', 'yama_gandam', 'yama gandam'])
-  const rahuRange = parseAstroTimeRange(rahuRaw)
-  const yamaRange = parseAstroTimeRange(yamaRaw)
+/* All 4 kalam periods in priority order for status display */
+const KALAM_DEFS = [
+  {
+    key: 'rahuKalam',
+    label: 'Rahu Kalam',
+    type: 'caution',
+    remark: 'Caution period. Avoid new important starts.',
+    chipColor: '#EF4444',
+    glowColor: 'rgba(239,68,68,0.22)',
+    textColor: '#FCA5A5',
+  },
+  {
+    key: 'yamagandham',
+    label: 'Yamagandham',
+    type: 'caution',
+    remark: 'Caution period. Avoid new important starts.',
+    chipColor: '#EF4444',
+    glowColor: 'rgba(239,68,68,0.22)',
+    textColor: '#FCA5A5',
+  },
+  {
+    key: 'gulikaKalam',
+    label: 'Gulika Kalam',
+    type: 'neutral',
+    remark: 'Mixed period. Continue routine work.',
+    chipColor: '#D97706',
+    glowColor: 'rgba(217,119,6,0.18)',
+    textColor: '#FCD34D',
+  },
+  {
+    key: 'abhijitMuhurta',
+    label: 'Abhijit Muhurta',
+    type: 'good',
+    remark: 'Auspicious time for important decisions.',
+    chipColor: '#10B981',
+    glowColor: 'rgba(16,185,129,0.18)',
+    textColor: '#6EE7B7',
+  },
+]
 
-  if (rahuRange && isNowWithinRange(rahuRange, now)) {
-    return {
-      mode: 'caution',
-      label: 'Rahu Kalam active',
-      chip: 'Caution',
-      detail: `Rahu Kalam ${rahuRange.start} – ${rahuRange.end}`,
+/* Compute active or next upcoming period + live timer info.
+ * Does NOT calculate periods — only reads already-fetched range strings. */
+function computeAstroPeriodStatus(astroData, now) {
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()
+
+  // Check if now is inside any period (active)
+  for (const def of KALAM_DEFS) {
+    const raw = astroData?.[def.key]
+    if (!raw) continue
+    const range = parseAstroTimeRange(raw)
+    if (!range) continue
+    const startMin = toMinutes(range.start)
+    const endMin = toMinutes(range.end)
+    if (startMin == null || endMin == null) continue
+    const inside = endMin >= startMin
+      ? nowMinutes >= startMin && nowMinutes < endMin
+      : nowMinutes >= startMin || nowMinutes < endMin
+    if (inside) {
+      const endSecs = endMin * 60
+      const remainSecs = endMin >= startMin
+        ? Math.max(0, endSecs - nowSeconds)
+        : nowSeconds < endSecs ? Math.max(0, endSecs - nowSeconds) : Math.max(0, (endMin + 1440) * 60 - nowSeconds)
+      return {
+        mode: def.type,
+        label: def.label,
+        remark: def.remark,
+        chipColor: def.chipColor,
+        glowColor: def.glowColor,
+        textColor: def.textColor,
+        timeRange: `${formatShortTime(range.start)} – ${formatShortTime(range.end)}`,
+        timerLabel: 'Ends in',
+        timerSecs: remainSecs,
+        hasData: true,
+        isActive: true,
+      }
     }
   }
-  if (yamaRange && isNowWithinRange(yamaRange, now)) {
-    return {
-      mode: 'caution',
-      label: 'Yamagandham active',
-      chip: 'Caution',
-      detail: `Yamagandham ${yamaRange.start} – ${yamaRange.end}`,
+
+  // Find next upcoming period
+  let nextDef = null
+  let nextStartSecs = Infinity
+  let nextRange = null
+  for (const def of KALAM_DEFS) {
+    const raw = astroData?.[def.key]
+    if (!raw) continue
+    const range = parseAstroTimeRange(raw)
+    if (!range) continue
+    const startMin = toMinutes(range.start)
+    if (startMin == null) continue
+    const startSecs = startMin * 60
+    const secsUntil = startSecs > nowSeconds ? startSecs - nowSeconds : null
+    if (secsUntil !== null && secsUntil < nextStartSecs) {
+      nextStartSecs = secsUntil
+      nextDef = def
+      nextRange = range
     }
   }
-  if (rahuRange || yamaRange) {
+
+  if (nextDef && nextRange) {
     return {
-      mode: 'good',
-      label: 'No caution period now',
-      chip: 'Good',
-      detail: astroData?.window || 'Auspicious window',
+      mode: nextDef.type,
+      label: nextDef.label,
+      remark: nextDef.remark,
+      chipColor: nextDef.chipColor,
+      glowColor: nextDef.glowColor,
+      textColor: nextDef.textColor,
+      timeRange: `${formatShortTime(nextRange.start)} – ${formatShortTime(nextRange.end)}`,
+      timerLabel: 'Starts in',
+      timerSecs: nextStartSecs,
+      hasData: true,
+      isActive: false,
     }
   }
+
+  // No period data at all
   return {
     mode: 'neutral',
-    label: 'Timing data unavailable',
-    chip: 'Neutral',
-    detail: 'Timing data unavailable',
+    label: 'No period data',
+    remark: 'Period timing unavailable.',
+    chipColor: '#64748B',
+    glowColor: 'rgba(100,116,139,0.12)',
+    textColor: '#94A3B8',
+    timeRange: '',
+    timerLabel: '',
+    timerSecs: 0,
+    hasData: false,
+    isActive: false,
   }
+}
+
+function fmtCountdown(secs) {
+  if (!secs || secs <= 0) return ''
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
 }
 
 /* Home-only payload resolver. fetchAstroDoc may return:
@@ -466,6 +569,8 @@ function extractAstroSummary(rawResult) {
     festival: festivalName,
     sunrise: readSunrise(data),
     sunset: readSunset(data),
+    moonrise: pickTimeLike(data, ['moonrise', 'Moonrise', 'moon_rise', 'moonRise']),
+    moonset: pickTimeLike(data, ['moonset', 'Moonset', 'moon_set', 'moonSet']),
     rahuKalam: readKalamRange(
       data,
       ['rahuKalam', 'rahu_kalam', 'rahukalam', 'rahukaalam', 'rahuKaal', 'rahu_kal', 'rahu kalam', 'RahuKalam'],
@@ -475,6 +580,16 @@ function extractAstroSummary(rawResult) {
       data,
       ['yamagandham', 'yamagandam', 'yama_gandam', 'yamaGandam', 'yama gandam', 'Yamagandam', 'YamaGandam'],
       ['yama_gandam', 'yamagandam', 'yamagandham', 'yamaGandam', 'yama']
+    ),
+    gulikaKalam: readKalamRange(
+      data,
+      ['gulikaKalam', 'gulika_kalam', 'gulikakalam', 'gulikaKaal', 'gulika kalam', 'GulikaKalam'],
+      ['gulika_kalam', 'gulikaKalam', 'gulika']
+    ),
+    abhijitMuhurta: readKalamRange(
+      data,
+      ['abhijitMuhurta', 'abhijit_muhurta', 'abhijit', 'abhijitMuhurat', 'abhijit_muhurat'],
+      ['abhijit_muhurta', 'abhijitMuhurta', 'abhijit']
     ),
     tithiName: tithiDetail.name || firstFilled(readPath(data, 'tithi.name'), data?.tithi_name, typeof data?.tithi === 'string' ? data.tithi : ''),
     tithiRange: tithiDetail.range,
@@ -562,129 +677,161 @@ function AiInsightsCard({ bullets = [], onClick }) {
   )
 }
 
-/* ---------------- Premium Astro card (matches target) ---------------- */
+/* ---------------- Live countdown (re-renders every second) ---------------- */
+function LiveTimer({ secs, label, textColor }) {
+  const [s, setS] = useState(secs)
+  useEffect(() => {
+    setS(secs)
+    const id = setInterval(() => setS((v) => Math.max(0, v - 1)), 1000)
+    return () => clearInterval(id)
+  }, [secs])
+  if (!label || s <= 0) return null
+  return (
+    <span className="acr-astro-timer" style={{ color: textColor }}>
+      {label} {fmtCountdown(s)}
+    </span>
+  )
+}
 
-function PremiumAstroCard({ snapshot, dayPct, daylightPct, onOpen, onLocationChange }) {
-  const meta = LOCATION_META[snapshot.location] || LOCATION_META.Bangalore || { emoji: '🌿', tagline: 'Garden City' }
-  const statusMode = snapshot.status?.mode || 'neutral'
+/* ---------------- Premium Astro card ---------------- */
+function PremiumAstroCard({ snapshot, onOpen, onLocationChange }) {
+  const meta = LOCATION_META[snapshot.location] || { emoji: '🌿', tagline: 'Garden City' }
+  const ps = snapshot.periodStatus || {}
+  const mode = ps.mode || 'neutral'
+
+  const sunMoonChips = [
+    snapshot.sunrise && { icon: '🌅', label: 'Rise', val: formatShortTime(snapshot.sunrise) },
+    snapshot.sunset  && { icon: '🌇', label: 'Set',  val: formatShortTime(snapshot.sunset)  },
+    snapshot.moonrise && { icon: '🌕', label: 'Rise', val: formatShortTime(snapshot.moonrise) },
+    snapshot.moonset  && { icon: '🌑', label: 'Set',  val: formatShortTime(snapshot.moonset)  },
+  ].filter(Boolean)
 
   const tiles = [
-    { icon: '🌙', label: 'TITHI', name: compactText(snapshot.tithiName, 'Not available'), range: snapshot.tithiRange },
-    { icon: '✨', label: 'NAKSHATRA', name: compactText(snapshot.nakshatraName, 'Not available'), range: snapshot.nakshatraRange },
-    { icon: '🪷', label: 'YOGA', name: compactText(snapshot.yogaName, 'Not available'), range: snapshot.yogaRange },
-    { icon: '⚛︎', label: 'KARANA', name: compactText(snapshot.karanaName, 'Not available'), range: snapshot.karanaRange },
+    { icon: '🌙', label: 'TITHI',     name: snapshot.tithiName     || '—', range: snapshot.tithiRange     },
+    { icon: '✨', label: 'NAKSHATRA', name: snapshot.nakshatraName  || '—', range: snapshot.nakshatraRange },
+    { icon: '🪷', label: 'YOGA',      name: snapshot.yogaName       || '—', range: snapshot.yogaRange      },
+    { icon: '⚛︎', label: 'KARANA',   name: snapshot.karanaName     || '—', range: snapshot.karanaRange    },
   ]
 
   return (
-    <button className={`acr-astro acr-astro-${statusMode}`} onClick={onOpen}>
+    <button
+      className={`acr-astro acr-astro-${mode}`}
+      onClick={onOpen}
+      style={{ '--period-glow': ps.glowColor || 'rgba(99,102,241,0.14)' }}
+    >
       <div className="acr-astro-stars" aria-hidden="true">
         <i /><i /><i /><i /><i /><i />
       </div>
 
-      {/* header row */}
+      {/* ── Header row ── */}
       <div className="acr-astro-head">
         <div className="acr-astro-head-left">
           <div className="acr-astro-badge">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
             </svg>
           </div>
-          <div className="acr-astro-titles">
-            <h3>Astro · Daily Panchang</h3>
-            <span className={`acr-astro-livepill acr-astro-livepill-${statusMode}`}>LIVE</span>
+          <div>
+            <div className="acr-astro-title-row">
+              <span className="acr-astro-main-title">Panchang</span>
+              <span className="acr-astro-live-badge">LIVE</span>
+            </div>
+            <div className="acr-astro-city-sub">{meta.emoji} {meta.tagline}, {snapshot.location}</div>
           </div>
         </div>
 
         <div className="acr-astro-loc" onClick={(e) => e.stopPropagation()}>
-          <span>{meta.emoji}</span>
           <select value={snapshot.location} onChange={(e) => onLocationChange(e.target.value)}>
-            {LOCATIONS.map((l) => <option key={l} value={l}>{meta.tagline ? `${l}` : l}</option>)}
+            {LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
+          <span className="acr-astro-loc-arrow">▾</span>
         </div>
       </div>
 
-      {/* main grid: mandala + meters/info */}
+      {/* ── Main row: mandala + period status ── */}
       <div className="acr-astro-main">
+        {/* mandala */}
         <div className="acr-astro-mandala-wrap" aria-hidden="true">
           <svg viewBox="0 0 120 120" className="acr-astro-mandala">
             <defs>
-              <radialGradient id="mandalaGold" cx="50%" cy="50%" r="50%">
+              <radialGradient id="mG" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="#FDE68A" />
                 <stop offset="55%" stopColor="#F59E0B" />
                 <stop offset="100%" stopColor="#92400E" />
               </radialGradient>
-              <radialGradient id="mandalaGlow" cx="50%" cy="50%" r="60%">
-                <stop offset="0%" stopColor="rgba(251,191,36,0.55)" />
+              <radialGradient id="mGlow" cx="50%" cy="50%" r="60%">
+                <stop offset="0%" stopColor="rgba(251,191,36,0.5)" />
                 <stop offset="100%" stopColor="rgba(251,191,36,0)" />
               </radialGradient>
             </defs>
-            <circle cx="60" cy="60" r="56" fill="url(#mandalaGlow)" />
-            {/* outer rays */}
+            <circle cx="60" cy="60" r="56" fill="url(#mGlow)" />
             {Array.from({ length: 16 }).map((_, i) => {
               const a = (i * 22.5 * Math.PI) / 180
-              const x1 = 60 + Math.cos(a) * 38
-              const y1 = 60 + Math.sin(a) * 38
-              const x2 = 60 + Math.cos(a) * 52
-              const y2 = 60 + Math.sin(a) * 52
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
+              return <line key={i} x1={60 + Math.cos(a) * 38} y1={60 + Math.sin(a) * 38} x2={60 + Math.cos(a) * 52} y2={60 + Math.sin(a) * 52} stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" opacity="0.82" />
             })}
-            <circle cx="60" cy="60" r="34" fill="none" stroke="#F59E0B" strokeWidth="1.4" opacity="0.7" />
-            {/* square yantra */}
-            <g transform="rotate(45 60 60)">
-              <rect x="34" y="34" width="52" height="52" fill="none" stroke="#FBBF24" strokeWidth="1.6" />
-            </g>
-            <rect x="36" y="36" width="48" height="48" fill="none" stroke="#FBBF24" strokeWidth="1.4" opacity="0.85" />
-            {/* triangles */}
-            <polygon points="60,38 78,68 42,68" fill="none" stroke="#F59E0B" strokeWidth="1.4" />
-            <polygon points="60,82 42,52 78,52" fill="none" stroke="#F59E0B" strokeWidth="1.4" />
-            {/* center disc */}
-            <circle cx="60" cy="60" r="11" fill="url(#mandalaGold)" />
+            <circle cx="60" cy="60" r="34" fill="none" stroke="#F59E0B" strokeWidth="1.4" opacity="0.65" />
+            <g transform="rotate(45 60 60)"><rect x="34" y="34" width="52" height="52" fill="none" stroke="#FBBF24" strokeWidth="1.5" /></g>
+            <rect x="36" y="36" width="48" height="48" fill="none" stroke="#FBBF24" strokeWidth="1.3" opacity="0.82" />
+            <polygon points="60,38 78,68 42,68" fill="none" stroke="#F59E0B" strokeWidth="1.3" />
+            <polygon points="60,82 42,52 78,52" fill="none" stroke="#F59E0B" strokeWidth="1.3" />
+            <circle cx="60" cy="60" r="11" fill="url(#mG)" />
             <circle cx="60" cy="60" r="5" fill="#FEF3C7" />
-            {/* tiny sparks */}
-            <circle cx="36" cy="92" r="1.6" fill="#FDE68A" />
-            <circle cx="84" cy="92" r="1.6" fill="#FDE68A" />
-            <circle cx="22" cy="60" r="1.4" fill="#FDE68A" />
-            <circle cx="98" cy="60" r="1.4" fill="#FDE68A" />
           </svg>
         </div>
 
-        <div className="acr-astro-info">
-          <div className="acr-astro-meters">
-            <div className="acr-astro-meter">
-              <div className="acr-astro-meter-top">
-                <span>DAY PROGRESS</span>
-                <strong>{Math.round(dayPct || 0)}%</strong>
-              </div>
-              <div className="acr-astro-meter-track">
-                <span style={{ width: `${Math.max(2, Math.min(100, dayPct || 0))}%`, background: 'linear-gradient(90deg,#818CF8,#A78BFA)' }} />
-              </div>
+        {/* period status panel */}
+        <div className="acr-astro-period-panel">
+          {/* period chip + label */}
+          <div className="acr-astro-period-top">
+            <span
+              className="acr-astro-period-chip"
+              style={{ background: `${ps.chipColor || '#64748B'}22`, color: ps.chipColor || '#94A3B8', border: `1px solid ${ps.chipColor || '#64748B'}44` }}
+            >
+              {ps.isActive ? '● ' : '◎ '}
+              {ps.label || 'No data'}
+            </span>
+          </div>
+
+          {/* time range */}
+          {ps.timeRange ? (
+            <div className="acr-astro-period-range" style={{ color: ps.textColor || '#94A3B8' }}>
+              {ps.timeRange}
             </div>
-            <div className="acr-astro-meter">
-              <div className="acr-astro-meter-top">
-                <span>DAYLIGHT</span>
-                <strong>☀ {Math.round(daylightPct || 0)}%</strong>
-              </div>
-              <div className="acr-astro-meter-track">
-                <span style={{ width: `${Math.max(2, Math.min(100, daylightPct || 0))}%`, background: 'linear-gradient(90deg,#F59E0B,#FDE68A)' }} />
-              </div>
+          ) : null}
+
+          {/* live timer */}
+          {ps.hasData && ps.timerSecs > 0 && (
+            <LiveTimer secs={ps.timerSecs} label={ps.timerLabel} textColor={ps.textColor} />
+          )}
+
+          {/* remark */}
+          <div className="acr-astro-period-remark">
+            {ps.remark || 'Period timing unavailable.'}
+          </div>
+
+          {/* festival inline */}
+          {snapshot.festival && snapshot.festival !== 'No festival today' && (
+            <div className="acr-astro-festival-chip">
+              🎉 {snapshot.festival}
             </div>
-          </div>
-
-          <div className="acr-astro-row">
-            <span className="acr-astro-row-label">FESTIVAL</span>
-            <strong>{compactText(snapshot.festival, 'No festival today')}</strong>
-          </div>
-
-          <div className="acr-astro-divider" />
-
-          <div className="acr-astro-row">
-            <span className="acr-astro-row-label acr-astro-row-label-violet">KEY WINDOW</span>
-            <strong>{compactText(snapshot.window, 'No key window today')}</strong>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* 4 panchang tiles */}
+      {/* ── Sun / Moon chips ── */}
+      {sunMoonChips.length > 0 && (
+        <div className="acr-astro-sunmoon">
+          {sunMoonChips.map((c, i) => (
+            <div key={i} className="acr-astro-sunmoon-chip">
+              <span>{c.icon}</span>
+              <span className="acr-astro-sunmoon-lbl">{c.label}</span>
+              <strong>{c.val}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── 4 panchang tiles ── */}
       <div className="acr-astro-tiles">
         {tiles.map((t) => (
           <div key={t.label} className="acr-astro-tile">
@@ -693,42 +840,14 @@ function PremiumAstroCard({ snapshot, dayPct, daylightPct, onOpen, onLocationCha
               <span className="acr-astro-tile-label">{t.label}</span>
             </div>
             <strong className="acr-astro-tile-name">{t.name}</strong>
-            {t.range ? (
-              <span className="acr-astro-tile-range">{t.range}</span>
-            ) : (
-              <span className="acr-astro-tile-range acr-astro-tile-range-dim">—</span>
-            )}
+            {t.range
+              ? <span className="acr-astro-tile-range">{t.range}</span>
+              : <span className="acr-astro-tile-range acr-astro-tile-range-dim">—</span>
+            }
           </div>
         ))}
       </div>
     </button>
-  )
-}
-
-/* ---------------- Slim Sun Cycle strip ---------------- */
-
-function SunCycleStrip({ snapshot, daylightPct }) {
-  const markerPct = Math.max(2, Math.min(98, daylightPct || 0))
-  return (
-    <div className="acr-suncycle">
-      <div className="acr-suncycle-icon">☀</div>
-      <div className="acr-suncycle-body">
-        <div className="acr-suncycle-head">SUN CYCLE · {String(snapshot.location || '').toUpperCase()}</div>
-        <div className="acr-suncycle-row">
-          <div className="acr-suncycle-side">
-            <strong>{compactText(formatShortTime(snapshot.sunrise), '—')}</strong>
-            <span>🌅 Sunrise</span>
-          </div>
-          <div className="acr-suncycle-track">
-            <span className="acr-suncycle-marker" style={{ left: `${markerPct}%` }}>☀</span>
-          </div>
-          <div className="acr-suncycle-side acr-suncycle-side-end">
-            <strong>{compactText(formatShortTime(snapshot.sunset), '—')}</strong>
-            <span>🌇 Sunset</span>
-          </div>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -776,8 +895,12 @@ export default function Home({
     festival: '',
     sunrise: '',
     sunset: '',
+    moonrise: '',
+    moonset: '',
     rahuKalam: '',
     yamagandham: '',
+    gulikaKalam: '',
+    abhijitMuhurta: '',
     tithiName: '', tithiRange: '',
     nakshatraName: '', nakshatraRange: '',
     yogaName: '', yogaRange: '',
@@ -846,8 +969,12 @@ export default function Home({
         festival: summary.festival,
         sunrise: summary.sunrise,
         sunset: summary.sunset,
+        moonrise: summary.moonrise,
+        moonset: summary.moonset,
         rahuKalam: summary.rahuKalam,
         yamagandham: summary.yamagandham,
+        gulikaKalam: summary.gulikaKalam,
+        abhijitMuhurta: summary.abhijitMuhurta,
         tithiName: summary.tithiName, tithiRange: summary.tithiRange,
         nakshatraName: summary.nakshatraName, nakshatraRange: summary.nakshatraRange,
         yogaName: summary.yogaName, yogaRange: summary.yogaRange,
@@ -927,7 +1054,7 @@ export default function Home({
     if (sunriseMinutes !== null && sunsetMinutes !== null && sunsetMinutes > sunriseMinutes) {
       astroDayPct = Math.max(0, Math.min(100, ((nowMinutes - sunriseMinutes) / (sunsetMinutes - sunriseMinutes)) * 100))
     }
-    const astroStatus = getCurrentAstroStatus(astroSnapshot, now)
+    const astroStatus = computeAstroPeriodStatus(astroSnapshot, now)
 
     // AI insights bullets
     const spendBullet = !todayLogs.length
@@ -975,11 +1102,17 @@ export default function Home({
         festival: astroSnapshot.festival,
         sunrise: astroSnapshot.sunrise,
         sunset: astroSnapshot.sunset,
+        moonrise: astroSnapshot.moonrise,
+        moonset: astroSnapshot.moonset,
+        rahuKalam: astroSnapshot.rahuKalam,
+        yamagandham: astroSnapshot.yamagandham,
+        gulikaKalam: astroSnapshot.gulikaKalam,
+        abhijitMuhurta: astroSnapshot.abhijitMuhurta,
         tithiName: astroSnapshot.tithiName, tithiRange: astroSnapshot.tithiRange,
         nakshatraName: astroSnapshot.nakshatraName, nakshatraRange: astroSnapshot.nakshatraRange,
         yogaName: astroSnapshot.yogaName, yogaRange: astroSnapshot.yogaRange,
         karanaName: astroSnapshot.karanaName, karanaRange: astroSnapshot.karanaRange,
-        status: astroStatus,
+        periodStatus: astroStatus,
         fullDayPct,
         dayPct: astroDayPct,
       },
@@ -1004,308 +1137,272 @@ export default function Home({
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
         .acr-root *, .acr-root *::before, .acr-root *::after { box-sizing:border-box; font-family:'Poppins', sans-serif; }
         .acr-root {
-          min-height:100vh; width:100%; max-width:480px; margin:0 auto;
-          padding:10px 12px 86px;
-          background:linear-gradient(180deg,#FAFBFD 0%,#F4F6FA 100%);
+          min-height:100vh; width:100%;
+          padding:8px 10px 82px;
+          background:linear-gradient(180deg,#F8FAFC 0%,#F1F4F8 100%);
           color:#0F172A;
         }
-        .acr-shell { display:flex; flex-direction:column; gap:10px; }
+        .acr-shell { display:flex; flex-direction:column; gap:8px; }
 
         /* ----- Header ----- */
-        .acr-header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:2px 0 0; }
-        .acr-brand { display:flex; align-items:center; gap:10px; min-width:0; }
-        .acr-brand-logo {
-          width:42px; height:42px; border-radius:13px; flex-shrink:0; object-fit:cover;
-          background:#0F172A;
-          box-shadow:0 8px 18px rgba(15,23,42,0.18);
-        }
+        .acr-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 0 4px; }
+        .acr-brand { display:flex; align-items:center; gap:9px; min-width:0; }
+        .acr-brand-logo { width:38px; height:38px; border-radius:11px; flex-shrink:0; object-fit:cover; box-shadow:0 6px 14px rgba(15,23,42,0.16); }
         .acr-brand-logo-fallback {
-          width:42px; height:42px; border-radius:13px; flex-shrink:0;
+          width:38px; height:38px; border-radius:11px; flex-shrink:0;
           background:linear-gradient(135deg,#0F172A,#1E293B);
           display:flex; align-items:center; justify-content:center;
-          color:#FBBF24; font-size:20px; font-weight:800;
-          box-shadow:0 8px 18px rgba(15,23,42,0.18);
+          color:#FBBF24; font-size:18px; font-weight:800;
+          box-shadow:0 6px 14px rgba(15,23,42,0.16);
         }
-        .acr-brand-title { font-size:18px; font-weight:800; color:#0F172A; margin:0; line-height:1.05; letter-spacing:0.02em; }
-        .acr-brand-sub { font-size:11px; color:#64748B; margin:2px 0 0; font-weight:600; }
-        .acr-header-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-        .acr-time { font-size:12px; font-weight:700; color:#475569; text-align:right; line-height:1.25; }
-        .acr-time div:first-child { font-size:13px; color:#0F172A; }
+        .acr-brand-title { font-size:17px; font-weight:800; color:#0F172A; margin:0; line-height:1.05; letter-spacing:0.01em; }
+        .acr-brand-sub { font-size:10.5px; color:#64748B; margin:1px 0 0; font-weight:600; }
+        .acr-header-right { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+        .acr-time { font-size:11.5px; font-weight:700; color:#475569; text-align:right; line-height:1.2; }
+        .acr-time div:first-child { font-size:12.5px; color:#0F172A; }
         .acr-coin {
-          border:none; cursor:pointer; border-radius:999px; padding:7px 12px;
+          border:none; cursor:pointer; border-radius:999px; padding:6px 11px;
           background:linear-gradient(135deg,#FEF3C7,#FCD34D);
-          color:#92400E; font-size:13px; font-weight:800;
-          box-shadow:0 6px 14px rgba(217,119,6,0.18);
-          display:flex; align-items:center; gap:5px;
+          color:#92400E; font-size:12.5px; font-weight:800;
+          box-shadow:0 5px 12px rgba(217,119,6,0.18);
+          display:flex; align-items:center; gap:4px;
         }
 
         /* ----- Summary cards (2x2) ----- */
-        .acr-sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .acr-sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         .acr-sum {
           position:relative; border:none; cursor:pointer; text-align:left;
-          border-radius:18px; padding:11px 12px 11px;
-          min-height:96px;
-          display:flex; flex-direction:column; gap:4px;
-          transition:transform 0.15s ease;
+          border-radius:16px; padding:10px 11px 10px;
+          min-height:90px;
+          display:flex; flex-direction:column; gap:3px;
+          transition:transform 0.14s ease;
         }
-        .acr-sum:active { transform:scale(0.98); }
-        .acr-sum-expenses { background:linear-gradient(155deg,#FFFAF0 0%,#FFF1DC 100%); border:1px solid rgba(217,119,6,0.16); }
-        .acr-sum-ledger   { background:linear-gradient(155deg,#F3FCF7 0%,#DCF5E8 100%); border:1px solid rgba(5,150,105,0.16); }
-        .acr-sum-planner  { background:linear-gradient(155deg,#F8F5FF 0%,#EFE9FF 100%); border:1px solid rgba(124,58,237,0.16); }
-        .acr-sum-ai       { background:linear-gradient(155deg,#F2F8FF 0%,#E2EFFE 100%); border:1px solid rgba(2,132,199,0.16); }
+        .acr-sum:active { transform:scale(0.975); }
+        .acr-sum-expenses { background:linear-gradient(155deg,#FFFAF0,#FFF1DC); border:1px solid rgba(217,119,6,0.15); }
+        .acr-sum-ledger   { background:linear-gradient(155deg,#F3FCF7,#DCF5E8); border:1px solid rgba(5,150,105,0.15); }
+        .acr-sum-planner  { background:linear-gradient(155deg,#F8F5FF,#EFE9FF); border:1px solid rgba(124,58,237,0.15); }
+        .acr-sum-ai       { background:linear-gradient(155deg,#F2F8FF,#E2EFFE); border:1px solid rgba(2,132,199,0.15); }
 
         .acr-sum-top { display:flex; align-items:center; gap:7px; }
         .acr-sum-icon {
-          width:26px; height:26px; border-radius:9px;
+          width:24px; height:24px; border-radius:8px;
           display:flex; align-items:center; justify-content:center;
-          font-size:13px; font-weight:800;
+          font-size:12px; font-weight:800;
           box-shadow:inset 0 1px 0 rgba(255,255,255,0.85);
+          flex-shrink:0;
         }
-        .acr-ai-icon {
-          background:#3B82F6; color:#fff;
-          box-shadow:0 4px 10px rgba(59,130,246,0.32);
-        }
+        .acr-ai-icon { background:#3B82F6; color:#fff; box-shadow:0 3px 8px rgba(59,130,246,0.3); }
         .acr-sum-title {
-          flex:1; font-size:10px; font-weight:800; letter-spacing:0.1em; color:#475569; text-transform:uppercase;
+          flex:1; font-size:9.5px; font-weight:800; letter-spacing:0.1em; color:#475569; text-transform:uppercase;
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
-        .acr-sum-chev { font-size:18px; font-weight:700; line-height:1; opacity:0.65; }
-        .acr-sum-primary { font-size:22px; font-weight:800; line-height:1.05; margin-top:2px; }
-        .acr-sum-bottom { margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+        .acr-sum-chev { font-size:17px; font-weight:700; line-height:1; opacity:0.6; }
+        .acr-sum-primary { font-size:21px; font-weight:800; line-height:1.05; margin-top:1px; }
+        .acr-sum-bottom { margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:5px; }
         .acr-sum-subline {
-          margin:0; font-size:9.5px; line-height:1.25; color:#64748B; font-weight:600;
+          margin:0; font-size:9px; line-height:1.25; color:#64748B; font-weight:600;
           flex:1; min-width:0;
           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
         }
         .acr-mini { display:flex; align-items:center; flex-shrink:0; }
-        .acr-mini-dots { gap:4px; }
-        .acr-mini-dots span {
-          width:7px; height:7px; border-radius:999px; transition:all 0.18s ease;
-          box-shadow:0 0 0 2px rgba(255,255,255,0.7);
-        }
-
+        .acr-mini-dots { gap:3px; }
+        .acr-mini-dots span { width:6px; height:6px; border-radius:999px; box-shadow:0 0 0 1.5px rgba(255,255,255,0.7); }
         .acr-ai-bullets { display:flex; flex-direction:column; gap:3px; margin-top:2px; }
         .acr-ai-bullet {
-          display:flex; align-items:center; gap:7px;
-          font-size:11px; font-weight:600; color:#1E293B; line-height:1.2;
+          display:flex; align-items:center; gap:6px;
+          font-size:10.5px; font-weight:600; color:#1E293B; line-height:1.2;
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
-        .acr-ai-dot { width:8px; height:8px; border-radius:999px; flex-shrink:0; box-shadow:0 0 0 2px rgba(255,255,255,0.7); }
+        .acr-ai-dot { width:7px; height:7px; border-radius:999px; flex-shrink:0; box-shadow:0 0 0 1.5px rgba(255,255,255,0.7); }
 
-        /* ----- Premium Astro card ----- */
+        /* ----- Astro card ----- */
         .acr-astro {
           position:relative; overflow:hidden; width:100%; border:none; cursor:pointer; text-align:left;
-          border-radius:22px; padding:14px 14px 12px; color:#fff;
+          border-radius:20px; padding:12px 12px 11px; color:#fff;
           background:
-            radial-gradient(circle at 18% 20%, rgba(99,102,241,0.34), transparent 32%),
-            radial-gradient(circle at 88% 88%, rgba(56,189,248,0.18), transparent 30%),
-            linear-gradient(160deg,#0B1224 0%,#111B36 50%,#0F1830 100%);
-          box-shadow:0 18px 38px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.05);
-          border:1px solid rgba(99,102,241,0.22);
+            radial-gradient(circle at 15% 18%, rgba(99,102,241,0.32), transparent 34%),
+            radial-gradient(circle at 85% 85%, rgba(56,189,248,0.16), transparent 30%),
+            linear-gradient(160deg,#0B1224 0%,#111B36 52%,#0F1830 100%);
+          box-shadow:0 16px 36px rgba(15,23,42,0.26), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(99,102,241,0.18);
+          transition:transform 0.14s ease;
         }
-        .acr-astro-good { border-color:rgba(16,185,129,0.32); }
-        .acr-astro-caution { border-color:rgba(248,113,113,0.36); box-shadow:0 18px 40px rgba(220,38,38,0.22), inset 0 1px 0 rgba(255,255,255,0.05); }
+        .acr-astro:active { transform:scale(0.99); }
+        .acr-astro-caution {
+          box-shadow:0 16px 36px var(--period-glow,rgba(239,68,68,0.22)), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(248,113,113,0.32);
+        }
+        .acr-astro-good {
+          box-shadow:0 16px 36px var(--period-glow,rgba(16,185,129,0.18)), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(52,211,153,0.28);
+        }
+        .acr-astro-neutral {
+          box-shadow:0 16px 36px rgba(99,102,241,0.14), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(99,102,241,0.18);
+        }
 
         .acr-astro-stars { position:absolute; inset:0; pointer-events:none; }
         .acr-astro-stars i {
-          position:absolute; width:3px; height:3px; border-radius:999px; background:rgba(255,255,255,0.85);
-          box-shadow:0 0 10px rgba(191,219,254,0.7);
+          position:absolute; border-radius:999px; background:rgba(255,255,255,0.85);
+          box-shadow:0 0 8px rgba(191,219,254,0.65);
         }
-        .acr-astro-stars i:nth-child(1) { top:18px; right:120px; animation:acrStar 4.6s ease-in-out infinite; }
-        .acr-astro-stars i:nth-child(2) { top:60px; right:30px; width:2px; height:2px; animation:acrStar 5.2s ease-in-out infinite 0.6s; }
-        .acr-astro-stars i:nth-child(3) { top:130px; left:160px; width:2px; height:2px; animation:acrStar 4.8s ease-in-out infinite 1.1s; }
-        .acr-astro-stars i:nth-child(4) { bottom:90px; left:20px; animation:acrStar 5.4s ease-in-out infinite 1.6s; }
-        .acr-astro-stars i:nth-child(5) { bottom:50px; right:80px; width:2px; height:2px; animation:acrStar 4.2s ease-in-out infinite 0.8s; }
-        .acr-astro-stars i:nth-child(6) { top:90px; left:48%; width:2px; height:2px; animation:acrStar 5s ease-in-out infinite 1.4s; }
-        @keyframes acrStar { 0%,100%{ opacity:0.4; transform:translateY(0);} 50%{ opacity:1; transform:translateY(-1px);} }
-
+        .acr-astro-stars i:nth-child(1) { width:3px; height:3px; top:16px; right:110px; animation:acrStar 4.6s ease-in-out infinite; }
+        .acr-astro-stars i:nth-child(2) { width:2px; height:2px; top:55px; right:28px; animation:acrStar 5.2s ease-in-out infinite 0.6s; }
+        .acr-astro-stars i:nth-child(3) { width:2px; height:2px; top:105px; left:148px; animation:acrStar 4.8s ease-in-out infinite 1.1s; }
+        .acr-astro-stars i:nth-child(4) { width:3px; height:3px; bottom:80px; left:18px; animation:acrStar 5.4s ease-in-out infinite 1.6s; }
+        .acr-astro-stars i:nth-child(5) { width:2px; height:2px; bottom:44px; right:72px; animation:acrStar 4.2s ease-in-out infinite 0.8s; }
+        .acr-astro-stars i:nth-child(6) { width:2px; height:2px; top:82px; left:46%; animation:acrStar 5s ease-in-out infinite 1.4s; }
+        @keyframes acrStar { 0%,100%{opacity:0.35;transform:translateY(0)} 50%{opacity:1;transform:translateY(-1px)} }
         .acr-astro > * { position:relative; z-index:1; }
 
-        .acr-astro-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
-        .acr-astro-head-left { display:flex; align-items:center; gap:9px; min-width:0; flex:1; }
+        /* header */
+        .acr-astro-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:9px; }
+        .acr-astro-head-left { display:flex; align-items:flex-start; gap:8px; min-width:0; flex:1; }
         .acr-astro-badge {
-          width:30px; height:30px; border-radius:9px; flex-shrink:0;
-          background:rgba(255,255,255,0.10); border:1px solid rgba(165,180,252,0.3);
-          color:#C7D2FE;
-          display:flex; align-items:center; justify-content:center;
+          width:28px; height:28px; border-radius:8px; flex-shrink:0;
+          background:rgba(255,255,255,0.09); border:1px solid rgba(165,180,252,0.28);
+          color:#C7D2FE; display:flex; align-items:center; justify-content:center; margin-top:1px;
         }
-        .acr-astro-titles { display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; }
-        .acr-astro-titles h3 {
-          margin:0; font-size:16px; font-weight:800; color:#F8FAFC; line-height:1.05;
-          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-        }
-        .acr-astro-livepill {
-          padding:3px 9px; border-radius:999px; font-size:9px; font-weight:800; letter-spacing:0.1em;
+        .acr-astro-title-row { display:flex; align-items:center; gap:7px; }
+        .acr-astro-main-title { font-size:17px; font-weight:800; color:#F8FAFC; letter-spacing:0.01em; }
+        .acr-astro-live-badge {
+          padding:2px 7px; border-radius:999px; font-size:8.5px; font-weight:800; letter-spacing:0.1em;
           background:linear-gradient(135deg,#6366F1,#8B5CF6); color:#fff;
-          box-shadow:0 4px 10px rgba(99,102,241,0.35);
-          animation:acrLive 2.6s ease-in-out infinite;
+          box-shadow:0 3px 8px rgba(99,102,241,0.32);
+          animation:acrLive 2.8s ease-in-out infinite;
         }
-        .acr-astro-livepill-caution { background:linear-gradient(135deg,#EF4444,#F87171); box-shadow:0 4px 10px rgba(239,68,68,0.4); }
-        .acr-astro-livepill-good    { background:linear-gradient(135deg,#10B981,#34D399); box-shadow:0 4px 10px rgba(16,185,129,0.35); }
-        @keyframes acrLive { 0%,100%{transform:translateY(0); opacity:1;} 50%{transform:translateY(-0.5px); opacity:0.85;} }
+        @keyframes acrLive { 0%,100%{opacity:1} 50%{opacity:0.78} }
+        .acr-astro-city-sub { font-size:10.5px; color:#93C5FD; font-weight:600; margin-top:2px; }
 
         .acr-astro-loc {
-          display:flex; align-items:center; gap:6px; flex-shrink:0;
-          padding:6px 10px; border-radius:999px;
-          background:#fff; color:#0F172A;
-          box-shadow:0 4px 10px rgba(0,0,0,0.18);
+          display:flex; align-items:center; gap:3px; flex-shrink:0;
+          padding:5px 8px; border-radius:999px;
+          background:rgba(255,255,255,0.10); border:1px solid rgba(165,180,252,0.22);
         }
-        .acr-astro-loc span { font-size:13px; line-height:1; }
         .acr-astro-loc select {
-          border:none; background:transparent; color:#0F172A; font-size:12px; font-weight:700; outline:none; cursor:pointer;
-          appearance:none; padding-right:2px; max-width:120px;
+          border:none; background:transparent; color:#F8FAFC; font-size:11px; font-weight:700;
+          outline:none; cursor:pointer; appearance:none; max-width:90px;
         }
+        .acr-astro-loc-arrow { font-size:10px; color:#A5B4FC; pointer-events:none; }
 
-        .acr-astro-main {
-          display:grid; grid-template-columns:108px minmax(0,1fr); gap:12px; margin-bottom:10px;
-        }
+        /* main grid */
+        .acr-astro-main { display:grid; grid-template-columns:88px minmax(0,1fr); gap:10px; margin-bottom:8px; }
         .acr-astro-mandala-wrap {
-          width:108px; height:108px; flex-shrink:0;
-          display:flex; align-items:center; justify-content:center;
-          filter:drop-shadow(0 4px 18px rgba(245,158,11,0.4));
+          width:88px; height:88px; display:flex; align-items:center; justify-content:center;
+          filter:drop-shadow(0 3px 14px rgba(245,158,11,0.38));
         }
-        .acr-astro-mandala { width:100%; height:100%; animation:acrMandalaSpin 60s linear infinite; }
-        @keyframes acrMandalaSpin { from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
+        .acr-astro-mandala { width:100%; height:100%; animation:acrMandalaSpin 70s linear infinite; }
+        @keyframes acrMandalaSpin { to{ transform:rotate(360deg); } }
 
-        .acr-astro-info { display:flex; flex-direction:column; gap:8px; min-width:0; }
-        .acr-astro-meters { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .acr-astro-meter { display:flex; flex-direction:column; gap:4px; }
-        .acr-astro-meter-top { display:flex; align-items:center; justify-content:space-between; gap:6px; }
-        .acr-astro-meter-top span {
-          font-size:9px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#A5B4FC;
+        /* period panel */
+        .acr-astro-period-panel { display:flex; flex-direction:column; gap:5px; justify-content:center; min-width:0; }
+        .acr-astro-period-top { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .acr-astro-period-chip {
+          display:inline-flex; align-items:center; gap:3px;
+          padding:3px 9px; border-radius:999px; font-size:10.5px; font-weight:800; letter-spacing:0.04em;
+          white-space:nowrap;
         }
-        .acr-astro-meter-top strong { font-size:13px; color:#F8FAFC; font-weight:800; }
-        .acr-astro-meter-track {
-          height:5px; border-radius:999px; overflow:hidden; background:rgba(165,180,252,0.16);
+        .acr-astro-period-range {
+          font-size:12px; font-weight:700; letter-spacing:0.01em;
         }
-        .acr-astro-meter-track span { display:block; height:100%; border-radius:999px; transition:width 0.6s ease; }
-
-        .acr-astro-row { display:flex; flex-direction:column; gap:2px; min-width:0; }
-        .acr-astro-row-label {
-          font-size:9px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#93C5FD;
+        .acr-astro-timer {
+          font-size:11px; font-weight:800; font-variant-numeric:tabular-nums;
+          background:rgba(255,255,255,0.06); border-radius:6px; padding:2px 6px;
+          display:inline-block;
         }
-        .acr-astro-row-label-violet { color:#C4B5FD; }
-        .acr-astro-row strong {
-          font-size:13px; color:#F8FAFC; font-weight:700; line-height:1.2;
+        .acr-astro-period-remark {
+          font-size:10px; line-height:1.4; color:rgba(203,213,225,0.75); font-weight:500;
+        }
+        .acr-astro-festival-chip {
+          font-size:10px; font-weight:700; color:#FDE68A;
+          background:rgba(251,191,36,0.10); border:1px solid rgba(251,191,36,0.18);
+          border-radius:6px; padding:3px 7px;
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-        }
-        .acr-astro-divider {
-          height:1px; width:100%; background:linear-gradient(90deg, transparent, rgba(165,180,252,0.28), transparent);
-          margin:1px 0;
+          display:inline-block; max-width:100%;
         }
 
-        .acr-astro-tiles { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px; margin-top:4px; }
+        /* sun/moon chips */
+        .acr-astro-sunmoon {
+          display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;
+        }
+        .acr-astro-sunmoon-chip {
+          display:inline-flex; align-items:center; gap:4px;
+          padding:3px 8px; border-radius:8px;
+          background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.09);
+          font-size:10.5px; color:#E2E8F0;
+        }
+        .acr-astro-sunmoon-lbl { font-size:9px; color:#94A3B8; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
+        .acr-astro-sunmoon-chip strong { font-size:11px; font-weight:800; color:#F8FAFC; }
+
+        /* panchang tiles */
+        .acr-astro-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
         .acr-astro-tile {
-          padding:8px 7px 8px; border-radius:13px;
-          background:rgba(15,23,42,0.45);
-          border:1px solid rgba(99,102,241,0.18);
-          min-width:0; display:flex; flex-direction:column; gap:3px;
+          padding:7px 6px; border-radius:11px;
+          background:rgba(15,23,42,0.48); border:1px solid rgba(99,102,241,0.16);
+          min-width:0; display:flex; flex-direction:column; gap:2px;
         }
-        .acr-astro-tile-head { display:flex; align-items:center; gap:5px; }
-        .acr-astro-tile-icon { font-size:11px; line-height:1; }
-        .acr-astro-tile-label {
-          font-size:8.5px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#A5B4FC;
-        }
+        .acr-astro-tile-head { display:flex; align-items:center; gap:4px; }
+        .acr-astro-tile-icon { font-size:10px; line-height:1; }
+        .acr-astro-tile-label { font-size:7.5px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#818CF8; line-height:1; }
         .acr-astro-tile-name {
-          display:block; font-size:11.5px; line-height:1.2; color:#F8FAFC; font-weight:800;
-          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+          display:block; font-size:11px; line-height:1.25; color:#F8FAFC; font-weight:800;
+          word-break:break-word; hyphens:auto;
         }
         .acr-astro-tile-range {
-          font-size:9px; line-height:1.3; color:#CBD5E1; font-weight:600; white-space:pre-line;
-          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+          font-size:8.5px; line-height:1.35; color:#CBD5E1; font-weight:600; white-space:pre-line;
+          display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
         }
-        .acr-astro-tile-range-dim { color:#64748B; }
+        .acr-astro-tile-range-dim { color:#475569; }
 
-        /* ----- Sun Cycle slim strip ----- */
-        .acr-suncycle {
-          background:#fff; border:1px solid rgba(148,163,184,0.18);
-          border-radius:16px; padding:9px 12px;
-          display:flex; align-items:center; gap:10px;
-          box-shadow:0 6px 16px rgba(15,23,42,0.06);
-        }
-        .acr-suncycle-icon {
-          width:30px; height:30px; border-radius:10px; flex-shrink:0;
-          display:flex; align-items:center; justify-content:center;
-          background:linear-gradient(135deg,#FEF3C7,#FCD34D);
-          font-size:16px; line-height:1;
-        }
-        .acr-suncycle-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
-        .acr-suncycle-head {
-          font-size:9.5px; font-weight:800; letter-spacing:0.12em; color:#475569;
-        }
-        .acr-suncycle-row {
-          display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
-        }
-        .acr-suncycle-side { display:flex; flex-direction:column; line-height:1.05; min-width:0; }
-        .acr-suncycle-side strong { font-size:12.5px; color:#0F172A; font-weight:800; }
-        .acr-suncycle-side span { font-size:9.5px; color:#64748B; font-weight:600; margin-top:1px; }
-        .acr-suncycle-side-end { text-align:right; align-items:flex-end; }
-        .acr-suncycle-track {
-          position:relative; height:6px; border-radius:999px;
-          background:linear-gradient(90deg,#3B82F6 0%,#A855F7 35%,#F59E0B 70%,#F97316 100%);
-        }
-        .acr-suncycle-marker {
-          position:absolute; top:50%; transform:translate(-50%, -50%);
-          font-size:14px; line-height:1;
-          filter:drop-shadow(0 2px 4px rgba(245,158,11,0.5));
-        }
-
-        /* ----- Skill / Surprises feature row ----- */
-        .acr-feature-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        /* ----- Skill / Surprises ----- */
+        .acr-feature-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         .acr-feature {
           width:100%; border:none; cursor:pointer; text-align:left;
-          border-radius:16px; padding:11px 12px; color:#fff;
-          background:linear-gradient(155deg,#0F172A 0%,#1E293B 100%);
-          box-shadow:0 14px 28px rgba(15,23,42,0.24), inset 0 1px 0 rgba(255,255,255,0.06);
-          display:flex; align-items:center; gap:10px; min-height:60px;
+          border-radius:14px; padding:10px 11px; color:#fff;
+          background:linear-gradient(155deg,#0F172A,#1E293B);
+          box-shadow:0 12px 24px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.05);
+          display:flex; align-items:center; gap:9px; min-height:56px;
+          transition:transform 0.14s ease;
         }
-        .acr-feature:active { transform:scale(0.98); }
+        .acr-feature:active { transform:scale(0.975); }
         .acr-feature-icon {
-          width:34px; height:34px; border-radius:11px; flex-shrink:0;
-          display:flex; align-items:center; justify-content:center; font-size:18px;
+          width:32px; height:32px; border-radius:10px; flex-shrink:0;
+          display:flex; align-items:center; justify-content:center; font-size:17px;
           background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08);
         }
         .acr-feature-copy { min-width:0; flex:1; }
-        .acr-feature-copy p { margin:0; font-size:14px; font-weight:800; color:#fff; line-height:1.1; }
-        .acr-feature-copy span { display:block; margin-top:2px; font-size:10px; color:rgba(226,232,240,0.7); font-weight:600; line-height:1.2; }
+        .acr-feature-copy p { margin:0; font-size:13.5px; font-weight:800; color:#fff; line-height:1.1; }
+        .acr-feature-copy span { display:block; margin-top:2px; font-size:9.5px; color:rgba(226,232,240,0.68); font-weight:600; line-height:1.2; }
         .acr-feature-pill {
-          flex-shrink:0; padding:6px 12px; border-radius:999px;
+          flex-shrink:0; padding:5px 11px; border-radius:999px;
           background:linear-gradient(135deg,#7C3AED,#A855F7); color:#fff; font-size:11px; font-weight:800;
-          box-shadow:0 6px 14px rgba(124,58,237,0.32);
+          box-shadow:0 5px 12px rgba(124,58,237,0.28);
         }
 
         /* ----- Quick Actions ----- */
         .acr-section {
-          background:#fff;
-          border:1px solid rgba(148,163,184,0.16);
-          border-radius:16px; padding:12px;
-          box-shadow:0 8px 18px rgba(15,23,42,0.05);
+          background:#fff; border:1px solid rgba(148,163,184,0.15);
+          border-radius:14px; padding:10px 11px;
+          box-shadow:0 6px 14px rgba(15,23,42,0.05);
         }
-        .acr-section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
-        .acr-section-head p { margin:0; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.1em; }
+        .acr-section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
+        .acr-section-head p { margin:0; font-size:10.5px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.1em; }
         .acr-section-head span { font-size:11px; color:#3B82F6; font-weight:700; }
-        .acr-quick-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
-        @media (max-width: 380px) { .acr-quick-grid { grid-template-columns:1fr 1fr; } }
+        .acr-quick-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; }
         .acr-quick {
-          border:1px solid rgba(148,163,184,0.14); cursor:pointer; text-align:left; border-radius:13px; padding:9px 10px;
-          background:#fff;
-          display:flex; flex-direction:column; gap:4px;
+          border:1px solid rgba(148,163,184,0.13); cursor:pointer; text-align:left;
+          border-radius:11px; padding:8px 9px; background:#FAFBFC;
+          display:flex; flex-direction:column; gap:3px; transition:transform 0.13s ease;
         }
-        .acr-quick-top { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:2px; }
-        .acr-quick-icon {
-          width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-          font-size:14px;
-        }
-        .acr-quick-title { margin:0; font-size:12px; font-weight:800; color:#0F172A; line-height:1.1; }
-        .acr-quick-sub { margin:1px 0 0; font-size:10px; font-weight:600; color:#64748B; line-height:1.15; }
+        .acr-quick:active { transform:scale(0.97); }
+        .acr-quick-top { display:flex; align-items:center; justify-content:space-between; gap:5px; margin-bottom:1px; }
+        .acr-quick-icon { width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:13px; }
+        .acr-quick-title { margin:0; font-size:11.5px; font-weight:800; color:#0F172A; line-height:1.1; }
+        .acr-quick-sub { margin:0; font-size:9.5px; font-weight:600; color:#64748B; line-height:1.15; }
 
-        @media (max-width: 380px) {
-          .acr-root { padding:8px 10px 86px; }
-          .acr-brand-title { font-size:16px; }
-          .acr-sum-primary { font-size:20px; }
-          .acr-astro-main { grid-template-columns:92px minmax(0,1fr); gap:10px; }
-          .acr-astro-mandala-wrap { width:92px; height:92px; }
-          .acr-astro-titles h3 { font-size:14.5px; }
+        @media (max-width: 360px) {
+          .acr-root { padding:6px 8px 80px; }
+          .acr-astro-main { grid-template-columns:78px minmax(0,1fr); }
+          .acr-astro-mandala-wrap { width:78px; height:78px; }
+          .acr-astro-tiles { grid-template-columns:repeat(2,1fr); }
+          .acr-quick-grid { grid-template-columns:1fr 1fr; }
+          .acr-sum-primary { font-size:19px; }
         }
       `}</style>
 
@@ -1388,16 +1485,8 @@ export default function Home({
           {/* ----- Premium Astro card ----- */}
           <PremiumAstroCard
             snapshot={dashboardSnapshot.astro}
-            dayPct={dashboardSnapshot.astro.fullDayPct}
-            daylightPct={dashboardSnapshot.astro.dayPct}
             onOpen={() => navigate('astro')}
             onLocationChange={handleAstroLocationChange}
-          />
-
-          {/* ----- Slim Sun Cycle ----- */}
-          <SunCycleStrip
-            snapshot={dashboardSnapshot.astro}
-            daylightPct={dashboardSnapshot.astro.dayPct}
           />
 
           {/* ----- Skill / Surprises ----- */}
