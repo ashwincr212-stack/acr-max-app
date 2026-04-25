@@ -259,6 +259,7 @@ const KALAM_DEFS = [
 function computeAstroPeriodStatus(astroData, now) {
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()
+  let hasAnyPeriodData = false
 
   // Check if now is inside any period (active)
   for (const def of KALAM_DEFS) {
@@ -266,6 +267,7 @@ function computeAstroPeriodStatus(astroData, now) {
     if (!raw) continue
     const range = parseAstroTimeRange(raw)
     if (!range) continue
+    hasAnyPeriodData = true
     const startMin = toMinutes(range.start)
     const endMin = toMinutes(range.end)
     if (startMin == null || endMin == null) continue
@@ -302,6 +304,7 @@ function computeAstroPeriodStatus(astroData, now) {
     if (!raw) continue
     const range = parseAstroTimeRange(raw)
     if (!range) continue
+    hasAnyPeriodData = true
     const startMin = toMinutes(range.start)
     if (startMin == null) continue
     const startSecs = startMin * 60
@@ -324,6 +327,22 @@ function computeAstroPeriodStatus(astroData, now) {
       timeRange: `${formatShortTime(nextRange.start)} – ${formatShortTime(nextRange.end)}`,
       timerLabel: 'Starts in',
       timerSecs: nextStartSecs,
+      hasData: true,
+      isActive: false,
+    }
+  }
+
+  if (hasAnyPeriodData) {
+    return {
+      mode: 'neutral',
+      label: 'No active Kaalam / Muhurtam now',
+      remark: 'All key periods completed today.',
+      chipColor: '#64748B',
+      glowColor: 'rgba(100,116,139,0.12)',
+      textColor: '#94A3B8',
+      timeRange: '',
+      timerLabel: '',
+      timerSecs: 0,
       hasData: true,
       isActive: false,
     }
@@ -364,11 +383,15 @@ function fmtCountdown(secs) {
 function getAstroPayload(result) {
   if (!result || typeof result !== 'object') return {}
   const candidates = [
-    result?.data?.normalized,
-    result?.normalized,
+    result?.data,
     result?.data?.panchang,
     result?.data?.raw,
-    result?.data,
+    result?.data?.response,
+    result?.data?.normalized,
+    result?.normalized,
+    result?.panchang,
+    result?.raw,
+    result?.response,
     result,
   ]
   const looksLikeAstro = (o) =>
@@ -379,16 +402,16 @@ function getAstroPayload(result) {
       'nakshatra' in o || 'Nakshatra' in o ||
       'rahuKalam' in o || 'rahu_kalam' in o || 'rahukalam' in o ||
       'yamagandam' in o || 'yama_gandam' in o || 'yamagandham' in o ||
+      'rawFestivals' in o || 'festivals' in o || 'festival_list' in o ||
       'sun' in o || 'timings' in o
     )
+  const merged = {}
   for (const c of candidates) {
-    if (looksLikeAstro(c)) return c
+    if (!c || typeof c !== 'object') continue
+    if (!looksLikeAstro(c) && !Object.keys(c).length) continue
+    Object.assign(merged, c)
   }
-  // Fall back to the first non-empty object so downstream extraction still has something to walk
-  for (const c of candidates) {
-    if (c && typeof c === 'object' && Object.keys(c).length) return c
-  }
-  return {}
+  return Object.keys(merged).length ? merged : {}
 }
 
 /* Pull a time-ish value out of a node — supports plain strings, Firestore timestamps,
@@ -406,6 +429,7 @@ function pickTimeLike(node, keys) {
       // Some APIs wrap as { time: "06:02 AM" } or { value: ... }
       if (typeof v.time === 'string' && v.time.trim()) return v.time.trim()
       if (typeof v.value === 'string' && v.value.trim()) return v.value.trim()
+      if (typeof v.name === 'string' && v.name.trim()) return v.name.trim()
     }
   }
   return ''
@@ -416,14 +440,14 @@ function readSunrise(payload) {
   return pickTimeLike(payload, [
     'sunrise', 'Sunrise', 'sunRise', 'sun_rise', 'sunrise_time', 'sun_rise_time',
     'sun.rise', 'timings.sunrise', 'timings.sun_rise',
-    'normalized.sunrise', 'panchang.sunrise',
+    'normalized.sunrise', 'response.sunrise', 'panchang.sunrise',
   ])
 }
 function readSunset(payload) {
   return pickTimeLike(payload, [
     'sunset', 'Sunset', 'sunSet', 'sun_set', 'sunset_time', 'sun_set_time',
     'sun.set', 'timings.sunset', 'timings.sun_set',
-    'normalized.sunset', 'panchang.sunset',
+    'normalized.sunset', 'response.sunset', 'panchang.sunset',
   ])
 }
 
@@ -436,8 +460,8 @@ function readKalamRange(payload, keyVariants, splitPrefixes = []) {
     if (v == null) continue
     if (typeof v === 'string' && v.trim()) return v.trim()
     if (typeof v === 'object' && !Array.isArray(v)) {
-      const s = v.start || v.from || v.begin || v.startTime || v.start_time
-      const e = v.end || v.to || v.close || v.endTime || v.end_time
+      const s = v.start || v.from || v.begin || v.startTime || v.start_time || v.starts_at
+      const e = v.end || v.to || v.close || v.endTime || v.end_time || v.ends_at
       if (s && e) return `${s} - ${e}`
       // Some shapes nest the range as a string under .range or .time
       if (typeof v.range === 'string' && v.range.trim()) return v.range.trim()
@@ -475,19 +499,21 @@ function extractPanchangDetail(rawDetail) {
 
   const name =
     rawDetail.name || rawDetail.Name || rawDetail.title ||
+    rawDetail.label || rawDetail.Label ||
     rawDetail.tithi_name || rawDetail.tithiName ||
     rawDetail.nakshatra_name || rawDetail.nakshatraName ||
     rawDetail.yoga_name || rawDetail.yogaName ||
     rawDetail.karana_name || rawDetail.karanaName ||
+    rawDetail.summary || rawDetail.Summary ||
     rawDetail.value || ''
 
   const startStr =
     rawDetail.start || rawDetail.Start || rawDetail.start_time || rawDetail.startTime ||
-    rawDetail.from || rawDetail.begin || rawDetail.beginTime || ''
+    rawDetail.from || rawDetail.begin || rawDetail.beginTime || rawDetail.starts_at || ''
   const endStr =
     rawDetail.endTime || rawDetail.end_time || rawDetail.EndTime ||
     rawDetail.end || rawDetail.End || rawDetail.ends ||
-    rawDetail.to || rawDetail.until || ''
+    rawDetail.to || rawDetail.until || rawDetail.ends_at || ''
 
   const fmtTime = (v) => {
     if (v == null) return ''
@@ -534,6 +560,7 @@ function extractAstroSummary(rawResult) {
     data?.festivalsData,
     data?.normalized?.rawFestivals,
     data?.response?.rawFestivals,
+    data?.panchang?.rawFestivals,
   ]
   let festivalList = []
   for (const src of festivalSources) {
@@ -548,6 +575,8 @@ function extractAstroSummary(rawResult) {
   if (Array.isArray(data?.festival))      festivalList = festivalList.concat(data.festival)
   if (Array.isArray(data?.normalized?.festivals)) festivalList = festivalList.concat(data.normalized.festivals)
   if (Array.isArray(data?.response?.festivals))   festivalList = festivalList.concat(data.response.festivals)
+  if (Array.isArray(data?.panchang?.festivals))   festivalList = festivalList.concat(data.panchang.festivals)
+  if (Array.isArray(data?.panchang?.festival_list)) festivalList = festivalList.concat(data.panchang.festival_list)
 
   // Extract name from each item
   const pickFestivalName = (item) => {
@@ -568,6 +597,7 @@ function extractAstroSummary(rawResult) {
     (typeof data?.festival?.name === 'string' ? data.festival.name.trim() : '') ||
     (typeof data?.festivalName === 'string' ? data.festivalName.trim() : '') ||
     (typeof data?.normalized?.festival === 'string' ? data.normalized.festival.trim() : '') ||
+    (typeof data?.panchang?.festival === 'string' ? data.panchang.festival.trim() : '') ||
     ''
 
   if (scalarFestival && !validFestivals.includes(scalarFestival)) {
@@ -603,33 +633,33 @@ function extractAstroSummary(rawResult) {
     festival: festivalDisplay,
     sunrise: readSunrise(data),
     sunset: readSunset(data),
-    moonrise: pickTimeLike(data, ['moonrise', 'Moonrise', 'moon_rise', 'moonRise']),
-    moonset: pickTimeLike(data, ['moonset', 'Moonset', 'moon_set', 'moonSet']),
+    moonrise: pickTimeLike(data, ['moonrise', 'Moonrise', 'moon_rise', 'moonRise', 'moonrise_time', 'normalized.moonrise', 'response.moonrise']),
+    moonset: pickTimeLike(data, ['moonset', 'Moonset', 'moon_set', 'moonSet', 'moonset_time', 'normalized.moonset', 'response.moonset']),
     rahuKalam: readKalamRange(
       data,
-      ['rahuKalam', 'rahu_kalam', 'rahukalam', 'rahukaalam', 'rahuKaal', 'rahu_kal', 'rahu kalam', 'RahuKalam'],
+      ['rahuKalam', 'rahu_kalam', 'rahukalam', 'rahukaalam', 'rahuKaal', 'rahu_kal', 'rahu kalam', 'RahuKalam', 'normalized.rahuKalam', 'response.rahuKalam'],
       ['rahu_kalam', 'rahuKalam', 'rahu']
     ),
     yamagandham: readKalamRange(
       data,
-      ['yamagandham', 'yamagandam', 'yama_gandam', 'yamaGandam', 'yama gandam', 'Yamagandam', 'YamaGandam'],
+      ['yamagandham', 'yamagandam', 'yama_gandam', 'yamaGandam', 'yama gandam', 'Yamagandam', 'YamaGandam', 'normalized.yamagandam', 'response.yamagandam'],
       ['yama_gandam', 'yamagandam', 'yamagandham', 'yamaGandam', 'yama']
     ),
     gulikaKalam: readKalamRange(
       data,
-      ['gulikaKalam', 'gulika_kalam', 'gulikakalam', 'gulikaKaal', 'gulika kalam', 'GulikaKalam'],
+      ['gulikaKalam', 'gulika_kalam', 'gulikakalam', 'gulikaKaal', 'gulika kalam', 'GulikaKalam', 'gulika', 'gulikai', 'normalized.gulikaKalam', 'response.gulikaKalam'],
       ['gulika_kalam', 'gulikaKalam', 'gulika']
     ),
     abhijitMuhurta: readKalamRange(
       data,
-      ['abhijitMuhurta', 'abhijit_muhurta', 'abhijit', 'abhijitMuhurat', 'abhijit_muhurat'],
+      ['abhijitMuhurta', 'abhijit_muhurta', 'abhijit', 'abhijitMuhurat', 'abhijit_muhurat', 'normalized.abhijitMuhurta', 'response.abhijitMuhurta'],
       ['abhijit_muhurta', 'abhijitMuhurta', 'abhijit']
     ),
     // Only name — no range — for tile display
-    tithiName: tithiDetail.name || firstFilled(readPath(data, 'tithi.name'), data?.tithi_name, typeof data?.tithi === 'string' ? data.tithi : ''),
-    nakshatraName: nakDetail.name || firstFilled(readPath(data, 'nakshatra.name'), data?.nakshatra_name, typeof data?.nakshatra === 'string' ? data.nakshatra : ''),
-    yogaName: yogaDetail.name || firstFilled(readPath(data, 'yoga.name'), data?.yoga_name, typeof data?.yoga === 'string' ? data.yoga : ''),
-    karanaName: karanaDetail.name || firstFilled(readPath(data, 'karana.name'), data?.karana_name, typeof data?.karana === 'string' ? data.karana : ''),
+    tithiName: tithiDetail.name || firstFilled(readPath(data, 'tithi.name'), readPath(data, 'normalized.tithi.name'), data?.tithi_name, data?.tithiName, typeof data?.tithi === 'string' ? data.tithi : ''),
+    nakshatraName: nakDetail.name || firstFilled(readPath(data, 'nakshatra.name'), readPath(data, 'normalized.nakshatra.name'), data?.nakshatra_name, data?.nakshatraName, typeof data?.nakshatra === 'string' ? data.nakshatra : ''),
+    yogaName: yogaDetail.name || firstFilled(readPath(data, 'yoga.name'), readPath(data, 'normalized.yoga.name'), data?.yoga_name, data?.yogaName, typeof data?.yoga === 'string' ? data.yoga : ''),
+    karanaName: karanaDetail.name || firstFilled(readPath(data, 'karana.name'), readPath(data, 'normalized.karana.name'), data?.karana_name, data?.karanaName, typeof data?.karana === 'string' ? data.karana : ''),
   }
 }
 
@@ -1159,11 +1189,11 @@ export default function Home({
         .acr-root *, .acr-root *::before, .acr-root *::after { box-sizing:border-box; font-family:'Poppins', sans-serif; }
         .acr-root {
           min-height:100vh; width:100%;
-          padding:8px 10px 82px;
+          padding:6px 5px 82px;
           background:linear-gradient(180deg,#F8FAFC 0%,#F1F4F8 100%);
           color:#0F172A;
         }
-        .acr-shell { display:flex; flex-direction:column; gap:8px; }
+        .acr-shell { display:flex; flex-direction:column; gap:6px; }
 
         /* ----- Header ----- */
         .acr-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 0 4px; }
@@ -1190,7 +1220,7 @@ export default function Home({
         }
 
         /* ----- Summary cards (2x2) ----- */
-        .acr-sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .acr-sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
         .acr-sum {
           position:relative; border:none; cursor:pointer; text-align:left;
           border-radius:16px; padding:10px 11px 10px;
@@ -1438,7 +1468,7 @@ export default function Home({
           word-break:break-word; hyphens:auto;
         }
         /* ----- Skill / Surprises ----- */
-        .acr-feature-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .acr-feature-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
         .acr-feature {
           width:100%; border:none; cursor:pointer; text-align:left;
           border-radius:14px; padding:10px 11px; color:#fff;
@@ -1484,7 +1514,7 @@ export default function Home({
         .acr-quick-sub { margin:0; font-size:9.5px; font-weight:600; color:#64748B; line-height:1.15; }
 
         @media (max-width: 360px) {
-          .acr-root { padding:6px 8px 80px; }
+          .acr-root { padding:5px 4px 80px; }
           .acr-astro-main { grid-template-columns:78px minmax(0,1fr); }
           .acr-astro-mandala-wrap { width:78px; height:78px; }
           .acr-astro-tiles { grid-template-columns:repeat(2,1fr); }
