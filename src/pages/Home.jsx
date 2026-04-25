@@ -5,19 +5,20 @@ import { db } from '../firebase'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore'
 import { fetchAstroDoc, getTodayIST, LOCATIONS, LOCATION_META } from './astroHelpers'
 
+/* ---------------- helpers ---------------- */
+
 function useGreeting() {
   const h = new Date().getHours()
   if (h < 5) return { text: 'Good Night', emoji: '🌙' }
-  if (h < 12) return { text: 'Good Morning', emoji: '🌤️' }
+  if (h < 12) return { text: 'Good Morning', emoji: '☀️' }
   if (h < 17) return { text: 'Good Afternoon', emoji: '☀️' }
   if (h < 21) return { text: 'Good Evening', emoji: '🌆' }
   return { text: 'Good Night', emoji: '🌙' }
 }
 
-function CountUp({ value, prefix = '₹', duration = 850 }) {
+function CountUp({ value, prefix = '₹', duration = 700 }) {
   const [disp, setDisp] = useState(0)
   const raf = useRef(null)
-
   useEffect(() => {
     const end = Number(value) || 0
     const t0 = performance.now()
@@ -30,7 +31,6 @@ function CountUp({ value, prefix = '₹', duration = 850 }) {
     raf.current = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf.current)
   }, [value, duration])
-
   return <span>{prefix}{disp.toLocaleString('en-IN')}</span>
 }
 
@@ -99,6 +99,160 @@ function toMinutes(value) {
   return hour * 60 + minute
 }
 
+function readPath(obj, path) {
+  return path.split('.').reduce((acc, part) => (acc && acc[part] != null ? acc[part] : undefined), obj)
+}
+
+function firstFilled(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  }
+  return ''
+}
+
+function compactText(value, fallback = 'Not available') {
+  const safe = String(value || '').trim()
+  return safe || fallback
+}
+
+function getAstroValue(obj, possibleKeys = []) {
+  for (const key of possibleKeys) {
+    if (!key) continue
+    const value = key.includes('.') ? readPath(obj, key) : obj?.[key]
+    if (value == null) continue
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'object') return value
+  }
+  return ''
+}
+
+function normalizeAstroTime(value) {
+  if (!value) return ''
+  if (typeof value?.toDate === 'function') {
+    const date = value.toDate()
+    if (date instanceof Date && !Number.isNaN(date.getTime())) {
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    }
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) {
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    }
+  }
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const match = trimmed.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i)
+  if (!match) return ''
+  let hour = Number(match[1])
+  const minute = Number(match[2] || '0')
+  const meridiem = (match[3] || '').toUpperCase()
+  if (Number.isNaN(hour) || Number.isNaN(minute) || minute > 59) return ''
+  if (meridiem === 'AM' && hour === 12) hour = 0
+  else if (meridiem === 'PM' && hour < 12) hour += 12
+  if (hour > 23) return ''
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+function parseAstroTimeRange(value) {
+  if (!value) return null
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const startValue = getAstroValue(value, ['start', 'from', 'begin', 'open'])
+    const endValue = getAstroValue(value, ['end', 'to', 'close'])
+    const start = normalizeAstroTime(startValue)
+    const end = normalizeAstroTime(endValue)
+    if (!start || !end) return null
+    return { start, end }
+  }
+  const text = String(value).trim()
+  if (!text) return null
+  const parts = text.split(/\s*(?:-|–|—|to)\s*/i).filter(Boolean)
+  if (parts.length < 2) return null
+  const start = normalizeAstroTime(parts[0])
+  const end = normalizeAstroTime(parts[1])
+  if (!start || !end) return null
+  return { start, end }
+}
+
+function isNowWithinRange(range, now) {
+  if (!range?.start || !range?.end) return false
+  const start = toMinutes(range.start)
+  const end = toMinutes(range.end)
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  if (start == null || end == null) return false
+  if (end < start) return nowMinutes >= start || nowMinutes <= end
+  return nowMinutes >= start && nowMinutes <= end
+}
+
+function getCurrentAstroStatus(astroData, now) {
+  const rahuRaw = getAstroValue(astroData, ['rahuKalam', 'rahu_kalam', 'rahu kalam', 'rahukaalam'])
+  const yamaRaw = getAstroValue(astroData, ['yamagandham', 'yamagandam', 'yama_gandam', 'yama gandam'])
+  const rahuRange = parseAstroTimeRange(rahuRaw)
+  const yamaRange = parseAstroTimeRange(yamaRaw)
+
+  if (rahuRange && isNowWithinRange(rahuRange, now)) {
+    return {
+      mode: 'caution',
+      label: 'Rahu Kalam active',
+      chip: 'Caution',
+      detail: `Rahu Kalam ${rahuRange.start} – ${rahuRange.end}`,
+    }
+  }
+  if (yamaRange && isNowWithinRange(yamaRange, now)) {
+    return {
+      mode: 'caution',
+      label: 'Yamagandham active',
+      chip: 'Caution',
+      detail: `Yamagandham ${yamaRange.start} – ${yamaRange.end}`,
+    }
+  }
+  if (rahuRange || yamaRange) {
+    return {
+      mode: 'good',
+      label: 'No caution period now',
+      chip: 'Good',
+      detail: astroData?.window || 'Auspicious window',
+    }
+  }
+  return {
+    mode: 'neutral',
+    label: 'Timing data unavailable',
+    chip: 'Neutral',
+    detail: 'Timing data unavailable',
+  }
+}
+
+/* extract panchang detail with start/end labels for tile display */
+function extractPanchangDetail(rawDetail) {
+  if (!rawDetail) return { name: '', range: '' }
+  if (typeof rawDetail === 'string') return { name: rawDetail.trim(), range: '' }
+
+  const name =
+    rawDetail.name || rawDetail.Name || rawDetail.title ||
+    rawDetail.tithi_name || rawDetail.nakshatra_name ||
+    rawDetail.yoga_name || rawDetail.karana_name || ''
+
+  const startStr = rawDetail.start || rawDetail.Start || rawDetail.start_time || rawDetail.from || ''
+  const endStr = rawDetail.endTime || rawDetail.end_time || rawDetail.end || rawDetail.End || rawDetail.ends || rawDetail.to || ''
+
+  let range = ''
+  if (startStr && endStr) {
+    range = `${String(startStr).trim()}\nto ${String(endStr).trim()}`
+  } else if (endStr) {
+    range = `until ${String(endStr).trim()}`
+  } else if (startStr) {
+    range = String(startStr).trim()
+  }
+
+  return { name: String(name || '').trim(), range }
+}
+
 function extractAstroSummary(data) {
   const rawFestivals = data?.rawFestivals || {}
   const festivalList = [
@@ -122,23 +276,38 @@ function extractAstroSummary(data) {
     data?.dur_muhurta ||
     ''
 
-  const summaryTitle = goodWindow ? 'Good Window' : 'Daily Panchang'
+  const tithiDetail = extractPanchangDetail(data?.tithi || data?.Tithi)
+  const nakDetail = extractPanchangDetail(data?.nakshatra || data?.Nakshatra)
+  const yogaDetail = extractPanchangDetail(data?.yoga || data?.Yoga)
+  const karanaDetail = extractPanchangDetail(data?.karana || data?.Karana)
 
   return {
-    title: summaryTitle,
-    window: goodWindow || 'No key window today',
+    title: 'Daily Panchang',
+    window: goodWindow || '',
     festival: festivalName,
     sunrise: data?.sunrise || data?.sun_rise || data?.sunRise || '',
     sunset: data?.sunset || data?.sun_set || data?.sunSet || '',
+    rahuKalam: getAstroValue(data, ['rahuKalam', 'rahu_kalam', 'rahu kalam', 'rahukaalam']),
+    yamagandham: getAstroValue(data, ['yamagandham', 'yamagandam', 'yama_gandam', 'yama gandam']),
+    tithiName: tithiDetail.name || firstFilled(readPath(data, 'tithi.name'), data?.tithi_name, data?.tithi),
+    tithiRange: tithiDetail.range,
+    nakshatraName: nakDetail.name || firstFilled(readPath(data, 'nakshatra.name'), data?.nakshatra_name, data?.nakshatra),
+    nakshatraRange: nakDetail.range,
+    yogaName: yogaDetail.name || firstFilled(readPath(data, 'yoga.name'), data?.yoga_name, data?.yoga),
+    yogaRange: yogaDetail.range,
+    karanaName: karanaDetail.name || firstFilled(readPath(data, 'karana.name'), data?.karana_name, data?.karana),
+    karanaRange: karanaDetail.range,
   }
 }
+
+/* ---------------- micro visuals ---------------- */
 
 function MiniTrend({ accent, points = [] }) {
   const safePoints = points.length ? points : [25, 45, 35, 60]
   const path = safePoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${index * 18} ${34 - point * 0.34}`).join(' ')
   return (
-    <div className="home-mini-visual home-mini-visual--spark">
-      <svg viewBox="0 0 54 34" className="home-mini-spark-svg">
+    <div className="acr-mini">
+      <svg viewBox="0 0 54 34" width="44" height="14">
         <path d={path} fill="none" stroke={accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
@@ -148,232 +317,252 @@ function MiniTrend({ accent, points = [] }) {
 function MiniDots({ accent, values = [] }) {
   const safeValues = values.length ? values : [1, 0, 0]
   return (
-    <div className="home-mini-visual home-mini-visual--dots">
-      {safeValues.map((value, index) => (
-        <span
-          key={index}
-          className="home-status-dot"
-          style={{
-            background: value ? accent : `${accent}20`,
-            opacity: value ? 1 : 0.55,
-            transform: value ? 'scale(1)' : 'scale(0.82)',
-          }}
-        />
+    <div className="acr-mini acr-mini-dots">
+      {safeValues.map((v, i) => (
+        <span key={i} style={{
+          background: v ? accent : `${accent}30`,
+          opacity: v ? 1 : 0.55,
+          transform: v ? 'scale(1)' : 'scale(0.85)',
+        }} />
       ))}
     </div>
   )
 }
 
-function MiniProgress({ accent, pct = 0 }) {
+/* ---------------- Top summary cards ---------------- */
+
+function SummaryCard({ tone, icon, iconBg, iconColor, title, primary, primaryColor, subline, microVisual, onClick, animated, primaryPrefix = '' }) {
   return (
-    <div className="home-mini-visual home-mini-visual--progress">
-      <div className="home-mini-progress-track">
-        <div className="home-mini-progress-fill" style={{ width: `${Math.max(8, pct)}%`, background: accent }} />
+    <button onClick={onClick} className={`acr-sum acr-sum-${tone}`}>
+      <div className="acr-sum-top">
+        <div className="acr-sum-icon" style={{ background: iconBg, color: iconColor }}>{icon}</div>
+        <span className="acr-sum-title">{title}</span>
+        <span className="acr-sum-chev" style={{ color: iconColor }}>›</span>
       </div>
-    </div>
-  )
-}
-
-function AstroDayMeter({ pct = 0 }) {
-  const safePct = Math.max(0, Math.min(100, Math.round(pct || 0)))
-  return (
-    <div className="home-astro-day-meter" aria-hidden="true">
-      <span className="home-astro-day-meter-label">Day</span>
-      <div className="home-astro-day-meter-track">
-        <div className="home-astro-day-meter-fill" style={{ width: `${Math.max(10, safePct)}%` }} />
+      <div className="acr-sum-primary" style={{ color: primaryColor }}>
+        {animated ? <CountUp value={primary} prefix={primaryPrefix} /> : primary}
       </div>
-      <strong>{safePct}%</strong>
-    </div>
-  )
-}
-
-function AstroCard({ snapshot, onOpen, onLocationChange }) {
-  const [pressed, setPressed] = useState(false)
-  const meta = LOCATION_META[snapshot.location] || LOCATION_META.Chennai || { emoji: '✦', tagline: 'Panchang' }
-
-  return (
-    <button
-      onClick={onOpen}
-      onMouseDown={() => setPressed(true)}
-      onMouseUp={() => setPressed(false)}
-      onMouseLeave={() => setPressed(false)}
-      onTouchStart={() => setPressed(true)}
-      onTouchEnd={() => setPressed(false)}
-      className="home-dashboard-card home-dashboard-card--astro home-astro-card"
-      style={{
-        background: CARD_TONES.astro.surface,
-        border: `1px solid ${CARD_TONES.astro.border}`,
-        boxShadow: pressed
-          ? 'inset 2px 2px 7px rgba(15,23,42,0.08), inset -1px -1px 4px rgba(255,255,255,0.85)'
-          : CARD_TONES.astro.shadow,
-        transform: pressed ? 'scale(0.98)' : 'translateY(0)',
-      }}
-    >
-      <span className="home-card-glow" style={{ background: CARD_TONES.astro.glow }} />
-      <span className="home-card-haze" style={{ background: CARD_TONES.astro.haze }} />
-      <span className="home-card-gloss" style={{ background: CARD_TONES.astro.gloss }} />
-      <span className="home-card-stars" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-      </span>
-
-      <div className="home-card-top">
-        <div className="home-card-icon home-astro-card-icon" style={{ background: CARD_TONES.astro.iconBg, color: '#4F46E5' }}>
-          ✦
-        </div>
-        <div className="home-astro-card-top-right">
-          <span className="home-astro-live-pill">Live</span>
-          <AstroDayMeter pct={snapshot.dayPct} />
-          <div className="home-card-chev" style={{ color: '#4F46E5' }}>›</div>
-        </div>
-      </div>
-
-      <div className="home-astro-card-heading">
-        <div>
-          <div className="home-card-title">Astro</div>
-          <div className="home-astro-primary">{snapshot.value || 'Daily Panchang'}</div>
-        </div>
-        <div className="home-astro-meta-badge">
-          <span>{meta.emoji}</span>
-          <small>{meta.tagline}</small>
-        </div>
-      </div>
-
-      <div className="home-astro-card-window">{snapshot.window || 'No key window today'}</div>
-
-      <div className="home-astro-card-inline">
-        <div className="home-astro-card-chip">
-          <span>Festival</span>
-          <strong>{snapshot.festival || 'No festival today'}</strong>
-        </div>
-        <div className="home-astro-card-chip">
-          <span>Daylight</span>
-          <strong>{Math.round(snapshot.dayPct || 0)}%</strong>
-        </div>
-      </div>
-
-      <div className="home-astro-card-footer" onClick={(event) => event.stopPropagation()}>
-        <label className="home-astro-location-wrap">
-          <span className="home-astro-location-label">Location</span>
-          <select
-            className="home-astro-location-select"
-            value={snapshot.location}
-            onChange={(event) => onLocationChange(event.target.value)}
-          >
-            {LOCATIONS.map((location) => (
-              <option key={location} value={location}>{location}</option>
-            ))}
-          </select>
-        </label>
+      <div className="acr-sum-bottom">
+        <p className="acr-sum-subline">{subline}</p>
+        {microVisual}
       </div>
     </button>
   )
 }
 
-const CARD_TONES = {
-  expenses: {
-    surface: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(255,249,240,0.98) 42%, rgba(255,239,213,0.96) 100%)',
-    border: 'rgba(217,119,6,0.18)',
-    shadow: '0 14px 32px rgba(217,119,6,0.12), 0 1px 0 rgba(255,255,255,0.94) inset',
-    glow: 'radial-gradient(circle at 18% 18%, rgba(251,191,36,0.26), transparent 48%)',
-    haze: 'radial-gradient(circle at 86% 22%, rgba(251,146,60,0.16), transparent 34%)',
-    gloss: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0))',
-    iconBg: 'linear-gradient(145deg, rgba(255,247,219,0.98), rgba(255,233,193,0.92))',
-  },
-  ledger: {
-    surface: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(240,253,248,0.98) 48%, rgba(222,247,239,0.96) 100%)',
-    border: 'rgba(5,150,105,0.18)',
-    shadow: '0 14px 32px rgba(5,150,105,0.11), 0 1px 0 rgba(255,255,255,0.94) inset',
-    glow: 'radial-gradient(circle at 16% 20%, rgba(52,211,153,0.2), transparent 50%)',
-    haze: 'radial-gradient(circle at 88% 22%, rgba(45,212,191,0.14), transparent 34%)',
-    gloss: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0))',
-    iconBg: 'linear-gradient(145deg, rgba(232,255,247,0.98), rgba(209,250,229,0.92))',
-  },
-  planner: {
-    surface: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(248,245,255,0.98) 48%, rgba(239,233,255,0.97) 100%)',
-    border: 'rgba(124,58,237,0.16)',
-    shadow: '0 14px 32px rgba(124,58,237,0.1), 0 1px 0 rgba(255,255,255,0.94) inset',
-    glow: 'radial-gradient(circle at 18% 18%, rgba(167,139,250,0.22), transparent 48%)',
-    haze: 'radial-gradient(circle at 86% 24%, rgba(196,181,253,0.2), transparent 34%)',
-    gloss: 'linear-gradient(180deg, rgba(255,255,255,0.74), rgba(255,255,255,0))',
-    iconBg: 'linear-gradient(145deg, rgba(247,243,255,0.98), rgba(237,233,254,0.94))',
-  },
-  astro: {
-    surface: 'linear-gradient(155deg, rgba(255,255,255,0.99) 0%, rgba(250,251,255,0.98) 48%, rgba(242,245,255,0.96) 100%)',
-    border: 'rgba(99,102,241,0.14)',
-    shadow: '0 14px 32px rgba(99,102,241,0.09), 0 1px 0 rgba(255,255,255,0.96) inset',
-    glow: 'radial-gradient(circle at 18% 18%, rgba(191,219,254,0.24), transparent 50%)',
-    haze: 'radial-gradient(circle at 86% 20%, rgba(221,214,254,0.2), transparent 34%)',
-    gloss: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0))',
-    iconBg: 'linear-gradient(145deg, rgba(255,255,255,0.98), rgba(237,242,255,0.94))',
-  },
-}
-
-function DashboardCard({ title, icon, accent, bg, primary, lines, onClick, animated, primaryPrefix = '', microVisual, tone = 'expenses', className = '' }) {
-  const [pressed, setPressed] = useState(false)
-  const toneConfig = CARD_TONES[tone] || CARD_TONES.expenses
-
+function AiInsightsCard({ bullets = [], onClick }) {
   return (
-    <button
-      onClick={onClick}
-      onMouseDown={() => setPressed(true)}
-      onMouseUp={() => setPressed(false)}
-      onMouseLeave={() => setPressed(false)}
-      onTouchStart={() => setPressed(true)}
-      onTouchEnd={() => setPressed(false)}
-      className={`home-dashboard-card home-dashboard-card--${tone} ${className}`.trim()}
-      style={{
-        background: toneConfig.surface || `linear-gradient(145deg, #ffffff 0%, ${bg} 100%)`,
-        border: `1px solid ${toneConfig.border || `${accent}22`}`,
-        boxShadow: pressed
-          ? 'inset 2px 2px 7px rgba(15,23,42,0.08), inset -1px -1px 4px rgba(255,255,255,0.85)'
-          : toneConfig.shadow || '0 12px 28px rgba(15,23,42,0.08), 0 1px 0 rgba(255,255,255,0.9) inset',
-        transform: pressed ? 'scale(0.98)' : 'translateY(0)',
-      }}
-    >
-      <span className="home-card-glow" style={{ background: toneConfig.glow }} />
-      <span className="home-card-haze" style={{ background: toneConfig.haze }} />
-      <span className="home-card-gloss" style={{ background: toneConfig.gloss }} />
-      {tone === 'astro' && (
-        <span className="home-card-stars" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-      )}
-      <div className="home-card-top">
-        <div className="home-card-icon" style={{ background: toneConfig.iconBg || `${accent}14`, color: accent }}>
-          {icon}
+    <button onClick={onClick} className="acr-sum acr-sum-ai">
+      <div className="acr-sum-top">
+        <div className="acr-sum-icon acr-ai-icon">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 5v2M12 17v2M5 12h2M17 12h2M7.5 7.5l1.4 1.4M15.1 15.1l1.4 1.4M7.5 16.5l1.4-1.4M15.1 8.9l1.4-1.4" strokeLinecap="round" />
+          </svg>
         </div>
-        <div className="home-card-chev" style={{ color: accent }}>›</div>
+        <span className="acr-sum-title">AI INSIGHTS</span>
+        <span className="acr-sum-chev" style={{ color: '#0284C7' }}>›</span>
       </div>
-      <div className="home-card-title">{title}</div>
-      <div className="home-card-primary" style={{ color: accent }}>
-        {animated ? <CountUp value={primary} prefix={primaryPrefix} /> : primary}
-      </div>
-      {microVisual}
-      <div className="home-card-lines">
-        {lines.map((line, index) => (
-          <p key={index}>{line}</p>
+      <div className="acr-ai-bullets">
+        {bullets.slice(0, 3).map((b, i) => (
+          <div key={i} className="acr-ai-bullet">
+            <span className="acr-ai-dot" style={{ background: b.color }} />
+            <span>{b.text}</span>
+          </div>
         ))}
       </div>
     </button>
   )
 }
 
-function FeatureCard({ title, subtitle, pill, icon, onClick }) {
+/* ---------------- Premium Astro card (matches target) ---------------- */
+
+function PremiumAstroCard({ snapshot, dayPct, daylightPct, onOpen, onLocationChange }) {
+  const meta = LOCATION_META[snapshot.location] || LOCATION_META.Bangalore || { emoji: '🌿', tagline: 'Garden City' }
+  const statusMode = snapshot.status?.mode || 'neutral'
+
+  const tiles = [
+    { icon: '🌙', label: 'TITHI', name: compactText(snapshot.tithiName, 'Not available'), range: snapshot.tithiRange },
+    { icon: '✨', label: 'NAKSHATRA', name: compactText(snapshot.nakshatraName, 'Not available'), range: snapshot.nakshatraRange },
+    { icon: '🪷', label: 'YOGA', name: compactText(snapshot.yogaName, 'Not available'), range: snapshot.yogaRange },
+    { icon: '⚛︎', label: 'KARANA', name: compactText(snapshot.karanaName, 'Not available'), range: snapshot.karanaRange },
+  ]
+
   return (
-    <button className="home-feature-card" onClick={onClick}>
-      <div className="home-feature-icon">{icon}</div>
-      <div className="home-feature-copy">
-        <p>{title}</p>
-        <span>{subtitle}</span>
+    <button className={`acr-astro acr-astro-${statusMode}`} onClick={onOpen}>
+      <div className="acr-astro-stars" aria-hidden="true">
+        <i /><i /><i /><i /><i /><i />
       </div>
-      <div className="home-feature-pill">{pill}</div>
+
+      {/* header row */}
+      <div className="acr-astro-head">
+        <div className="acr-astro-head-left">
+          <div className="acr-astro-badge">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
+            </svg>
+          </div>
+          <div className="acr-astro-titles">
+            <h3>Astro · Daily Panchang</h3>
+            <span className={`acr-astro-livepill acr-astro-livepill-${statusMode}`}>LIVE</span>
+          </div>
+        </div>
+
+        <div className="acr-astro-loc" onClick={(e) => e.stopPropagation()}>
+          <span>{meta.emoji}</span>
+          <select value={snapshot.location} onChange={(e) => onLocationChange(e.target.value)}>
+            {LOCATIONS.map((l) => <option key={l} value={l}>{meta.tagline ? `${l}` : l}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* main grid: mandala + meters/info */}
+      <div className="acr-astro-main">
+        <div className="acr-astro-mandala-wrap" aria-hidden="true">
+          <svg viewBox="0 0 120 120" className="acr-astro-mandala">
+            <defs>
+              <radialGradient id="mandalaGold" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#FDE68A" />
+                <stop offset="55%" stopColor="#F59E0B" />
+                <stop offset="100%" stopColor="#92400E" />
+              </radialGradient>
+              <radialGradient id="mandalaGlow" cx="50%" cy="50%" r="60%">
+                <stop offset="0%" stopColor="rgba(251,191,36,0.55)" />
+                <stop offset="100%" stopColor="rgba(251,191,36,0)" />
+              </radialGradient>
+            </defs>
+            <circle cx="60" cy="60" r="56" fill="url(#mandalaGlow)" />
+            {/* outer rays */}
+            {Array.from({ length: 16 }).map((_, i) => {
+              const a = (i * 22.5 * Math.PI) / 180
+              const x1 = 60 + Math.cos(a) * 38
+              const y1 = 60 + Math.sin(a) * 38
+              const x2 = 60 + Math.cos(a) * 52
+              const y2 = 60 + Math.sin(a) * 52
+              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
+            })}
+            <circle cx="60" cy="60" r="34" fill="none" stroke="#F59E0B" strokeWidth="1.4" opacity="0.7" />
+            {/* square yantra */}
+            <g transform="rotate(45 60 60)">
+              <rect x="34" y="34" width="52" height="52" fill="none" stroke="#FBBF24" strokeWidth="1.6" />
+            </g>
+            <rect x="36" y="36" width="48" height="48" fill="none" stroke="#FBBF24" strokeWidth="1.4" opacity="0.85" />
+            {/* triangles */}
+            <polygon points="60,38 78,68 42,68" fill="none" stroke="#F59E0B" strokeWidth="1.4" />
+            <polygon points="60,82 42,52 78,52" fill="none" stroke="#F59E0B" strokeWidth="1.4" />
+            {/* center disc */}
+            <circle cx="60" cy="60" r="11" fill="url(#mandalaGold)" />
+            <circle cx="60" cy="60" r="5" fill="#FEF3C7" />
+            {/* tiny sparks */}
+            <circle cx="36" cy="92" r="1.6" fill="#FDE68A" />
+            <circle cx="84" cy="92" r="1.6" fill="#FDE68A" />
+            <circle cx="22" cy="60" r="1.4" fill="#FDE68A" />
+            <circle cx="98" cy="60" r="1.4" fill="#FDE68A" />
+          </svg>
+        </div>
+
+        <div className="acr-astro-info">
+          <div className="acr-astro-meters">
+            <div className="acr-astro-meter">
+              <div className="acr-astro-meter-top">
+                <span>DAY PROGRESS</span>
+                <strong>{Math.round(dayPct || 0)}%</strong>
+              </div>
+              <div className="acr-astro-meter-track">
+                <span style={{ width: `${Math.max(2, Math.min(100, dayPct || 0))}%`, background: 'linear-gradient(90deg,#818CF8,#A78BFA)' }} />
+              </div>
+            </div>
+            <div className="acr-astro-meter">
+              <div className="acr-astro-meter-top">
+                <span>DAYLIGHT</span>
+                <strong>☀ {Math.round(daylightPct || 0)}%</strong>
+              </div>
+              <div className="acr-astro-meter-track">
+                <span style={{ width: `${Math.max(2, Math.min(100, daylightPct || 0))}%`, background: 'linear-gradient(90deg,#F59E0B,#FDE68A)' }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="acr-astro-row">
+            <span className="acr-astro-row-label">FESTIVAL</span>
+            <strong>{compactText(snapshot.festival, 'No festival today')}</strong>
+          </div>
+
+          <div className="acr-astro-divider" />
+
+          <div className="acr-astro-row">
+            <span className="acr-astro-row-label acr-astro-row-label-violet">KEY WINDOW</span>
+            <strong>{compactText(snapshot.window, 'No key window today')}</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 panchang tiles */}
+      <div className="acr-astro-tiles">
+        {tiles.map((t) => (
+          <div key={t.label} className="acr-astro-tile">
+            <div className="acr-astro-tile-head">
+              <span className="acr-astro-tile-icon">{t.icon}</span>
+              <span className="acr-astro-tile-label">{t.label}</span>
+            </div>
+            <strong className="acr-astro-tile-name">{t.name}</strong>
+            {t.range ? (
+              <span className="acr-astro-tile-range">{t.range}</span>
+            ) : (
+              <span className="acr-astro-tile-range acr-astro-tile-range-dim">—</span>
+            )}
+          </div>
+        ))}
+      </div>
     </button>
   )
 }
+
+/* ---------------- Slim Sun Cycle strip ---------------- */
+
+function SunCycleStrip({ snapshot, daylightPct }) {
+  const markerPct = Math.max(2, Math.min(98, daylightPct || 0))
+  return (
+    <div className="acr-suncycle">
+      <div className="acr-suncycle-icon">☀</div>
+      <div className="acr-suncycle-body">
+        <div className="acr-suncycle-head">SUN CYCLE · {String(snapshot.location || '').toUpperCase()}</div>
+        <div className="acr-suncycle-row">
+          <div className="acr-suncycle-side">
+            <strong>{compactText(formatShortTime(snapshot.sunrise), '—')}</strong>
+            <span>🌅 Sunrise</span>
+          </div>
+          <div className="acr-suncycle-track">
+            <span className="acr-suncycle-marker" style={{ left: `${markerPct}%` }}>☀</span>
+          </div>
+          <div className="acr-suncycle-side acr-suncycle-side-end">
+            <strong>{compactText(formatShortTime(snapshot.sunset), '—')}</strong>
+            <span>🌇 Sunset</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ---------------- Skill / Surprises feature row ---------------- */
+
+function FeatureCard({ title, subtitle, pill, icon, onClick, accent }) {
+  return (
+    <button className="acr-feature" onClick={onClick}>
+      <div className="acr-feature-icon" style={{ color: accent }}>{icon}</div>
+      <div className="acr-feature-copy">
+        <p>{title}</p>
+        <span>{subtitle}</span>
+      </div>
+      <div className="acr-feature-pill">{pill}</div>
+    </button>
+  )
+}
+
+/* ================================================================ */
+/* MAIN HOME COMPONENT                                                */
+/* ================================================================ */
 
 export default function Home({
   setActiveTab,
@@ -394,12 +583,18 @@ export default function Home({
   const [ledgerEntries, setLedgerEntries] = useState([])
   const [plannerTasks, setPlannerTasks] = useState([])
   const [astroSnapshot, setAstroSnapshot] = useState({
-    location: localStorage.getItem('acr_astro_location') || 'Chennai',
+    location: localStorage.getItem('acr_astro_location') || 'Bangalore',
     title: 'Daily Panchang',
-    window: 'No key window today',
-    festival: 'No festival today',
+    window: '',
+    festival: '',
     sunrise: '',
     sunset: '',
+    rahuKalam: '',
+    yamagandham: '',
+    tithiName: '', tithiRange: '',
+    nakshatraName: '', nakshatraRange: '',
+    yogaName: '', yogaRange: '',
+    karanaName: '', karanaRange: '',
   })
 
   const username = currentUser?.username?.toLowerCase?.() || ''
@@ -412,11 +607,7 @@ export default function Home({
   }, [])
 
   useEffect(() => {
-    if (!username) {
-      setSurpriseUsedAt(null)
-      return undefined
-    }
-
+    if (!username) { setSurpriseUsedAt(null); return undefined }
     const ref = doc(db, 'acr_users', username)
     return onSnapshot(ref, (snap) => {
       const data = snap.exists() ? snap.data() : {}
@@ -435,11 +626,7 @@ export default function Home({
   }, [surpriseUsedAt])
 
   useEffect(() => {
-    if (!username) {
-      setLedgerEntries([])
-      return undefined
-    }
-
+    if (!username) { setLedgerEntries([]); return undefined }
     const ref = doc(db, 'acr_ledger', username)
     return onSnapshot(ref, (snap) => {
       const data = snap.exists() ? snap.data() : {}
@@ -448,23 +635,18 @@ export default function Home({
   }, [username])
 
   useEffect(() => {
-    if (!username) {
-      setPlannerTasks([])
-      return undefined
-    }
-
+    if (!username) { setPlannerTasks([]); return undefined }
     const plannerQuery = query(
       collection(db, 'acr_users', username, 'plannerTasks'),
       orderBy('createdAt', 'asc')
     )
     return onSnapshot(plannerQuery, (snap) => {
-      setPlannerTasks(snap.docs.map((docSnap) => docSnap.data() || {}))
+      setPlannerTasks(snap.docs.map((d) => d.data() || {}))
     }, () => setPlannerTasks([]))
   }, [username])
 
   useEffect(() => {
     let ignore = false
-
     const loadAstro = async () => {
       const result = await fetchAstroDoc(astroSnapshot.location, astroLang, getTodayIST())
       if (ignore) return
@@ -476,9 +658,14 @@ export default function Home({
         festival: summary.festival,
         sunrise: summary.sunrise,
         sunset: summary.sunset,
+        rahuKalam: summary.rahuKalam,
+        yamagandham: summary.yamagandham,
+        tithiName: summary.tithiName, tithiRange: summary.tithiRange,
+        nakshatraName: summary.nakshatraName, nakshatraRange: summary.nakshatraRange,
+        yogaName: summary.yogaName, yogaRange: summary.yogaRange,
+        karanaName: summary.karanaName, karanaRange: summary.karanaRange,
       })
     }
-
     loadAstro()
     return () => { ignore = true }
   }, [astroSnapshot.location, astroLang])
@@ -491,7 +678,7 @@ export default function Home({
   const surpriseLocked = surpriseRemainingMs > 0
 
   const dashboardSnapshot = useMemo(() => {
-    const now = new Date()
+    const now = time instanceof Date ? time : new Date()
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
 
@@ -514,7 +701,7 @@ export default function Home({
     const otherDays = Object.entries(dayTotals).filter(([key]) => key !== todayKey).map(([, total]) => total)
     const avgDaily = otherDays.length ? otherDays.reduce((sum, total) => sum + total, 0) / otherDays.length : 0
     const expenseTrend = yesterdaySpend > 0
-      ? pctText(todaySpend, yesterdaySpend, 'yesterday')
+      ? pctText(todaySpend, yesterdaySpend, 'yest')
       : avgDaily > 0
         ? pctText(todaySpend, avgDaily, 'avg')
         : 'No comparison yet'
@@ -544,521 +731,495 @@ export default function Home({
       })
       .find((task) => task.date > todayKey || (task.date === todayKey && (!task.time || task.time >= `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)))
 
-    const taskDays = new Set(plannedTasks.filter((task) => task.date).map((task) => task.date))
-    let streak = 0
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i)
-      const key = getDayKey(d)
-      if (taskDays.has(key)) streak += 1
-      else break
-    }
-
-    const completedPlannerCount = plannedTasks.filter((task) => task.completed).length
-    const plannerPct = plannedTasks.length ? Math.round((completedPlannerCount / plannedTasks.length) * 100) : 0
-
     const sunriseMinutes = toMinutes(astroSnapshot.sunrise)
     const sunsetMinutes = toMinutes(astroSnapshot.sunset)
     const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    const fullDayPct = Math.max(0, Math.min(100, (nowMinutes / (24 * 60)) * 100))
     let astroDayPct = 0
     if (sunriseMinutes !== null && sunsetMinutes !== null && sunsetMinutes > sunriseMinutes) {
       astroDayPct = Math.max(0, Math.min(100, ((nowMinutes - sunriseMinutes) / (sunsetMinutes - sunriseMinutes)) * 100))
     }
+    const astroStatus = getCurrentAstroStatus(astroSnapshot, now)
+
+    // AI insights bullets
+    const spendBullet = !todayLogs.length
+      ? { text: 'Spend stable', color: '#10B981' }
+      : avgDaily && todaySpend > avgDaily
+        ? { text: 'Spend above avg', color: '#F59E0B' }
+        : { text: 'Spend stable', color: '#10B981' }
+
+    const dueBullet = overdueCount
+      ? { text: `${overdueCount} overdue`, color: '#EF4444' }
+      : dueTodayCount
+        ? { text: `${dueTodayCount} due today`, color: '#0EA5E9' }
+        : { text: 'Ledger clear', color: '#0EA5E9' }
+
+    const focusBullet = nextTask?.time
+      ? { text: `Focus ${formatShortTime(nextTask.time)}`, color: '#A855F7' }
+      : { text: 'Best focus: 10–12 AM', color: '#A855F7' }
 
     return {
       expenses: {
         value: todaySpend,
-        lines: [
-          `${todayLogs.length} entr${todayLogs.length === 1 ? 'y' : 'ies'} today`,
-          `Top: ${topTodayCategory}`,
-          todayLogs.length ? expenseTrend : 'No entries today',
-        ],
+        subline: `${todayLogs.length} entries today  ·  Top: ${topTodayCategory}`,
         trendBars: expenseTrendBars,
+        trendText: todayLogs.length ? expenseTrend : '',
       },
       ledger: {
         value: totalReceivable,
-        lines: [
-          'To receive',
-          overdueCount ? `${overdueCount} overdue` : 'No overdue items',
-          dueTodayCount ? `${dueTodayCount} due today` : 'Nothing due today',
-        ],
+        subline: overdueCount
+          ? `To receive  ·  ${overdueCount} overdue`
+          : dueTodayCount
+            ? `To receive  ·  ${dueTodayCount} due today`
+            : 'To receive  ·  clear',
         dots: [totalReceivable > 0 ? 1 : 0, overdueCount > 0 ? 1 : 0, dueTodayCount > 0 ? 1 : 0],
       },
       planner: {
         value: `${pendingToday} pending`,
-        lines: [
-          `${doneToday} done today`,
-          `Next: ${nextTask?.title || 'No next task'}`,
-          streak ? `${streak}-day streak` : 'No streak yet',
-        ],
-        pct: plannerPct,
+        subline: `${doneToday} done today  ·  Next: ${nextTask?.title || 'None'}`,
+      },
+      insights: {
+        bullets: [spendBullet, dueBullet, focusBullet],
       },
       astro: {
-        value: astroSnapshot.title,
+        location: astroSnapshot.location,
         window: astroSnapshot.window,
         festival: astroSnapshot.festival,
-        location: astroSnapshot.location,
-        lines: [
-          astroSnapshot.window,
-          astroSnapshot.location,
-          astroSnapshot.festival,
-        ],
-        sunrise: formatShortTime(astroSnapshot.sunrise),
-        sunset: formatShortTime(astroSnapshot.sunset),
+        sunrise: astroSnapshot.sunrise,
+        sunset: astroSnapshot.sunset,
+        tithiName: astroSnapshot.tithiName, tithiRange: astroSnapshot.tithiRange,
+        nakshatraName: astroSnapshot.nakshatraName, nakshatraRange: astroSnapshot.nakshatraRange,
+        yogaName: astroSnapshot.yogaName, yogaRange: astroSnapshot.yogaRange,
+        karanaName: astroSnapshot.karanaName, karanaRange: astroSnapshot.karanaRange,
+        status: astroStatus,
+        fullDayPct,
         dayPct: astroDayPct,
       },
     }
-  }, [logs, ledgerEntries, plannerTasks, astroSnapshot])
+  }, [logs, ledgerEntries, plannerTasks, astroSnapshot, time])
 
   const handleAstroLocationChange = (location) => {
     localStorage.setItem('acr_astro_location', location)
-    setAstroSnapshot((prev) => ({
-      ...prev,
-      location,
-    }))
+    setAstroSnapshot((prev) => ({ ...prev, location }))
   }
 
   const quickActions = [
     { id: 'market', icon: '📰', label: 'News', sub: 'Briefing', accent: '#2563EB', bg: '#EEF4FF' },
     { id: 'chat', icon: '🤖', label: 'AI Chat', sub: 'Ask anything', accent: '#0F766E', bg: '#ECFEFF' },
-    { id: 'cricket', icon: '🏏', label: 'IPL', sub: 'Predictions', accent: '#7C3AED', bg: '#F5F3FF' },
-    { id: 'profile', icon: '👤', label: 'Profile', sub: 'Account', accent: '#EA580C', bg: '#FFF7ED' },
+    { id: 'cricket', icon: '🏏', label: 'IPL', sub: 'Updates & Stats', accent: '#7C3AED', bg: '#F5F3FF' },
+    { id: 'planner', icon: '🔔', label: 'Reminders', sub: 'Set & track', accent: '#EA580C', bg: '#FFF7ED' },
   ]
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap');
-        .home-premium-root * { font-family:'Poppins',sans-serif; box-sizing:border-box; }
-        .home-premium-root .home-syne { font-family:'Syne',sans-serif; }
-        .home-premium-root {
-          min-height:100vh;
-          width:100%;
-          max-width:760px;
-          margin:0 auto;
-          padding:6px 10px 16px;
-          background:
-            radial-gradient(circle at 10% -10%, rgba(124,58,237,0.12), transparent 26%),
-            radial-gradient(circle at 100% 0%, rgba(14,165,233,0.10), transparent 24%),
-            linear-gradient(180deg,#FCFDFE 0%,#F4F7FB 42%,#EEF3F8 100%);
-          color:#0f172a;
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+        .acr-root *, .acr-root *::before, .acr-root *::after { box-sizing:border-box; font-family:'Poppins', sans-serif; }
+        .acr-root {
+          min-height:100vh; width:100%; max-width:480px; margin:0 auto;
+          padding:10px 12px 86px;
+          background:linear-gradient(180deg,#FAFBFD 0%,#F4F6FA 100%);
+          color:#0F172A;
         }
-        .home-shell { display:flex; flex-direction:column; gap:8px; }
-        .home-header {
-          display:flex; align-items:center; justify-content:space-between; gap:10px;
-          padding:4px 0 0;
+        .acr-shell { display:flex; flex-direction:column; gap:10px; }
+
+        /* ----- Header ----- */
+        .acr-header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:2px 0 0; }
+        .acr-brand { display:flex; align-items:center; gap:10px; min-width:0; }
+        .acr-brand-logo {
+          width:42px; height:42px; border-radius:13px; flex-shrink:0; object-fit:cover;
+          background:#0F172A;
+          box-shadow:0 8px 18px rgba(15,23,42,0.18);
         }
-        .home-brand {
-          display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 auto;
+        .acr-brand-logo-fallback {
+          width:42px; height:42px; border-radius:13px; flex-shrink:0;
+          background:linear-gradient(135deg,#0F172A,#1E293B);
+          display:flex; align-items:center; justify-content:center;
+          color:#FBBF24; font-size:20px; font-weight:800;
+          box-shadow:0 8px 18px rgba(15,23,42,0.18);
         }
-        .home-brand img {
-          width:34px; height:34px; border-radius:12px; object-fit:cover;
-          border:1px solid rgba(124,58,237,0.18);
-          box-shadow:0 10px 20px rgba(124,58,237,0.12);
-          flex-shrink:0;
-        }
-        .home-brand-title { font-size:14px; font-weight:800; color:#0f172a; margin:0; line-height:1.05; }
-        .home-brand-sub { font-size:9.5px; color:#64748b; margin:1px 0 0; font-weight:600; }
-        .home-header-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
-        .home-time {
-          font-size:10px; font-weight:700; color:#64748b; text-align:right; line-height:1.15;
-        }
-        .home-coin-pill {
-          border:none; cursor:pointer; border-radius:999px; padding:7px 10px;
-          background:linear-gradient(135deg,#FFF7CC,#FDE68A);
-          color:#92400e; font-size:11px; font-weight:800;
-          box-shadow:0 10px 22px rgba(217,119,6,0.12), inset 0 1px 0 rgba(255,255,255,0.8);
-        }
-        .home-dashboard-grid {
-          display:grid; grid-template-columns:minmax(0,0.97fr) minmax(0,1.03fr); gap:7px;
-        }
-        .home-dashboard-card {
-          position:relative; overflow:hidden;
-          width:100%; border-radius:18px; padding:7px 7px 6px; border:none; text-align:left;
-          transition:transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease; cursor:pointer;
-          min-height:120px;
-        }
-        .home-dashboard-card:hover { filter:saturate(1.04); }
-        .home-dashboard-card > * { position:relative; z-index:1; }
-        .home-card-glow, .home-card-haze, .home-card-gloss {
-          position:absolute; pointer-events:none; z-index:0;
-        }
-        .home-card-glow {
-          width:76px; height:76px; left:-14px; top:-12px; border-radius:999px; filter:blur(2px);
-        }
-        .home-card-haze {
-          width:72px; height:72px; right:-16px; top:-8px; border-radius:999px; filter:blur(1px);
-        }
-        .home-card-gloss {
-          left:6px; right:6px; top:0; height:36px; border-radius:16px 16px 24px 24px; opacity:0.82;
-        }
-        .home-card-stars {
-          position:absolute; inset:0; pointer-events:none; z-index:0;
-        }
-        .home-card-stars i {
-          position:absolute; width:4px; height:4px; border-radius:999px;
-          background:rgba(255,255,255,0.95); box-shadow:0 0 10px rgba(191,219,254,0.9);
-        }
-        .home-card-stars i:nth-child(1) { top:14px; right:38px; }
-        .home-card-stars i:nth-child(2) { top:28px; right:18px; width:3px; height:3px; opacity:0.75; }
-        .home-card-stars i:nth-child(3) { top:44px; right:48px; width:2px; height:2px; opacity:0.7; }
-        .home-astro-card .home-card-stars i:nth-child(1) { animation:homeStarFloat 4.8s ease-in-out infinite; }
-        .home-astro-card .home-card-stars i:nth-child(2) { animation:homeStarFloat 5.6s ease-in-out infinite 0.8s; }
-        .home-astro-card .home-card-stars i:nth-child(3) { animation:homeStarFloat 4.2s ease-in-out infinite 1.4s; }
-        @keyframes homeStarFloat {
-          0%,100% { transform:translateY(0); opacity:0.65; }
-          50% { transform:translateY(-2px); opacity:1; }
-        }
-        @keyframes homeAstroPulse {
-          0%,100% { box-shadow:0 14px 32px rgba(99,102,241,0.09), 0 1px 0 rgba(255,255,255,0.96) inset; }
-          50% { box-shadow:0 16px 36px rgba(99,102,241,0.14), 0 1px 0 rgba(255,255,255,0.96) inset; }
-        }
-        @keyframes homeLiveBlink {
-          0%,100% { transform:translateY(0); box-shadow:inset 0 1px 0 rgba(255,255,255,0.92), 0 0 0 rgba(99,102,241,0); }
-          50% { transform:translateY(-0.5px); box-shadow:inset 0 1px 0 rgba(255,255,255,0.92), 0 0 0 3px rgba(99,102,241,0.06); }
-        }
-        .home-astro-card {
-          min-height:126px;
-          animation:homeAstroPulse 6.8s ease-in-out infinite;
-        }
-        .home-astro-card::after {
-          content:''; position:absolute; inset:auto 12px 12px auto; width:54px; height:54px; border-radius:999px;
-          background:radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%);
-          opacity:0.8; pointer-events:none; z-index:0;
-        }
-        .home-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
-        .home-card-icon {
-          width:27px; height:27px; border-radius:9px; display:flex; align-items:center; justify-content:center;
-          font-size:14px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,0.88), 0 8px 16px rgba(255,255,255,0.24);
-        }
-        .home-astro-card-icon {
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.94), 0 8px 18px rgba(99,102,241,0.10);
-        }
-        .home-astro-card-top-right {
+        .acr-brand-title { font-size:18px; font-weight:800; color:#0F172A; margin:0; line-height:1.05; letter-spacing:0.02em; }
+        .acr-brand-sub { font-size:11px; color:#64748B; margin:2px 0 0; font-weight:600; }
+        .acr-header-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .acr-time { font-size:12px; font-weight:700; color:#475569; text-align:right; line-height:1.25; }
+        .acr-time div:first-child { font-size:13px; color:#0F172A; }
+        .acr-coin {
+          border:none; cursor:pointer; border-radius:999px; padding:7px 12px;
+          background:linear-gradient(135deg,#FEF3C7,#FCD34D);
+          color:#92400E; font-size:13px; font-weight:800;
+          box-shadow:0 6px 14px rgba(217,119,6,0.18);
           display:flex; align-items:center; gap:5px;
         }
-        .home-astro-live-pill {
-          padding:3px 6px; border-radius:999px; font-size:8px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase;
-          color:#4F46E5; background:rgba(255,255,255,0.68); border:1px solid rgba(99,102,241,0.12);
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.92);
-          animation:homeLiveBlink 2.8s ease-in-out infinite;
+
+        /* ----- Summary cards (2x2) ----- */
+        .acr-sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .acr-sum {
+          position:relative; border:none; cursor:pointer; text-align:left;
+          border-radius:18px; padding:11px 12px 11px;
+          min-height:96px;
+          display:flex; flex-direction:column; gap:4px;
+          transition:transform 0.15s ease;
         }
-        .home-astro-day-meter {
-          min-width:48px; padding:3px 5px 4px; border-radius:11px;
-          background:rgba(255,255,255,0.72); border:1px solid rgba(99,102,241,0.14);
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.95), 0 6px 14px rgba(99,102,241,0.08);
+        .acr-sum:active { transform:scale(0.98); }
+        .acr-sum-expenses { background:linear-gradient(155deg,#FFFAF0 0%,#FFF1DC 100%); border:1px solid rgba(217,119,6,0.16); }
+        .acr-sum-ledger   { background:linear-gradient(155deg,#F3FCF7 0%,#DCF5E8 100%); border:1px solid rgba(5,150,105,0.16); }
+        .acr-sum-planner  { background:linear-gradient(155deg,#F8F5FF 0%,#EFE9FF 100%); border:1px solid rgba(124,58,237,0.16); }
+        .acr-sum-ai       { background:linear-gradient(155deg,#F2F8FF 0%,#E2EFFE 100%); border:1px solid rgba(2,132,199,0.16); }
+
+        .acr-sum-top { display:flex; align-items:center; gap:7px; }
+        .acr-sum-icon {
+          width:26px; height:26px; border-radius:9px;
+          display:flex; align-items:center; justify-content:center;
+          font-size:13px; font-weight:800;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.85);
         }
-        .home-astro-day-meter-label {
-          display:block; margin-bottom:2px; font-size:7px; line-height:1; font-weight:800;
-          text-transform:uppercase; letter-spacing:0.06em; color:#818CF8;
+        .acr-ai-icon {
+          background:#3B82F6; color:#fff;
+          box-shadow:0 4px 10px rgba(59,130,246,0.32);
         }
-        .home-astro-day-meter-track {
-          width:100%; height:4px; border-radius:999px; overflow:hidden; background:rgba(129,140,248,0.12);
+        .acr-sum-title {
+          flex:1; font-size:10px; font-weight:800; letter-spacing:0.1em; color:#475569; text-transform:uppercase;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
-        .home-astro-day-meter-fill {
-          height:100%; border-radius:999px; background:linear-gradient(90deg,#A78BFA,#60A5FA);
-          box-shadow:0 0 10px rgba(96,165,250,0.34);
-        }
-        .home-astro-day-meter strong {
-          display:block; margin-top:2px; font-size:8px; line-height:1; color:#4338CA; font-weight:800;
-        }
-        .home-astro-card-heading {
-          display:flex; align-items:flex-start; justify-content:space-between; gap:6px; margin-bottom:4px;
-        }
-        .home-astro-primary {
-          font-size:16px; line-height:1.02; font-weight:800; color:#312E81;
-        }
-        .home-astro-meta-badge {
-          flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:2px;
-          min-width:48px; padding:5px 6px; border-radius:12px;
-          background:rgba(255,255,255,0.62); border:1px solid rgba(99,102,241,0.12);
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.94);
-        }
-        .home-astro-meta-badge span { font-size:12px; line-height:1; }
-        .home-astro-meta-badge small {
-          font-size:8px; line-height:1.1; color:#6366F1; font-weight:800; text-align:center;
-        }
-        .home-astro-card-window {
-          margin:0 0 5px; font-size:9.5px; line-height:1.22; font-weight:700; color:#475569;
+        .acr-sum-chev { font-size:18px; font-weight:700; line-height:1; opacity:0.65; }
+        .acr-sum-primary { font-size:22px; font-weight:800; line-height:1.05; margin-top:2px; }
+        .acr-sum-bottom { margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+        .acr-sum-subline {
+          margin:0; font-size:9.5px; line-height:1.25; color:#64748B; font-weight:600;
+          flex:1; min-width:0;
           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
         }
-        .home-astro-card-inline {
-          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; margin-bottom:5px;
-        }
-        .home-astro-card-chip {
-          display:flex; flex-direction:column; gap:1px; padding:5px 6px; border-radius:11px;
-          background:rgba(255,255,255,0.58); border:1px solid rgba(99,102,241,0.10);
-        }
-        .home-astro-card-chip span {
-          font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#818CF8;
-        }
-        .home-astro-card-chip strong {
-          font-size:9px; line-height:1.15; color:#334155; font-weight:750;
-          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-        }
-        .home-astro-card-footer {
-          display:flex; align-items:center; justify-content:flex-start;
-        }
-        .home-astro-location-wrap {
-          display:flex; align-items:center; gap:6px; min-width:0;
-          padding:4px 6px; border-radius:11px; background:rgba(255,255,255,0.62);
-          border:1px solid rgba(99,102,241,0.12); box-shadow:inset 0 1px 0 rgba(255,255,255,0.94);
-        }
-        .home-astro-location-label {
-          font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#818CF8;
-        }
-        .home-astro-location-select {
-          border:none; background:transparent; color:#312E81; font-size:9px; font-weight:800; outline:none;
-          max-width:78px; appearance:none; cursor:pointer;
-        }
-        .home-astro-location-select option { color:#0f172a; }
-        .home-card-chev { font-size:16px; font-weight:700; line-height:1; opacity:0.75; }
-        .home-card-title { font-size:9px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:2px; }
-        .home-card-primary {
-          font-size:16px; font-weight:800; line-height:1.02; margin-bottom:3px;
-        }
-        .home-card-lines { display:flex; flex-direction:column; gap:2px; }
-        .home-card-lines p {
-          margin:0; font-size:8.5px; line-height:1.14; color:#64748b; font-weight:650;
-          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-        }
-        .home-dashboard-card--compact .home-card-top { margin-bottom:3px; }
-        .home-dashboard-card--compact .home-card-primary { margin-bottom:2px; }
-        .home-dashboard-card--compact .home-card-lines { gap:1px; }
-        .home-dashboard-card--compact .home-card-lines p { font-size:8px; line-height:1.12; }
-        .home-dashboard-card--compact .home-mini-visual { margin-bottom:2px; }
-        .home-mini-visual {
-          margin-bottom:4px;
-        }
-        .home-mini-visual--spark {
-          height:20px; display:flex; align-items:center;
-        }
-        .home-mini-spark-svg {
-          width:48px; height:20px; overflow:visible;
-          filter: drop-shadow(0 3px 8px rgba(15,23,42,0.08));
-        }
-        .home-mini-visual--dots {
-          display:flex; align-items:center; gap:4px; min-height:14px;
-        }
-        .home-status-dot {
+        .acr-mini { display:flex; align-items:center; flex-shrink:0; }
+        .acr-mini-dots { gap:4px; }
+        .acr-mini-dots span {
           width:7px; height:7px; border-radius:999px; transition:all 0.18s ease;
-          box-shadow:0 0 0 2px rgba(255,255,255,0.75);
+          box-shadow:0 0 0 2px rgba(255,255,255,0.7);
         }
-        .home-mini-visual--progress {
-          min-height:14px; display:flex; align-items:center;
+
+        .acr-ai-bullets { display:flex; flex-direction:column; gap:3px; margin-top:2px; }
+        .acr-ai-bullet {
+          display:flex; align-items:center; gap:7px;
+          font-size:11px; font-weight:600; color:#1E293B; line-height:1.2;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
-        .home-mini-progress-track {
-          width:56px; height:5px; border-radius:999px; background:rgba(148,163,184,0.18); overflow:hidden;
-        }
-        .home-mini-progress-fill {
-          height:100%; border-radius:999px; transition:width 0.4s ease;
-        }
-        .home-astro-strip {
-          position:relative; overflow:hidden;
-          display:flex; align-items:center; gap:8px; padding:7px 8px;
-          border-radius:16px;
+        .acr-ai-dot { width:8px; height:8px; border-radius:999px; flex-shrink:0; box-shadow:0 0 0 2px rgba(255,255,255,0.7); }
+
+        /* ----- Premium Astro card ----- */
+        .acr-astro {
+          position:relative; overflow:hidden; width:100%; border:none; cursor:pointer; text-align:left;
+          border-radius:22px; padding:14px 14px 12px; color:#fff;
           background:
-            radial-gradient(circle at 88% 24%, rgba(196,181,253,0.12), transparent 26%),
-            linear-gradient(145deg,rgba(255,255,255,0.9),rgba(242,247,255,0.96));
-          border:1px solid rgba(99,102,241,0.1);
-          box-shadow:0 10px 24px rgba(99,102,241,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
+            radial-gradient(circle at 18% 20%, rgba(99,102,241,0.34), transparent 32%),
+            radial-gradient(circle at 88% 88%, rgba(56,189,248,0.18), transparent 30%),
+            linear-gradient(160deg,#0B1224 0%,#111B36 50%,#0F1830 100%);
+          box-shadow:0 18px 38px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.05);
+          border:1px solid rgba(99,102,241,0.22);
         }
-        .home-astro-strip::before {
-          content:''; position:absolute; left:-10px; top:-14px; width:58px; height:58px; border-radius:999px;
-          background:radial-gradient(circle, rgba(191,219,254,0.22), rgba(191,219,254,0) 70%);
-          pointer-events:none;
+        .acr-astro-good { border-color:rgba(16,185,129,0.32); }
+        .acr-astro-caution { border-color:rgba(248,113,113,0.36); box-shadow:0 18px 40px rgba(220,38,38,0.22), inset 0 1px 0 rgba(255,255,255,0.05); }
+
+        .acr-astro-stars { position:absolute; inset:0; pointer-events:none; }
+        .acr-astro-stars i {
+          position:absolute; width:3px; height:3px; border-radius:999px; background:rgba(255,255,255,0.85);
+          box-shadow:0 0 10px rgba(191,219,254,0.7);
         }
-        .home-astro-strip-icon {
-          width:26px; height:26px; border-radius:9px; flex-shrink:0;
+        .acr-astro-stars i:nth-child(1) { top:18px; right:120px; animation:acrStar 4.6s ease-in-out infinite; }
+        .acr-astro-stars i:nth-child(2) { top:60px; right:30px; width:2px; height:2px; animation:acrStar 5.2s ease-in-out infinite 0.6s; }
+        .acr-astro-stars i:nth-child(3) { top:130px; left:160px; width:2px; height:2px; animation:acrStar 4.8s ease-in-out infinite 1.1s; }
+        .acr-astro-stars i:nth-child(4) { bottom:90px; left:20px; animation:acrStar 5.4s ease-in-out infinite 1.6s; }
+        .acr-astro-stars i:nth-child(5) { bottom:50px; right:80px; width:2px; height:2px; animation:acrStar 4.2s ease-in-out infinite 0.8s; }
+        .acr-astro-stars i:nth-child(6) { top:90px; left:48%; width:2px; height:2px; animation:acrStar 5s ease-in-out infinite 1.4s; }
+        @keyframes acrStar { 0%,100%{ opacity:0.4; transform:translateY(0);} 50%{ opacity:1; transform:translateY(-1px);} }
+
+        .acr-astro > * { position:relative; z-index:1; }
+
+        .acr-astro-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+        .acr-astro-head-left { display:flex; align-items:center; gap:9px; min-width:0; flex:1; }
+        .acr-astro-badge {
+          width:30px; height:30px; border-radius:9px; flex-shrink:0;
+          background:rgba(255,255,255,0.10); border:1px solid rgba(165,180,252,0.3);
+          color:#C7D2FE;
           display:flex; align-items:center; justify-content:center;
-          background:linear-gradient(145deg,#FFFFFF,#EEF2FF); color:#4F46E5; font-size:13px;
-          box-shadow:0 8px 18px rgba(99,102,241,0.12);
         }
-        .home-astro-strip-copy {
-          min-width:0; flex:1 1 auto; display:flex; flex-direction:column; gap:1px;
+        .acr-astro-titles { display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; }
+        .acr-astro-titles h3 {
+          margin:0; font-size:16px; font-weight:800; color:#F8FAFC; line-height:1.05;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
-        .home-astro-strip-copy p {
-          margin:0; font-size:9px; color:#64748b; font-weight:700;
+        .acr-astro-livepill {
+          padding:3px 9px; border-radius:999px; font-size:9px; font-weight:800; letter-spacing:0.1em;
+          background:linear-gradient(135deg,#6366F1,#8B5CF6); color:#fff;
+          box-shadow:0 4px 10px rgba(99,102,241,0.35);
+          animation:acrLive 2.6s ease-in-out infinite;
         }
-        .home-astro-strip-copy .home-astro-strip-title {
-          font-size:9px; color:#6366F1; text-transform:uppercase; letter-spacing:0.08em; font-weight:800;
+        .acr-astro-livepill-caution { background:linear-gradient(135deg,#EF4444,#F87171); box-shadow:0 4px 10px rgba(239,68,68,0.4); }
+        .acr-astro-livepill-good    { background:linear-gradient(135deg,#10B981,#34D399); box-shadow:0 4px 10px rgba(16,185,129,0.35); }
+        @keyframes acrLive { 0%,100%{transform:translateY(0); opacity:1;} 50%{transform:translateY(-0.5px); opacity:0.85;} }
+
+        .acr-astro-loc {
+          display:flex; align-items:center; gap:6px; flex-shrink:0;
+          padding:6px 10px; border-radius:999px;
+          background:#fff; color:#0F172A;
+          box-shadow:0 4px 10px rgba(0,0,0,0.18);
         }
-        .home-astro-strip-copy .home-astro-strip-times {
-          font-size:10px; color:#0f172a; font-weight:800;
+        .acr-astro-loc span { font-size:13px; line-height:1; }
+        .acr-astro-loc select {
+          border:none; background:transparent; color:#0F172A; font-size:12px; font-weight:700; outline:none; cursor:pointer;
+          appearance:none; padding-right:2px; max-width:120px;
         }
-        .home-astro-strip-progress {
-          width:100%; height:4px; border-radius:999px; background:rgba(99,102,241,0.12); overflow:hidden; margin-top:2px;
+
+        .acr-astro-main {
+          display:grid; grid-template-columns:108px minmax(0,1fr); gap:12px; margin-bottom:10px;
         }
-        .home-astro-strip-progress > span {
-          display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#A78BFA,#60A5FA);
+        .acr-astro-mandala-wrap {
+          width:108px; height:108px; flex-shrink:0;
+          display:flex; align-items:center; justify-content:center;
+          filter:drop-shadow(0 4px 18px rgba(245,158,11,0.4));
         }
-        .home-feature-row {
-          display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px;
+        .acr-astro-mandala { width:100%; height:100%; animation:acrMandalaSpin 60s linear infinite; }
+        @keyframes acrMandalaSpin { from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
+
+        .acr-astro-info { display:flex; flex-direction:column; gap:8px; min-width:0; }
+        .acr-astro-meters { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .acr-astro-meter { display:flex; flex-direction:column; gap:4px; }
+        .acr-astro-meter-top { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+        .acr-astro-meter-top span {
+          font-size:9px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#A5B4FC;
         }
-        .home-feature-card {
+        .acr-astro-meter-top strong { font-size:13px; color:#F8FAFC; font-weight:800; }
+        .acr-astro-meter-track {
+          height:5px; border-radius:999px; overflow:hidden; background:rgba(165,180,252,0.16);
+        }
+        .acr-astro-meter-track span { display:block; height:100%; border-radius:999px; transition:width 0.6s ease; }
+
+        .acr-astro-row { display:flex; flex-direction:column; gap:2px; min-width:0; }
+        .acr-astro-row-label {
+          font-size:9px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#93C5FD;
+        }
+        .acr-astro-row-label-violet { color:#C4B5FD; }
+        .acr-astro-row strong {
+          font-size:13px; color:#F8FAFC; font-weight:700; line-height:1.2;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .acr-astro-divider {
+          height:1px; width:100%; background:linear-gradient(90deg, transparent, rgba(165,180,252,0.28), transparent);
+          margin:1px 0;
+        }
+
+        .acr-astro-tiles { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px; margin-top:4px; }
+        .acr-astro-tile {
+          padding:8px 7px 8px; border-radius:13px;
+          background:rgba(15,23,42,0.45);
+          border:1px solid rgba(99,102,241,0.18);
+          min-width:0; display:flex; flex-direction:column; gap:3px;
+        }
+        .acr-astro-tile-head { display:flex; align-items:center; gap:5px; }
+        .acr-astro-tile-icon { font-size:11px; line-height:1; }
+        .acr-astro-tile-label {
+          font-size:8.5px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#A5B4FC;
+        }
+        .acr-astro-tile-name {
+          display:block; font-size:11.5px; line-height:1.2; color:#F8FAFC; font-weight:800;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .acr-astro-tile-range {
+          font-size:9px; line-height:1.3; color:#CBD5E1; font-weight:600; white-space:pre-line;
+          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+        }
+        .acr-astro-tile-range-dim { color:#64748B; }
+
+        /* ----- Sun Cycle slim strip ----- */
+        .acr-suncycle {
+          background:#fff; border:1px solid rgba(148,163,184,0.18);
+          border-radius:16px; padding:9px 12px;
+          display:flex; align-items:center; gap:10px;
+          box-shadow:0 6px 16px rgba(15,23,42,0.06);
+        }
+        .acr-suncycle-icon {
+          width:30px; height:30px; border-radius:10px; flex-shrink:0;
+          display:flex; align-items:center; justify-content:center;
+          background:linear-gradient(135deg,#FEF3C7,#FCD34D);
+          font-size:16px; line-height:1;
+        }
+        .acr-suncycle-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
+        .acr-suncycle-head {
+          font-size:9.5px; font-weight:800; letter-spacing:0.12em; color:#475569;
+        }
+        .acr-suncycle-row {
+          display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
+        }
+        .acr-suncycle-side { display:flex; flex-direction:column; line-height:1.05; min-width:0; }
+        .acr-suncycle-side strong { font-size:12.5px; color:#0F172A; font-weight:800; }
+        .acr-suncycle-side span { font-size:9.5px; color:#64748B; font-weight:600; margin-top:1px; }
+        .acr-suncycle-side-end { text-align:right; align-items:flex-end; }
+        .acr-suncycle-track {
+          position:relative; height:6px; border-radius:999px;
+          background:linear-gradient(90deg,#3B82F6 0%,#A855F7 35%,#F59E0B 70%,#F97316 100%);
+        }
+        .acr-suncycle-marker {
+          position:absolute; top:50%; transform:translate(-50%, -50%);
+          font-size:14px; line-height:1;
+          filter:drop-shadow(0 2px 4px rgba(245,158,11,0.5));
+        }
+
+        /* ----- Skill / Surprises feature row ----- */
+        .acr-feature-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .acr-feature {
           width:100%; border:none; cursor:pointer; text-align:left;
-          border-radius:16px; padding:9px; color:#fff;
-          background:linear-gradient(145deg,#0f172a,#14233f 58%,#1e3a5f 100%);
-          box-shadow:0 18px 34px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.06);
-          display:flex; align-items:center; gap:8px; min-height:68px;
-          transition:transform 0.16s ease, box-shadow 0.16s ease;
+          border-radius:16px; padding:11px 12px; color:#fff;
+          background:linear-gradient(155deg,#0F172A 0%,#1E293B 100%);
+          box-shadow:0 14px 28px rgba(15,23,42,0.24), inset 0 1px 0 rgba(255,255,255,0.06);
+          display:flex; align-items:center; gap:10px; min-height:60px;
         }
-        .home-feature-card:active, .home-quick-card:active { transform:scale(0.98); }
-        .home-feature-icon {
-          width:32px; height:32px; border-radius:12px; flex-shrink:0;
-          display:flex; align-items:center; justify-content:center; font-size:15px;
-          background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.10);
+        .acr-feature:active { transform:scale(0.98); }
+        .acr-feature-icon {
+          width:34px; height:34px; border-radius:11px; flex-shrink:0;
+          display:flex; align-items:center; justify-content:center; font-size:18px;
+          background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08);
         }
-        .home-feature-copy { min-width:0; flex:1 1 auto; }
-        .home-feature-copy p { margin:0; font-size:12px; font-weight:800; color:#fff; }
-        .home-feature-copy span { display:block; margin-top:1px; font-size:9px; color:rgba(226,232,240,0.78); font-weight:600; line-height:1.2; }
-        .home-feature-pill {
-          flex-shrink:0; padding:5px 8px; border-radius:999px;
-          background:linear-gradient(135deg,#6366F1,#8B5CF6); color:#fff; font-size:9px; font-weight:800;
-          box-shadow:0 8px 18px rgba(99,102,241,0.26);
+        .acr-feature-copy { min-width:0; flex:1; }
+        .acr-feature-copy p { margin:0; font-size:14px; font-weight:800; color:#fff; line-height:1.1; }
+        .acr-feature-copy span { display:block; margin-top:2px; font-size:10px; color:rgba(226,232,240,0.7); font-weight:600; line-height:1.2; }
+        .acr-feature-pill {
+          flex-shrink:0; padding:6px 12px; border-radius:999px;
+          background:linear-gradient(135deg,#7C3AED,#A855F7); color:#fff; font-size:11px; font-weight:800;
+          box-shadow:0 6px 14px rgba(124,58,237,0.32);
         }
-        .home-section {
-          background:linear-gradient(145deg,rgba(255,255,255,0.88),rgba(244,247,251,0.9));
+
+        /* ----- Quick Actions ----- */
+        .acr-section {
+          background:#fff;
           border:1px solid rgba(148,163,184,0.16);
-          border-radius:18px; padding:9px;
-          box-shadow:0 12px 28px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.92);
+          border-radius:16px; padding:12px;
+          box-shadow:0 8px 18px rgba(15,23,42,0.05);
         }
-        .home-section-head {
-          display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;
+        .acr-section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+        .acr-section-head p { margin:0; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.1em; }
+        .acr-section-head span { font-size:11px; color:#3B82F6; font-weight:700; }
+        .acr-quick-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+        @media (max-width: 380px) { .acr-quick-grid { grid-template-columns:1fr 1fr; } }
+        .acr-quick {
+          border:1px solid rgba(148,163,184,0.14); cursor:pointer; text-align:left; border-radius:13px; padding:9px 10px;
+          background:#fff;
+          display:flex; flex-direction:column; gap:4px;
         }
-        .home-section-head p {
-          margin:0; font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.08em;
+        .acr-quick-top { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:2px; }
+        .acr-quick-icon {
+          width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+          font-size:14px;
         }
-        .home-quick-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
-        .home-quick-card {
-          border:none; cursor:pointer; text-align:left; border-radius:14px; padding:8px;
-          background:#fff; box-shadow:0 10px 24px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.92);
-          transition:transform 0.16s ease, box-shadow 0.16s ease;
-        }
-        .home-quick-top { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; }
-        .home-quick-icon {
-          width:29px; height:29px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-          font-size:14px; font-weight:800;
-        }
-        .home-quick-title { margin:0; font-size:11px; font-weight:800; color:#0f172a; }
-        .home-quick-sub { margin:2px 0 0; font-size:9px; font-weight:650; color:#64748b; line-height:1.2; }
-        @media (max-width: 640px) {
-          .home-premium-root { padding:6px 8px 14px; }
-          .home-shell { gap:7px; }
-          .home-header { gap:8px; }
-          .home-time { font-size:9px; }
-          .home-coin-pill { padding:6px 9px; font-size:10px; }
-          .home-dashboard-grid, .home-feature-row, .home-quick-grid { gap:6px; }
-          .home-dashboard-card { min-height:116px; padding:7px 6px 6px; }
-          .home-astro-card { min-height:122px; }
-          .home-card-primary { font-size:15px; }
-          .home-card-lines p { font-size:8px; }
-          .home-astro-primary { font-size:14px; }
-          .home-astro-location-select { max-width:72px; }
-          .home-feature-card { min-height:62px; padding:8px; }
-          .home-section { padding:8px; }
-          .home-quick-card { padding:7px; }
+        .acr-quick-title { margin:0; font-size:12px; font-weight:800; color:#0F172A; line-height:1.1; }
+        .acr-quick-sub { margin:1px 0 0; font-size:10px; font-weight:600; color:#64748B; line-height:1.15; }
+
+        @media (max-width: 380px) {
+          .acr-root { padding:8px 10px 86px; }
+          .acr-brand-title { font-size:16px; }
+          .acr-sum-primary { font-size:20px; }
+          .acr-astro-main { grid-template-columns:92px minmax(0,1fr); gap:10px; }
+          .acr-astro-mandala-wrap { width:92px; height:92px; }
+          .acr-astro-titles h3 { font-size:14.5px; }
         }
       `}</style>
 
-      <div className="home-premium-root">
-        <div className="home-shell">
-          <div className="home-header">
-            <div className="home-brand">
-              <img src="/logo.jpg" alt="ACR MAX" />
-              <div style={{ minWidth: 0 }}>
-                <p className="home-brand-title home-syne">ACR MAX</p>
-                <p className="home-brand-sub">{greeting.emoji} {greeting.text}, {displayName}</p>
+      <div className="acr-root">
+        <div className="acr-shell">
+          {/* ----- Header ----- */}
+          <div className="acr-header">
+            <div className="acr-brand">
+              <img
+                src="/logo.jpg"
+                alt="ACR MAX"
+                className="acr-brand-logo"
+                onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }}
+              />
+              <div className="acr-brand-logo-fallback" style={{ display:'none' }}>M</div>
+              <div style={{ minWidth:0 }}>
+                <p className="acr-brand-title">ACR MAX</p>
+                <p className="acr-brand-sub">{greeting.emoji} {greeting.text}, {displayName}</p>
               </div>
             </div>
 
-            <div className="home-header-right">
-              <div className="home-time">
-                <div>{time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div className="acr-header-right">
+              <div className="acr-time">
+                <div>{time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }).toLowerCase()}</div>
                 <div>{time.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
               </div>
-              <button className="home-coin-pill" onClick={() => navigate('coins')}>
+              <button className="acr-coin" onClick={() => navigate('coins')}>
                 🪙 {Number(coins || 0).toLocaleString('en-IN')}
               </button>
             </div>
           </div>
 
-          <div className="home-dashboard-grid">
-            <DashboardCard
-              title="Expenses"
+          {/* ----- 4 summary cards ----- */}
+          <div className="acr-sum-grid">
+            <SummaryCard
+              tone="expenses"
               icon="₹"
-              accent="#D97706"
-              bg="#FFF8EE"
+              iconBg="linear-gradient(135deg,#FEF3C7,#FCD34D)"
+              iconColor="#D97706"
+              title="EXPENSES"
               primary={dashboardSnapshot.expenses.value}
               primaryPrefix="₹"
               animated
-              lines={dashboardSnapshot.expenses.lines}
+              primaryColor="#D97706"
+              subline={dashboardSnapshot.expenses.subline}
               microVisual={<MiniTrend accent="#D97706" points={dashboardSnapshot.expenses.trendBars} />}
-              tone="expenses"
               onClick={() => navigate('expense')}
             />
-            <DashboardCard
-              title="Ledger"
+            <SummaryCard
+              tone="ledger"
               icon="🤝"
-              accent="#059669"
-              bg="#F2FBF7"
+              iconBg="linear-gradient(135deg,#D1FAE5,#A7F3D0)"
+              iconColor="#059669"
+              title="LEDGER"
               primary={dashboardSnapshot.ledger.value}
               primaryPrefix="₹"
               animated
-              lines={dashboardSnapshot.ledger.lines}
+              primaryColor="#059669"
+              subline={dashboardSnapshot.ledger.subline}
               microVisual={<MiniDots accent="#059669" values={dashboardSnapshot.ledger.dots} />}
-              tone="ledger"
               onClick={() => navigate('ledger')}
             />
-            <DashboardCard
-              title="Planner"
-              icon="🗓️"
-              accent="#7C3AED"
-              bg="#F7F4FF"
-              primary={dashboardSnapshot.planner.value}
-              lines={dashboardSnapshot.planner.lines}
-              microVisual={<MiniProgress accent="#7C3AED" pct={dashboardSnapshot.planner.pct} />}
+            <SummaryCard
               tone="planner"
-              className="home-dashboard-card--compact"
+              icon="🗓️"
+              iconBg="linear-gradient(135deg,#EDE9FE,#DDD6FE)"
+              iconColor="#7C3AED"
+              title="PLANNER"
+              primary={dashboardSnapshot.planner.value}
+              primaryColor="#7C3AED"
+              subline={dashboardSnapshot.planner.subline}
               onClick={() => navigate('planner')}
             />
-            <AstroCard
-              snapshot={dashboardSnapshot.astro}
-              onOpen={() => navigate('astro')}
-              onLocationChange={handleAstroLocationChange}
+            <AiInsightsCard
+              bullets={dashboardSnapshot.insights.bullets}
+              onClick={() => navigate('chat')}
             />
-{/*
-            <DashboardCard
-              title="Astro"
-              icon="✦"
-              accent="#2563EB"
-              bg="#F2F7FF"
-              primary={dashboardSnapshot.astro.value}
-              lines={dashboardSnapshot.astro.lines}
-              microVisual={<MiniProgress accent="#2563EB" pct={dashboardSnapshot.astro.dayPct} />}
-              tone="astro"
-              onClick={() => navigate('astro')}
-            />
-*/}
           </div>
 
-          <div className="home-astro-strip">
-            <div className="home-astro-strip-icon">✦</div>
-            <div className="home-astro-strip-copy">
-              <p className="home-astro-strip-title">Sun Cycle · {dashboardSnapshot.astro.location}</p>
-              <p className="home-astro-strip-times">{dashboardSnapshot.astro.sunrise} sunrise · {dashboardSnapshot.astro.sunset} sunset</p>
-              <div className="home-astro-strip-progress">
-                <span style={{ width: `${Math.max(4, dashboardSnapshot.astro.dayPct)}%` }} />
-              </div>
-            </div>
-          </div>
+          {/* ----- Premium Astro card ----- */}
+          <PremiumAstroCard
+            snapshot={dashboardSnapshot.astro}
+            dayPct={dashboardSnapshot.astro.fullDayPct}
+            daylightPct={dashboardSnapshot.astro.dayPct}
+            onOpen={() => navigate('astro')}
+            onLocationChange={handleAstroLocationChange}
+          />
 
-          <div className="home-feature-row">
+          {/* ----- Slim Sun Cycle ----- */}
+          <SunCycleStrip
+            snapshot={dashboardSnapshot.astro}
+            daylightPct={dashboardSnapshot.astro.dayPct}
+          />
+
+          {/* ----- Skill / Surprises ----- */}
+          <div className="acr-feature-row">
             <FeatureCard
               title="Skill"
-              subtitle="Puzzles, streaks and coin rewards"
+              subtitle="Puzzles, streaks & coin rewards"
               pill="Play"
               icon="⚡"
+              accent="#FBBF24"
               onClick={() => setSkillOpen(true)}
             />
             <FeatureCard
@@ -1066,31 +1227,32 @@ export default function Home({
               subtitle={surpriseLocked ? `Next in ${formatSurpriseCountdown(surpriseRemainingMs)}` : 'Fresh cards available'}
               pill={surpriseLocked ? 'Locked' : 'Open'}
               icon="🎁"
+              accent="#F472B6"
               onClick={() => setSurprisesOpen(true)}
             />
           </div>
 
-          <div className="home-section">
-            <div className="home-section-head">
+          {/* ----- Quick Actions ----- */}
+          <div className="acr-section">
+            <div className="acr-section-head">
               <p>Quick Actions</p>
-              <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>Open fast</span>
+              <span>Open fast</span>
             </div>
-
-            <div className="home-quick-grid">
+            <div className="acr-quick-grid">
               {quickActions.map((action) => (
                 <button
                   key={action.id}
-                  className="home-quick-card"
+                  className="acr-quick"
                   onClick={() => navigate(action.id)}
                 >
-                  <div className="home-quick-top">
-                    <div className="home-quick-icon" style={{ color: action.accent, background: action.bg }}>
+                  <div className="acr-quick-top">
+                    <div className="acr-quick-icon" style={{ color: action.accent, background: action.bg }}>
                       {action.icon}
                     </div>
-                    <span style={{ color: action.accent, fontSize: 18, fontWeight: 700 }}>›</span>
+                    <span style={{ color: action.accent, fontSize: 16, fontWeight: 700 }}>›</span>
                   </div>
-                  <p className="home-quick-title">{action.label}</p>
-                  <p className="home-quick-sub">{action.sub}</p>
+                  <p className="acr-quick-title">{action.label}</p>
+                  <p className="acr-quick-sub">{action.sub}</p>
                 </button>
               ))}
             </div>
