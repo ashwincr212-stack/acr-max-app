@@ -1569,7 +1569,7 @@ export default function Expense(props) {
         </BottomSheet>
       ) : null}
 
-      <div className="exp-root expense-page-root" style={{ maxWidth: 980, margin: '0 auto', padding: '0 6px', paddingBottom: 214, color: '#0f172a' }}>
+      <div className="exp-root expense-page-root" style={{ width: '100%', maxWidth: 'none', margin: 0, padding: '0 2px', paddingBottom: 214, color: '#0f172a' }}>
         <div style={{ display: 'grid', gap: 8 }}>
           <GlassCard className="expense-full-bleed" style={{ padding: 9 }} accent="rgba(245,158,11,0.18)">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

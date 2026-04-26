@@ -479,8 +479,8 @@ if (!cancelled) {
 
       <div onClick={closeModal} style={{ position:'fixed', inset:0, zIndex:800, background:'radial-gradient(circle at 50% 8%,rgba(124,58,237,.24),transparent 34%),linear-gradient(135deg,rgba(2,6,23,.82),rgba(15,23,42,.72))', backdropFilter:'blur(16px)', WebkitBackdropFilter:'blur(16px)' }} />
 
-      <div className="surprise-shell" style={{ position:'fixed', inset:0, zIndex:801, display:'flex', alignItems:'center', justifyContent:'center', padding:10, pointerEvents:'none' }}>
-        <div className="surprise-modal" style={{ width:'100%', maxWidth:430, maxHeight:'92vh', overflow:'hidden', pointerEvents:'all', borderRadius:28, background:'linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.95))', boxShadow:'0 34px 110px rgba(0,0,0,.44),0 0 0 1px rgba(255,255,255,.36),inset 0 1px 0 rgba(255,255,255,.82)', animation:'surpriseModalIn .28s cubic-bezier(.2,.8,.2,1) both', position:'relative' }}>
+      <div className="surprise-shell" style={{ position:'fixed', inset:0, zIndex:801, display:'flex', alignItems:'center', justifyContent:'center', padding:6, pointerEvents:'none' }}>
+        <div className="surprise-modal" style={{ width:'100%', maxWidth:'min(100vw - 12px, 520px)', maxHeight:'92vh', overflow:'hidden', pointerEvents:'all', borderRadius:28, background:'linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.95))', boxShadow:'0 34px 110px rgba(0,0,0,.44),0 0 0 1px rgba(255,255,255,.36),inset 0 1px 0 rgba(255,255,255,.82)', animation:'surpriseModalIn .28s cubic-bezier(.2,.8,.2,1) both', position:'relative' }}>
           <div style={{ position:'absolute', inset:'0 0 auto 0', height:3, background:'linear-gradient(90deg,#f59e0b,#7c3aed,#2563eb,#f59e0b)', backgroundSize:'200% 100%', animation:'borderFlow 4s linear infinite' }} />
 
           <div style={{ padding:'12px 14px 10px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, borderBottom:'1px solid rgba(226,232,240,.74)', background:'linear-gradient(135deg,rgba(255,255,255,.94),rgba(248,250,252,.78))' }}>

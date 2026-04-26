@@ -1412,11 +1412,11 @@ export default function Home({
         .acr-root *, .acr-root *::before, .acr-root *::after { box-sizing:border-box; font-family:'Poppins', sans-serif; }
         .acr-root {
           min-height:100vh; width:100%;
-          padding:6px 5px 82px;
+          padding:4px 1px 92px;
           background:linear-gradient(180deg,#F8FAFC 0%,#F1F4F8 100%);
           color:#0F172A;
         }
-        .acr-shell { display:flex; flex-direction:column; gap:6px; }
+        .acr-shell { display:flex; flex-direction:column; gap:6px; width:100%; }
 
         /* ----- Header ----- */
         .acr-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 0 4px; }
@@ -1766,7 +1766,7 @@ export default function Home({
         .acr-quick-sub { margin:0; font-size:9.5px; font-weight:600; color:#64748B; line-height:1.15; }
 
         @media (max-width: 360px) {
-          .acr-root { padding:5px 4px 80px; }
+          .acr-root { padding:4px 0 90px; }
           .acr-celestial-strip { grid-template-columns:1fr 1fr; gap:6px; padding:7px; }
           .acr-celestial-seg { padding:8px; }
           .acr-celestial-value { font-size:11px; }

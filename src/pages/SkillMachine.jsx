@@ -947,9 +947,10 @@ function SkillMachineContent({ userId, onClose, onReward, coins = 0 }) {
         .sm-container {
           position: relative;
           z-index: 1;
-          max-width: 480px;
-          margin: 0 auto;
-          padding: 20px 16px 40px;
+          width: 100%;
+          max-width: none;
+          margin: 0;
+          padding: 16px 8px 104px;
           min-height: 100vh;
         }
 

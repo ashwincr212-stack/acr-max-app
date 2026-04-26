@@ -1333,7 +1333,7 @@ export default function Ledger({ currentUser }) {
       }
     `}</style>
 
-    <div className="ldg-root" style={{ maxWidth:1180, margin:'0 auto', padding:'0 2px', width:'100%', height:'calc(100dvh - 128px)', minHeight:420, boxSizing:'border-box', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+    <div className="ldg-root" style={{ maxWidth:'none', margin:0, padding:'0 1px', width:'100%', height:'calc(100dvh - 120px)', minHeight:420, boxSizing:'border-box', overflow:'hidden', display:'flex', flexDirection:'column' }}>
       {activeAccount ? (
         <PersonDetail
           account={activeAccount}

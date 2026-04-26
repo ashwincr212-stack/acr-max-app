@@ -1212,8 +1212,8 @@ const C = {
 // ─── ROOT STYLES ──────────────────────────────────────────────────────────────
 
 const R = {
-  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100vh",background:"#080510",color:"rgba(255,255,255,0.85)",overflowX:"hidden",paddingBottom:64 },
-  body:   { maxWidth:480,margin:"0 auto",padding:"9px 10px 0",position:"relative",zIndex:1 },
+  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100vh",width:"100%",background:"#080510",color:"rgba(255,255,255,0.85)",overflowX:"hidden",paddingBottom:"max(96px, env(safe-area-inset-bottom))" },
+  body:   { width:"100%",maxWidth:"none",margin:0,padding:"9px 4px 0",position:"relative",zIndex:1 },
   footer: { textAlign:"center",fontSize:10,color:"rgba(255,255,255,0.18)",marginTop:10,fontStyle:"italic",letterSpacing:"0.03em" },
 };
 

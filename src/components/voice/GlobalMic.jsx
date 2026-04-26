@@ -178,8 +178,8 @@ function ProcessingIcon() {
 const styles = {
   wrapper: {
     position: 'fixed',
-    bottom: '86px',
-    right: '16px',
+    bottom: '92px',
+    right: '10px',
     zIndex: 1200,
     display: 'flex',
     flexDirection: 'column',

@@ -523,7 +523,7 @@ export default function News() {
       ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px;}
     `}</style>
 
-    <div className="news-root" style={{ maxWidth:900, margin:'0 auto', paddingBottom:80, background:'transparent' }}>
+    <div className="news-root" style={{ width:'100%', maxWidth:'none', margin:0, paddingBottom:96, background:'transparent' }}>
 
       {/* ── HEADER ── */}
       <div style={{ marginBottom:14, animation:'slideUp 0.4s ease-out both' }}>

@@ -23,8 +23,8 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
     .reduce((sum, log) => sum + log.amount, 0)
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-4">
-      <div className="mx-auto max-w-2xl">
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 px-1.5 sm:px-3 py-3 pb-28">
+      <div className="w-full">
         <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
           <button
             type="button"

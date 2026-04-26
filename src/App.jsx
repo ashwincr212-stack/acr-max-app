@@ -646,7 +646,7 @@ function AppShell({ currentUser, onLogout }) {
   ]
 
   return (
-    <div className="flex h-screen app-shell font-sans">
+    <div className="flex h-screen w-full overflow-x-hidden app-shell font-sans">
 
       {/* DESKTOP SIDEBAR */}
       <div className="hidden md:flex w-72 sidebar p-6 flex-col z-10" style={{ flexShrink: 0 }}>
@@ -691,7 +691,7 @@ function AppShell({ currentUser, onLogout }) {
       </div>
 
       {/* MAIN CONTENT */}
-      <div ref={mainContentRef} className="flex-1 overflow-y-auto px-4 md:px-10 py-6 pb-28 main-content" style={{ maxWidth: '100%' }}>
+      <div ref={mainContentRef} className="flex-1 w-full overflow-y-auto overflow-x-hidden px-1.5 sm:px-3 md:px-6 pt-3 pb-28 main-content" style={{ maxWidth: '100%' }}>
         {/* Sync status indicator */}
         {isSyncing && (
           <div style={{ position: 'fixed', top: 12, right: 16, zIndex: 999, background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.35)', borderRadius: 20, padding: '5px 14px', display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(8px)' }}>
@@ -699,7 +699,7 @@ function AppShell({ currentUser, onLogout }) {
             <span style={{ fontSize: 11, fontWeight: 700, color: '#34d399' }}>Syncing…</span>
           </div>
         )}
-        <div className="transition-all duration-500 ease-in-out max-w-5xl mx-auto">
+        <div className="transition-all duration-500 ease-in-out w-full">
           {renderContent()}
         </div>
       </div>
