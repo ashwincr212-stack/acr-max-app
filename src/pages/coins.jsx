@@ -23,9 +23,9 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
     .reduce((sum, log) => sum + log.amount, 0)
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-transparent px-1.5 sm:px-3 py-3 pb-28">
+    <div className="min-h-screen w-full overflow-x-hidden bg-transparent px-1 py-2 pb-24">
       <div className="w-full">
-        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between rounded-[14px] bg-white px-3 py-3 shadow-sm">
           <button
             type="button"
             onClick={() => setActiveTab('home')}
@@ -37,16 +37,16 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
           <div className="w-[68px]" />
         </div>
 
-        <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mt-2 rounded-[14px] bg-white px-3 py-3 shadow-sm">
           <p className="text-sm font-medium text-slate-500">Total Max Coins</p>
-          <p className="mt-3 text-4xl font-extrabold tracking-tight text-slate-900">
+          <p className="mt-2 text-4xl font-extrabold tracking-tight text-slate-900">
             {coins}
           </p>
         </div>
 
-        <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mt-2 rounded-[14px] bg-white px-3 py-3 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">Daily Earnings</h2>
-          <div className="mt-4 space-y-3">
+          <div className="mt-3 space-y-2.5">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-600">Today</span>
               <span className="font-semibold text-slate-900">{todayCoins} Max Coins</span>
@@ -58,9 +58,9 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mt-2 rounded-[14px] bg-white px-3 py-3 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">Source Breakdown</h2>
-          <div className="mt-4 space-y-3">
+          <div className="mt-3 space-y-2.5">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-600">Skill Machine</span>
               <span className="font-semibold text-slate-900">{skillCoins}</span>
@@ -76,16 +76,16 @@ export default function Coins({ coinLogs = [], coins = 0, setActiveTab }) {
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mt-2 rounded-[14px] bg-white px-3 py-3 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">AI Insight</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+          <p className="mt-2 text-sm leading-6 text-slate-600">
             You earn more Max Coins from Skill Machine in the morning
           </p>
         </div>
 
-        <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mt-2 rounded-[14px] bg-white px-3 py-3 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">Motivation</h2>
-          <p className="mt-3 text-sm font-medium text-slate-700">
+          <p className="mt-2 text-sm font-medium text-slate-700">
             Next reward at 600 Max Coins 🚀
           </p>
         </div>

@@ -697,7 +697,7 @@ function AppShell({ currentUser, onLogout }) {
       </div>
 
       {/* MAIN CONTENT */}
-      <div ref={mainContentRef} className="flex-1 w-full overflow-y-auto overflow-x-hidden px-1.5 sm:px-3 md:px-6 pt-3 pb-28 main-content" style={{ maxWidth: '100%' }}>
+      <div ref={mainContentRef} className="flex-1 w-full overflow-y-auto overflow-x-hidden px-1 sm:px-2 md:px-4 pt-2 pb-24 main-content" style={{ maxWidth: '100%' }}>
         {/* Sync status indicator */}
         {isSyncing && (
           <div style={{ position: 'fixed', top: 12, right: 16, zIndex: 999, background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.35)', borderRadius: 20, padding: '5px 14px', display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(8px)' }}>

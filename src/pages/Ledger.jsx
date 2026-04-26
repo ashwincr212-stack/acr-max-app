@@ -1333,7 +1333,7 @@ export default function Ledger({ currentUser }) {
       }
     `}</style>
 
-    <div className="ldg-root" style={{ maxWidth:'none', margin:0, padding:'0 1px', width:'100%', height:'calc(100dvh - 120px)', minHeight:420, boxSizing:'border-box', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+    <div className="ldg-root" style={{ maxWidth:'none', margin:0, padding:'0', width:'100%', height:'calc(100dvh - 112px)', minHeight:420, boxSizing:'border-box', overflow:'hidden', display:'flex', flexDirection:'column' }}>
       {activeAccount ? (
         <PersonDetail
           account={activeAccount}
@@ -1350,8 +1350,8 @@ export default function Ledger({ currentUser }) {
       {/* ── FLOATING ADD ── */}
       <div style={{
   position:'fixed',
-  bottom:155,
-  right:18,
+  bottom:144,
+  right:12,
   zIndex:300,
   display:'flex',
   flexDirection:'column',
@@ -1360,14 +1360,14 @@ export default function Ledger({ currentUser }) {
         <button onClick={()=>{setEditing(null);setShowModal(true)}} style={{
           width:50, height:50, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.8)',
           background:'linear-gradient(135deg,#7c3aed,#4f46e5)', color:'#fff', fontSize:22, cursor:'pointer',
-          boxShadow:'4px 4px 14px rgba(124,58,237,0.35),-2px -2px 6px rgba(255,255,255,0.4)',
+          boxShadow:'0 8px 16px rgba(124,58,237,0.26)',
           display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.2s',
         }}>＋</button>
       </div>
 
       <div className="ldg-sticky-panel">
       {/* ── HEADER ── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:12, animation:'ldgSlideUp 0.4s ease-out both', position:'relative', zIndex:1200, overflow:'visible' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:8, animation:'ldgSlideUp 0.4s ease-out both', position:'relative', zIndex:1200, overflow:'visible' }}>
         <div style={{ display:'flex', alignItems:'center', gap:9, minWidth:0, flex:1 }}>
           <img src="/logo.jpg" alt="ACR MAX" style={{ width:36, height:36, borderRadius:'50%', objectFit:'cover', border:'1.5px solid #e2e8f0', boxShadow:'2px 2px 6px rgba(0,0,0,0.1)', flexShrink:0 }} />
           <div style={{ minWidth:0 }}>
@@ -1426,19 +1426,19 @@ export default function Ledger({ currentUser }) {
       </div>
 
       {/* ── BALANCE STRIP ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,minmax(0,1fr))', gap:7, marginBottom:12, animation:'ldgSlideUp 0.4s ease-out 0.05s both' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,minmax(0,1fr))', gap:5, marginBottom:8, animation:'ldgSlideUp 0.4s ease-out 0.05s both' }}>
         {[
           { label:'To Collect', value:fmt(totalLent),   color:'#16a34a', accent:'#bbf7d0' },
           { label:'To Pay',     value:fmt(totalBorrowed),color:'#dc2626', accent:'#fca5a5' },
           { label:'Net Balance',  value:(netBalance>=0?'+':'')+fmt(Math.abs(netBalance)), color:netBalance>=0?'#16a34a':'#dc2626', accent:netBalance>=0?'#bbf7d0':'#fca5a5' },
         ].map((s,i)=>(
           <div key={i} style={{
-            padding:'10px 8px 11px',
+            padding:'8px 7px 9px',
             background:'linear-gradient(145deg,#f8f8f8,#d8d8d8)',
             border:`1.25px solid rgba(255,255,255,0.95)`,
             borderTop:`3px solid ${s.accent}`,
-            borderRadius:13, textAlign:'center',
-            boxShadow:'4px 4px 11px rgba(0,0,0,0.1),-2px -2px 7px rgba(255,255,255,0.98)',
+            borderRadius:11, textAlign:'center',
+            boxShadow:'0 4px 10px rgba(0,0,0,0.06)',
           }}>
             <p style={{ fontSize:8.5, fontWeight:800, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 3px', fontFamily:'Poppins,sans-serif' }}>{s.label}</p>
             <p style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:19, lineHeight:1.05, color:'#b8860b', margin:0 }}>{s.value}</p>
@@ -1461,15 +1461,15 @@ export default function Ledger({ currentUser }) {
       )}
 
       {/* ── FILTER TABS ── */}
-      <div style={{ display:'flex', gap:6, marginBottom:9, overflowX:'auto', paddingBottom:3, scrollbarWidth:'none', animation:'ldgSlideUp 0.4s ease-out 0.2s both' }}>
+      <div style={{ display:'flex', gap:5, marginBottom:7, overflowX:'auto', paddingBottom:2, scrollbarWidth:'none', animation:'ldgSlideUp 0.4s ease-out 0.2s both' }}>
         {FILTERS.map(f=>(
           <button key={f.id} onClick={()=>setFilter(f.id)} style={{
-            padding:'6px 10px', borderRadius:16, fontWeight:800, fontSize:11,
+            padding:'5px 9px', borderRadius:14, fontWeight:800, fontSize:10.5,
             whiteSpace:'nowrap', cursor:'pointer', fontFamily:'Poppins,sans-serif',
             border: filter===f.id?'1.5px solid #7c3aed':'1.5px solid #e2e8f0',
             background: filter===f.id?'linear-gradient(145deg,#ede9fe,#ddd6fe)':'linear-gradient(145deg,#ffffff,#ebebeb)',
             color: filter===f.id?'#7c3aed':'#475569',
-            boxShadow: filter===f.id?'3px 3px 8px rgba(124,58,237,0.2),-2px -2px 5px rgba(255,255,255,0.8)':'3px 3px 7px rgba(0,0,0,0.07),-2px -2px 5px rgba(255,255,255,0.9)',
+            boxShadow: filter===f.id?'0 4px 10px rgba(124,58,237,0.14)':'0 3px 8px rgba(0,0,0,0.05)',
             display:'flex', alignItems:'center', gap:4,
           }}>
             {f.label}
@@ -1479,7 +1479,7 @@ export default function Ledger({ currentUser }) {
       </div>
 
       {/* ── SEARCH + SORT ── */}
-      <div style={{ display:'flex', gap:7, marginBottom:11, width:'100%', animation:'ldgSlideUp 0.4s ease-out 0.25s both' }}>
+      <div style={{ display:'flex', gap:6, marginBottom:8, width:'100%', animation:'ldgSlideUp 0.4s ease-out 0.25s both' }}>
         <div style={{ position:'relative', flex:1 }}>
           <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', fontSize:12, color:'#9ca3af', pointerEvents:'none' }}>🔍</span>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search person…"

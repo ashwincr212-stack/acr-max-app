@@ -1412,14 +1412,14 @@ export default function Home({
         .acr-root *, .acr-root *::before, .acr-root *::after { box-sizing:border-box; font-family:'Poppins', sans-serif; }
         .acr-root {
           min-height:100vh; width:100%;
-          padding:4px 1px 92px;
+          padding:2px 0 86px;
           background:transparent;
           color:#0F172A;
         }
-        .acr-shell { display:flex; flex-direction:column; gap:6px; width:100%; }
+        .acr-shell { display:flex; flex-direction:column; gap:5px; width:100%; }
 
         /* ----- Header ----- */
-        .acr-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 0 4px; }
+        .acr-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:1px 0 3px; }
         .acr-brand { display:flex; align-items:center; gap:9px; min-width:0; }
         .acr-brand-logo { width:38px; height:38px; border-radius:11px; flex-shrink:0; object-fit:cover; box-shadow:0 6px 14px rgba(15,23,42,0.16); }
         .acr-brand-logo-fallback {
@@ -1435,7 +1435,7 @@ export default function Home({
         .acr-time { font-size:11.5px; font-weight:700; color:#475569; text-align:right; line-height:1.2; }
         .acr-time div:first-child { font-size:12.5px; color:#0F172A; }
         .acr-coin {
-          border:none; cursor:pointer; border-radius:999px; padding:6px 11px;
+          border:none; cursor:pointer; border-radius:999px; padding:5px 10px;
           background:linear-gradient(135deg,#FEF3C7,#FCD34D);
           color:#92400E; font-size:12.5px; font-weight:800;
           box-shadow:0 5px 12px rgba(217,119,6,0.18);
@@ -1443,31 +1443,31 @@ export default function Home({
         }
 
         .acr-celestial-strip {
-          display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px;
-          margin:2px 0 10px;
-          padding:8px;
-          border-radius:18px;
+          display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px;
+          margin:1px 0 8px;
+          padding:6px;
+          border-radius:15px;
           background:
             radial-gradient(circle at 18% 0%, rgba(245,158,11,0.18) 0%, transparent 34%),
             radial-gradient(circle at 82% 100%, rgba(56,189,248,0.14) 0%, transparent 38%),
             linear-gradient(135deg,#030712 0%,#08111F 38%,#0A1730 72%,#030712 100%);
           border:1px solid rgba(251,191,36,0.26);
           box-shadow:
-            0 14px 28px rgba(2,6,23,0.34),
+            0 10px 20px rgba(2,6,23,0.24),
             inset 0 1px 0 rgba(255,255,255,0.05),
             0 0 0 1px rgba(245,158,11,0.08),
             0 0 22px rgba(245,158,11,0.08);
         }
         .acr-celestial-seg {
-          display:flex; align-items:center; gap:8px; min-width:0;
-          padding:8px 10px;
-          border-radius:14px;
+          display:flex; align-items:center; gap:6px; min-width:0;
+          padding:6px 8px;
+          border-radius:12px;
           background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
           border:1px solid rgba(255,255,255,0.08);
           box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
         }
         .acr-celestial-icon {
-          width:22px; height:22px;
+          width:18px; height:18px;
           box-shadow:
             0 0 0 1px rgba(255,255,255,0.08),
             0 0 14px rgba(251,191,36,0.12);
@@ -1478,16 +1478,16 @@ export default function Home({
           text-transform:uppercase; color:#94A3B8; white-space:nowrap;
         }
         .acr-celestial-value {
-          margin-top:4px;
-          font-size:12px; line-height:1.05; font-weight:800; color:#F8FAFC; white-space:nowrap;
+          margin-top:3px;
+          font-size:11px; line-height:1.05; font-weight:800; color:#F8FAFC; white-space:nowrap;
         }
 
         /* ----- Summary cards (2x2) ----- */
-        .acr-sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+        .acr-sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
         .acr-sum {
           position:relative; border:none; cursor:pointer; text-align:left;
-          border-radius:16px; padding:10px 11px 10px;
-          min-height:90px;
+          border-radius:14px; padding:9px 10px 9px;
+          min-height:82px;
           display:flex; flex-direction:column; gap:3px;
           transition:transform 0.14s ease;
         }
@@ -1497,9 +1497,9 @@ export default function Home({
         .acr-sum-planner  { background:linear-gradient(155deg,#F8F5FF,#EFE9FF); border:1px solid rgba(124,58,237,0.15); }
         .acr-sum-ai       { background:linear-gradient(155deg,#F2F8FF,#E2EFFE); border:1px solid rgba(2,132,199,0.15); }
 
-        .acr-sum-top { display:flex; align-items:center; gap:7px; }
+        .acr-sum-top { display:flex; align-items:center; gap:6px; }
         .acr-sum-icon {
-          width:24px; height:24px; border-radius:8px;
+          width:22px; height:22px; border-radius:7px;
           display:flex; align-items:center; justify-content:center;
           font-size:12px; font-weight:800;
           box-shadow:inset 0 1px 0 rgba(255,255,255,0.85);
@@ -1511,7 +1511,7 @@ export default function Home({
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
         .acr-sum-chev { font-size:17px; font-weight:700; line-height:1; opacity:0.6; }
-        .acr-sum-primary { font-size:21px; font-weight:800; line-height:1.05; margin-top:1px; }
+        .acr-sum-primary { font-size:19px; font-weight:800; line-height:1.05; margin-top:1px; }
         .acr-sum-bottom { margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:5px; }
         .acr-sum-subline {
           margin:0; font-size:9px; line-height:1.25; color:#64748B; font-weight:600;
@@ -1532,13 +1532,13 @@ export default function Home({
         /* ----- Astro card ----- */
         .acr-astro {
           position:relative; overflow:hidden; width:100%; border:none; cursor:pointer; text-align:left;
-          border-radius:20px; padding:12px 12px 11px; color:#fff;
+          border-radius:18px; padding:10px 10px 10px; color:#fff;
           background:
             radial-gradient(ellipse at 20% 0%, rgba(120,80,255,0.28) 0%, transparent 55%),
             radial-gradient(ellipse at 85% 90%, rgba(56,189,248,0.18) 0%, transparent 45%),
             radial-gradient(ellipse at 50% 50%, rgba(30,41,90,0.6) 0%, transparent 80%),
             linear-gradient(168deg,#07101F 0%,#0D1A30 40%,#091526 70%,#060E1C 100%);
-          box-shadow:0 18px 40px rgba(4,9,30,0.55), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(99,102,241,0.2);
+          box-shadow:0 12px 24px rgba(4,9,30,0.4), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(99,102,241,0.2);
           transition:transform 0.14s ease;
         }
         .acr-astro:active { transform:scale(0.99); }
@@ -1595,7 +1595,7 @@ export default function Home({
         .acr-astro > * { position:relative; z-index:1; }
 
         /* header */
-        .acr-astro-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:7px; }
+        .acr-astro-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:6px; }
         .acr-astro-head-left { display:flex; align-items:flex-start; gap:8px; min-width:0; flex:1; }
         .acr-astro-badge {
           width:26px; height:26px; border-radius:8px; flex-shrink:0;
@@ -1627,7 +1627,7 @@ export default function Home({
         /* festival banner */
         .acr-astro-festival-row {
           display:flex; align-items:center; gap:6px;
-          padding:5px 8px; border-radius:8px; margin-bottom:8px;
+          padding:4px 7px; border-radius:8px; margin-bottom:6px;
           background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.18);
         }
         .acr-astro-festival-row-dim {
@@ -1642,19 +1642,19 @@ export default function Home({
         .acr-astro-festival-row-dim .acr-astro-festival-name { color:#475569; font-weight:500; }
 
         /* mandala + period grid */
-        .acr-astro-main { display:grid; grid-template-columns:82px minmax(0,1fr); gap:10px; margin-bottom:6px; }
+        .acr-astro-main { display:grid; grid-template-columns:76px minmax(0,1fr); gap:8px; margin-bottom:5px; }
         .acr-astro-mandala-wrap {
-          width:82px; height:82px; display:flex; align-items:center; justify-content:center;
+          width:76px; height:76px; display:flex; align-items:center; justify-content:center;
           filter:drop-shadow(0 2px 12px rgba(245,158,11,0.42)) drop-shadow(0 0 6px rgba(251,191,36,0.22));
         }
         .acr-astro-mandala { width:100%; height:100%; animation:acrMandalaSpin 75s linear infinite; }
         @keyframes acrMandalaSpin { to{ transform:rotate(360deg); } }
 
         /* period panel */
-        .acr-astro-period-panel { display:flex; flex-direction:column; gap:5px; justify-content:center; min-width:0; }
+        .acr-astro-period-panel { display:flex; flex-direction:column; gap:4px; justify-content:center; min-width:0; }
         .acr-astro-period-chip {
           display:inline-flex; align-items:center; gap:6px;
-          padding:4px 10px; border-radius:999px; font-size:10.5px; font-weight:800; letter-spacing:0.03em;
+          padding:4px 9px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:0.03em;
           white-space:nowrap; align-self:flex-start;
         }
         .acr-period-dot {
@@ -1665,10 +1665,10 @@ export default function Home({
         }
         @keyframes acrDotPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.55;transform:scale(0.75)} }
         .acr-astro-period-range {
-          font-size:12px; font-weight:700; letter-spacing:0.01em; padding-left:2px;
+          font-size:11.5px; font-weight:700; letter-spacing:0.01em; padding-left:2px;
         }
         .acr-astro-timer {
-          font-size:11px; font-weight:800; font-variant-numeric:tabular-nums;
+          font-size:10.5px; font-weight:800; font-variant-numeric:tabular-nums;
           background:rgba(255,255,255,0.07); border-radius:6px; padding:2px 7px;
           display:inline-block; align-self:flex-start;
         }
@@ -1704,9 +1704,9 @@ export default function Home({
         }
 
         /* panchang tiles — name only */
-        .acr-astro-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+        .acr-astro-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
         .acr-astro-tile {
-          padding:7px 7px 8px; border-radius:11px;
+          padding:6px 6px 7px; border-radius:10px;
           background:rgba(8,16,36,0.55); border:1px solid rgba(99,102,241,0.18);
           min-width:0; display:flex; flex-direction:column; gap:3px;
           backdrop-filter:blur(2px);
@@ -1720,43 +1720,43 @@ export default function Home({
           word-break:break-word; hyphens:auto;
         }
         /* ----- Skill / Surprises ----- */
-        .acr-feature-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+        .acr-feature-row { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
         .acr-feature {
           width:100%; border:none; cursor:pointer; text-align:left;
-          border-radius:14px; padding:10px 11px; color:#fff;
+          border-radius:13px; padding:8px 10px; color:#fff;
           background:linear-gradient(155deg,#0F172A,#1E293B);
-          box-shadow:0 12px 24px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.05);
-          display:flex; align-items:center; gap:9px; min-height:56px;
+          box-shadow:0 8px 16px rgba(15,23,42,0.16), inset 0 1px 0 rgba(255,255,255,0.05);
+          display:flex; align-items:center; gap:8px; min-height:52px;
           transition:transform 0.14s ease;
         }
         .acr-feature:active { transform:scale(0.975); }
         .acr-feature-icon {
-          width:32px; height:32px; border-radius:10px; flex-shrink:0;
+          width:28px; height:28px; border-radius:9px; flex-shrink:0;
           display:flex; align-items:center; justify-content:center; font-size:17px;
           background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08);
         }
         .acr-feature-copy { min-width:0; flex:1; }
-        .acr-feature-copy p { margin:0; font-size:13.5px; font-weight:800; color:#fff; line-height:1.1; }
+        .acr-feature-copy p { margin:0; font-size:12.5px; font-weight:800; color:#fff; line-height:1.1; }
         .acr-feature-copy span { display:block; margin-top:2px; font-size:9.5px; color:rgba(226,232,240,0.68); font-weight:600; line-height:1.2; }
         .acr-feature-pill {
-          flex-shrink:0; padding:5px 11px; border-radius:999px;
-          background:linear-gradient(135deg,#7C3AED,#A855F7); color:#fff; font-size:11px; font-weight:800;
-          box-shadow:0 5px 12px rgba(124,58,237,0.28);
+          flex-shrink:0; padding:4px 10px; border-radius:999px;
+          background:linear-gradient(135deg,#7C3AED,#A855F7); color:#fff; font-size:10px; font-weight:800;
+          box-shadow:0 4px 10px rgba(124,58,237,0.22);
         }
 
         /* ----- Quick Actions ----- */
         .acr-section {
           background:#fff; border:1px solid rgba(148,163,184,0.15);
-          border-radius:14px; padding:10px 11px;
-          box-shadow:0 6px 14px rgba(15,23,42,0.05);
+          border-radius:13px; padding:9px 10px;
+          box-shadow:0 4px 10px rgba(15,23,42,0.04);
         }
-        .acr-section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
+        .acr-section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
         .acr-section-head p { margin:0; font-size:10.5px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.1em; }
         .acr-section-head span { font-size:11px; color:#3B82F6; font-weight:700; }
-        .acr-quick-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; }
+        .acr-quick-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
         .acr-quick {
           border:1px solid rgba(148,163,184,0.13); cursor:pointer; text-align:left;
-          border-radius:11px; padding:8px 9px; background:#FAFBFC;
+          border-radius:10px; padding:7px 8px; background:#FAFBFC;
           display:flex; flex-direction:column; gap:3px; transition:transform 0.13s ease;
         }
         .acr-quick:active { transform:scale(0.97); }
@@ -1766,12 +1766,12 @@ export default function Home({
         .acr-quick-sub { margin:0; font-size:9.5px; font-weight:600; color:#64748B; line-height:1.15; }
 
         @media (max-width: 360px) {
-          .acr-root { padding:4px 0 90px; }
+          .acr-root { padding:2px 0 86px; }
           .acr-celestial-strip { grid-template-columns:1fr 1fr; gap:6px; padding:7px; }
-          .acr-celestial-seg { padding:8px; }
+          .acr-celestial-seg { padding:7px; }
           .acr-celestial-value { font-size:11px; }
-          .acr-astro-main { grid-template-columns:78px minmax(0,1fr); }
-          .acr-astro-mandala-wrap { width:78px; height:78px; }
+          .acr-astro-main { grid-template-columns:74px minmax(0,1fr); }
+          .acr-astro-mandala-wrap { width:74px; height:74px; }
           .acr-astro-tiles { grid-template-columns:repeat(2,1fr); }
           .acr-quick-grid { grid-template-columns:1fr 1fr; }
           .acr-sum-primary { font-size:19px; }

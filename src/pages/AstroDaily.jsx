@@ -897,7 +897,7 @@ const C = {
 
 const R = {
   root:   { fontFamily:"'Sora',sans-serif",minHeight:"100svh",background:"transparent",color:"#111827",overflowX:"hidden",paddingBottom:"max(96px, env(safe-area-inset-bottom))",width:"100%" },
-  body:   { width:"100%",maxWidth:"none",margin:0,padding:"10px 4px 0",position:"relative",zIndex:1 },
+  body:   { width:"100%",maxWidth:"none",margin:0,padding:"8px 2px 0",position:"relative",zIndex:1 },
   footer: { textAlign:"center",fontSize:10,color:"#9a6a16",marginTop:12,fontStyle:"italic",letterSpacing:"0.03em" },
 };
 

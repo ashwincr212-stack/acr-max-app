@@ -277,5 +277,5 @@ const R = {
   orb1:   { position:"absolute",top:-50,left:-40,width:140,height:140,borderRadius:"50%",background:"radial-gradient(circle,rgba(162,155,254,0.16) 0%,transparent 70%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
   orb2:   { position:"absolute",top:-40,right:-50,width:120,height:120,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,211,42,0.07) 0%,transparent 70%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },
   backBtn:{ position:"absolute",top:10,left:10,zIndex:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"5px 7px",color:"rgba(255,255,255,0.6)",cursor:"pointer",display:"flex",alignItems:"center",lineHeight:1 },
-  body:   { width:"100%",maxWidth:"none",margin:0,padding:"10px 4px 0" },
+  body:   { width:"100%",maxWidth:"none",margin:0,padding:"8px 2px 0" },
 };

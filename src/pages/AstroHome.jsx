@@ -302,7 +302,7 @@ const S = {
   heroTitle: { fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"rgba(255,255,255,0.9)",letterSpacing:"0.02em",lineHeight:1.1,marginBottom:3 },
   heroSub:   { fontSize:10,color:"rgba(255,255,255,0.3)",letterSpacing:"0.1em",marginBottom:10 },
   datePill:  { display:"inline-flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"4px 12px",fontSize:10,color:"rgba(255,255,255,0.38)",letterSpacing:"0.03em" },
-  body: { width:"100%",maxWidth:"none",margin:0,padding:"10px 4px 0" },
+  body: { width:"100%",maxWidth:"none",margin:0,padding:"8px 2px 0" },
   // Pref card (same pattern as locCard in Astro.jsx)
   prefCard: { background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:16,padding:"4px 0",marginBottom:12,animation:"slideUp 0.38s ease both" },
   prefRow:  { display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 12px" },

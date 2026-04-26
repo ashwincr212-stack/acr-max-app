@@ -541,13 +541,13 @@ function GlassCard({ children, style = {}, accent = '#dbeafe', className = '' })
       style={{
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 20,
-        padding: 12,
+        borderRadius: 16,
+        padding: 10,
         border: '1px solid rgba(255,255,255,0.92)',
         background:
           'linear-gradient(145deg, rgba(255,255,255,0.95), rgba(244,247,251,0.88) 45%, rgba(235,240,245,0.92))',
         boxShadow:
-          '0 10px 22px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.94), inset 0 -1px 0 rgba(148,163,184,0.06)',
+          '0 6px 14px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.94), inset 0 -1px 0 rgba(148,163,184,0.06)',
         backdropFilter: 'blur(18px)',
         ...style,
       }}
@@ -606,9 +606,9 @@ function TooltipCard({ active, payload, label }) {
 
 function TinyStat({ label, value, tone = '#2563eb', sub }) {
   return (
-    <div style={{ padding: '9px 10px', borderRadius: 14, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)' }}>
+    <div style={{ padding: '7px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)' }}>
       <p style={{ margin: 0, fontSize: 9, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
-      <p style={{ margin: '4px 0 0', fontSize: 14.5, fontWeight: 800, color: tone, lineHeight: 1.08 }}>{value}</p>
+      <p style={{ margin: '3px 0 0', fontSize: 13.5, fontWeight: 800, color: tone, lineHeight: 1.08 }}>{value}</p>
       {sub ? <p style={{ margin: '3px 0 0', fontSize: 9.5, color: '#64748b', lineHeight: 1.3 }}>{sub}</p> : null}
     </div>
   )
@@ -616,10 +616,10 @@ function TinyStat({ label, value, tone = '#2563eb', sub }) {
 
 function MiniOverviewCard({ label, value, sub, tone = '#2563eb' }) {
   return (
-    <div style={{ minHeight: 74, padding: '9px 10px', borderRadius: 14, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)' }}>
+    <div style={{ minHeight: 68, padding: '8px 9px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)' }}>
       <p style={{ margin: 0, fontSize: 9, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
-      <p className="syne" style={{ margin: '6px 0 0', fontSize: 16.5, fontWeight: 800, lineHeight: 1, color: tone }}>{value}</p>
-      <p style={{ margin: '5px 0 0', fontSize: 9.5, color: '#64748b', lineHeight: 1.28 }}>{sub}</p>
+      <p className="syne" style={{ margin: '5px 0 0', fontSize: 15.5, fontWeight: 800, lineHeight: 1, color: tone }}>{value}</p>
+      <p style={{ margin: '4px 0 0', fontSize: 9.5, color: '#64748b', lineHeight: 1.28 }}>{sub}</p>
     </div>
   )
 }
@@ -745,20 +745,20 @@ function HealthRing({ score, onClick }) {
     <button
       onClick={onClick}
       style={{
-        width: 60,
-        height: 60,
+        width: 52,
+        height: 52,
         borderRadius: '50%',
         border: 'none',
         background: `conic-gradient(${tone} ${clamp(score, 0, 100) * 3.6}deg, rgba(226,232,240,0.85) 0deg)`,
         padding: 3,
         cursor: 'pointer',
-        boxShadow: `0 0 0 5px ${tone}12, 0 8px 18px rgba(15,23,42,0.08)`,
+        boxShadow: `0 0 0 4px ${tone}12, 0 6px 14px rgba(15,23,42,0.06)`,
         animation: score < 40 ? 'expPulseDanger 2s ease-in-out infinite' : score < 70 ? 'expPulseSoft 2.2s ease-in-out infinite' : 'none',
       }}
       aria-label="Open expense health details"
     >
       <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'rgba(255,255,255,0.96)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-        <span className="syne" style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: tone }}>{score}</span>
+        <span className="syne" style={{ fontSize: 15, fontWeight: 800, lineHeight: 1, color: tone }}>{score}</span>
         <span style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Health</span>
       </div>
     </button>
@@ -1459,12 +1459,12 @@ export default function Expense(props) {
         }
         @media (max-width: 640px) {
           .expense-page-root {
-            width: calc(100% + 24px) !important;
+            width: calc(100% + 16px) !important;
             max-width: none !important;
-            margin-left: -12px !important;
-            margin-right: -12px !important;
-            padding-left: 4px !important;
-            padding-right: 4px !important;
+            margin-left: -8px !important;
+            margin-right: -8px !important;
+            padding-left: 3px !important;
+            padding-right: 3px !important;
             overflow-x: hidden;
           }
           .expense-full-bleed {
@@ -1478,15 +1478,15 @@ export default function Expense(props) {
           .exp-grid-3 { grid-template-columns: 1fr !important; }
           .exp-mobile-breakdown { display: flex !important; }
           .exp-analytics-table { display: none !important; }
-          .exp-filter-row { grid-template-columns: minmax(0,1fr) 88px 78px !important; }
-          .coach-shell { border-radius: 24px; }
+          .exp-filter-row { grid-template-columns: minmax(0,1fr) 82px 74px !important; }
+          .coach-shell { border-radius: 20px; }
         }
         @media (min-width: 641px) {
           .exp-mobile-breakdown { display: none !important; }
         }
       `}</style>
 
-      <div style={{ position: 'fixed', right: 16, bottom: 154, zIndex: 1200, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+      <div style={{ position: 'fixed', right: 12, bottom: 144, zIndex: 1200, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
         {showMobileForm ? (
           <GlassCard style={{ width: 'min(92vw, 360px)', padding: 14, borderRadius: 26 }} accent="rgba(124,58,237,0.18)">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -1520,15 +1520,15 @@ export default function Expense(props) {
         <button
           onClick={() => setShowMobileForm((value) => !value)}
           style={{
-            width: 54,
-            height: 54,
+            width: 50,
+            height: 50,
             borderRadius: '50%',
             border: '1px solid rgba(255,255,255,0.9)',
             background: 'linear-gradient(135deg,#0f172a,#334155 45%,#7c3aed)',
             color: '#fff',
             fontSize: 26,
             cursor: 'pointer',
-            boxShadow: '0 12px 22px rgba(15,23,42,0.22)',
+            boxShadow: '0 8px 18px rgba(15,23,42,0.18)',
           }}
         >
           {showMobileForm ? '×' : '+'}
@@ -1592,14 +1592,14 @@ export default function Expense(props) {
         </BottomSheet>
       ) : null}
 
-      <div className="exp-root expense-page-root" style={{ width: '100%', maxWidth: 'none', margin: 0, padding: '0 2px', paddingBottom: 214, color: '#0f172a' }}>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <GlassCard className="expense-full-bleed" style={{ padding: 9 }} accent="rgba(245,158,11,0.18)">
+      <div className="exp-root expense-page-root" style={{ width: '100%', maxWidth: 'none', margin: 0, padding: '0 1px', paddingBottom: 196, color: '#0f172a' }}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <GlassCard className="expense-full-bleed" style={{ padding: 8 }} accent="rgba(245,158,11,0.18)">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                 <img src="/logo.jpg" alt="ACR Max" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 16px rgba(15,23,42,0.14)' }} />
                 <div style={{ minWidth: 0 }}>
-                  <h2 className="syne" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0f172a', lineHeight: 1.05 }}>Expenses</h2>
+                  <h2 className="syne" style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a', lineHeight: 1.05 }}>Expenses</h2>
                   <p style={{ margin: '2px 0 0', fontSize: 10.5, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {monthStats.now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </p>
@@ -1609,9 +1609,9 @@ export default function Expense(props) {
                 <button
                   onClick={() => setShowChallengeSheet(true)}
                   style={{
-                    minWidth: 34,
-                    height: 32,
-                    borderRadius: 11,
+                    minWidth: 32,
+                    height: 30,
+                    borderRadius: 10,
                     padding: '0 8px',
                     border: '1px solid #fde68a',
                     background: 'linear-gradient(145deg,#fffbeb,#ffffff)',
@@ -1627,9 +1627,9 @@ export default function Expense(props) {
                 <button
                   onClick={() => setShowAlertsSheet(true)}
                   style={{
-                    minWidth: 34,
-                    height: 32,
-                    borderRadius: 11,
+                    minWidth: 32,
+                    height: 30,
+                    borderRadius: 10,
                     padding: '0 8px',
                     border: `1px solid ${smartAlerts.length ? '#fecdd3' : '#dbe2ea'}`,
                     background: smartAlerts.length ? 'linear-gradient(145deg,#fff1f2,#ffffff)' : 'linear-gradient(145deg,#ffffff,#f8fafc)',
@@ -1647,19 +1647,19 @@ export default function Expense(props) {
             </div>
           </GlassCard>
 
-          <GlassCard className="expense-full-bleed" style={{ padding: 10 }} accent="rgba(59,130,246,0.18)">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'start' }}>
+          <GlassCard className="expense-full-bleed" style={{ padding: 8 }} accent="rgba(59,130,246,0.18)">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start' }}>
               <div>
                 <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>Monthly total spent</p>
-                <p className="syne" style={{ margin: '4px 0 0', fontSize: 26, lineHeight: 1, fontWeight: 800, color: '#0f172a' }}>
+                <p className="syne" style={{ margin: '3px 0 0', fontSize: 23, lineHeight: 1, fontWeight: 800, color: '#0f172a' }}>
                   <CountUp value={monthStats.totalSpent} />
                 </p>
-                <div style={{ display: 'grid', gap: 6, marginTop: 7 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 6 }}>
+                <div style={{ display: 'grid', gap: 5, marginTop: 6 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 5 }}>
                     <TinyStat label="Today" value={fmt(monthStats.todaySpent)} tone="#d97706" />
                     <TinyStat label="Top" value={shortCategory(monthStats.topCategoryRow?.name || '--')} tone={monthStats.topCategoryRow?.color || '#2563eb'} />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 6 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5 }}>
                     <TinyStat label="Entries" value={monthStats.totalEntries} tone="#475569" />
                     <TinyStat
                       label="Budget Balance"
@@ -1675,17 +1675,17 @@ export default function Expense(props) {
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
-                <span style={{ padding: '4px 8px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 10, fontWeight: 800 }}>
+                <span style={{ padding: '3px 7px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 9.5, fontWeight: 800 }}>
                   {health.status}
                 </span>
-                <span style={{ fontSize: 9.5, color: '#64748b', fontWeight: 700 }}>Tap for tips</span>
+                <span style={{ fontSize: 9, color: '#64748b', fontWeight: 700 }}>Tap for tips</span>
               </div>
             </div>
 
-            <div style={{ marginTop: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+            <div style={{ marginTop: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Budget used</span>
                 <span style={{ fontSize: 11, fontWeight: 800, color: monthStats.monthlyBudgetUsed > 100 ? '#dc2626' : monthStats.monthlyBudgetUsed > 80 ? '#d97706' : '#16a34a' }}>
                   {Math.round(monthStats.monthlyBudgetUsed)}%
@@ -1694,7 +1694,7 @@ export default function Expense(props) {
               <ProgressLine pct={monthStats.monthlyBudgetUsed} tone={budgetTone} />
             </div>
 
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
               <span style={chipStyle(monthStats.overBudgetCategories.length ? '#fff1f2' : '#ecfdf5', monthStats.overBudgetCategories.length ? '#dc2626' : '#16a34a')}>
                 {monthStats.overBudgetCategories.length} over budget
               </span>
@@ -1702,14 +1702,14 @@ export default function Expense(props) {
             </div>
           </GlassCard>
 
-          <GlassCard className="expense-full-bleed" style={{ padding: 8 }} accent="rgba(124,58,237,0.16)">
-            <div className="exp-tabs hide-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 1, scrollbarWidth: 'none' }}>
+          <GlassCard className="expense-full-bleed" style={{ padding: 6 }} accent="rgba(124,58,237,0.16)">
+            <div className="exp-tabs hide-scrollbar" style={{ display: 'flex', gap: 5, overflowX: 'auto', paddingBottom: 1, scrollbarWidth: 'none' }}>
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setExpenseTab(tab.id)}
                   style={{
-                    padding: '7px 11px',
+                    padding: '6px 9px',
                     borderRadius: 999,
                     border: `1px solid ${expenseTab === tab.id ? '#c4b5fd' : '#e2e8f0'}`,
                     background: expenseTab === tab.id ? 'linear-gradient(145deg,#faf5ff,#f3e8ff)' : 'linear-gradient(145deg,#ffffff,#f8fafc)',
@@ -1718,7 +1718,7 @@ export default function Expense(props) {
                     fontSize: 10.5,
                     whiteSpace: 'nowrap',
                     cursor: 'pointer',
-                    boxShadow: expenseTab === tab.id ? '0 6px 14px rgba(124,58,237,0.12)' : '0 4px 10px rgba(15,23,42,0.04)',
+                    boxShadow: expenseTab === tab.id ? '0 4px 10px rgba(124,58,237,0.1)' : '0 3px 8px rgba(15,23,42,0.03)',
                   }}
                 >
                   {tab.label}
@@ -1728,22 +1728,22 @@ export default function Expense(props) {
           </GlassCard>
 
           {expenseTab === 'daily' ? (
-            <GlassCard className="expense-full-bleed" style={{ padding: 11 }} accent="rgba(226,232,240,0.84)">
+            <GlassCard className="expense-full-bleed" style={{ padding: 9 }} accent="rgba(226,232,240,0.84)">
               <SectionHdr
                 title="Expense Timeline"
                 accent="#475569"
                 right={<span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 700 }}>{sortedLogs.length} entries</span>}
               />
 
-              <div className="exp-filter-row" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.8fr 0.8fr', gap: 8, marginBottom: 10 }}>
-                <input type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 40, padding: '9px 10px' }} />
-                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 40, padding: '9px 8px', fontSize: 11 }}>
+              <div className="exp-filter-row" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.8fr 0.8fr', gap: 6, marginBottom: 8 }}>
+                <input type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 36, padding: '8px 9px' }} />
+                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 36, padding: '8px 7px', fontSize: 10.5 }}>
                   <option value="All">All categories</option>
                   {categories.map((category) => (
                     <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 40, padding: '9px 8px', fontSize: 11 }}>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 36, padding: '8px 7px', fontSize: 10.5 }}>
                   <option value="time">Latest</option>
                   <option value="amount">Highest</option>
                   <option value="category">A-Z</option>
@@ -1751,7 +1751,7 @@ export default function Expense(props) {
               </div>
 
               {todayLogs.length ? (
-                <div style={{ marginBottom: 10, padding: '7px 9px', borderRadius: 13, background: 'linear-gradient(145deg,#eff6ff,#ffffff)', border: '1px solid #bfdbfe' }}>
+                <div style={{ marginBottom: 8, padding: '6px 8px', borderRadius: 11, background: 'linear-gradient(145deg,#eff6ff,#ffffff)', border: '1px solid #bfdbfe' }}>
                   <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: '#1d4ed8' }}>
                     Today {fmt(monthStats.todaySpent)} · {todayLogs.length} entries · Top {shortCategory(getTopCategories(todayLogs, 1)[0]?.name || '—')}
                   </p>
@@ -1759,40 +1759,40 @@ export default function Expense(props) {
               ) : null}
 
               {logGroups.length ? (
-                <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ display: 'grid', gap: 8 }}>
                   {logGroups.map((group) => (
                     <div key={group.title}>
-                      <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 800, color: group.title === 'Today' ? '#1d4ed8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group.title}</p>
-                      <div style={{ display: 'grid', gap: 6 }}>
+                      <p style={{ margin: '0 0 5px', fontSize: 10, fontWeight: 800, color: group.title === 'Today' ? '#1d4ed8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group.title}</p>
+                      <div style={{ display: 'grid', gap: 5 }}>
                         {group.items.map((log) => (
                           <div
                             key={log.id}
                             style={{
                               display: 'grid',
                               gridTemplateColumns: 'auto 1fr auto auto',
-                              gap: 8,
+                              gap: 7,
                               alignItems: 'center',
-                              padding: '8px 9px',
-                              borderRadius: 14,
+                              padding: '7px 8px',
+                              borderRadius: 12,
                               background: group.title === 'Today' ? 'linear-gradient(145deg,#f8fbff,#ffffff)' : 'rgba(255,255,255,0.62)',
                               border: group.title === 'Today' ? '1px solid #bfdbfe' : '1px solid rgba(226,232,240,0.9)',
-                              boxShadow: group.title === 'Today' ? '0 6px 12px rgba(37,99,235,0.05)' : 'none',
+                              boxShadow: group.title === 'Today' ? '0 4px 10px rgba(37,99,235,0.04)' : 'none',
                               opacity: deletingId === log.id ? 0.45 : 1,
                               transition: 'opacity 0.2s ease',
                             }}
                           >
-                            <div style={{ width: 32, height: 32, borderRadius: 11, background: `${CAT_COLORS[log.category] || '#64748b'}18`, color: CAT_COLORS[log.category] || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 10, background: `${CAT_COLORS[log.category] || '#64748b'}18`, color: CAT_COLORS[log.category] || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                               {CAT_ICONS[log.category] || '💸'}
                             </div>
                             <div style={{ minWidth: 0 }}>
-                              <p style={{ margin: 0, fontSize: 11.5, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {log.category}{log.note ? ` • ${log.note}` : ''}
                               </p>
-                              <p style={{ margin: '2px 0 0', fontSize: 9.5, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <p style={{ margin: '1px 0 0', fontSize: 9, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {log.timeLabel} • {log.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}{log.paymentMode ? ` • ${log.paymentMode}` : ''}
                               </p>
                             </div>
-                            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#b45309', whiteSpace: 'nowrap' }}>{fmt(log.amount)}</p>
+                            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 800, color: '#b45309', whiteSpace: 'nowrap' }}>{fmt(log.amount)}</p>
                             <button onClick={() => handleDelete(log.id)} style={{ ...miniActionBtn('#dc2626', '#fff1f2'), padding: '5px 7px' }}>Del</button>
                           </div>
                         ))}
