@@ -1725,7 +1725,7 @@ export default function Expense(props) {
                 <p className="syne" style={{ margin: '3px 0 0', fontSize: 23, lineHeight: 1, fontWeight: 800, color: '#0f172a' }}>
                   <CountUp value={monthStats.totalSpent} />
                 </p>
-                <div style={{ display: 'grid', gap: 5, marginTop: 6 }}>
+                <div style={{ display: 'grid', gap: 7, marginTop: 8 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5 }}>
                     <TinyStat label="Today" value={fmt(monthStats.todaySpent)} tone="#d97706" />
                     <TinyStat label="Top" value={shortCategory(monthStats.topCategoryRow?.name || '--')} tone={monthStats.topCategoryRow?.color || '#2563eb'} />
@@ -1741,7 +1741,7 @@ export default function Expense(props) {
                   <span style={{ fontSize: 9, color: '#64748b', fontWeight: 700 }}>Tap for tips</span>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 2 }}>
                 <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Budget Balance</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: !safeSpend.hasBudget ? '#64748b' : safeSpend.budgetBalance >= 0 ? '#16a34a' : '#dc2626', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1759,7 +1759,7 @@ export default function Expense(props) {
                 </div>
                 <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1 }}>Today / Yesterday</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 11.5, fontWeight: 800, color: '#334155', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: '#334155', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {todayYesterdayMetric.value}
                   </p>
                   <span style={{ display: 'inline-flex', alignSelf: 'flex-start', marginTop: 3, padding: '1px 6px', borderRadius: 999, background: todayYesterdayMetric.chipBg, color: todayYesterdayMetric.chipColor, border: `1px solid ${todayYesterdayMetric.chipBorder}`, fontSize: 8, fontWeight: 800, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
@@ -1769,7 +1769,7 @@ export default function Expense(props) {
               </div>
             </div>
 
-            <div style={{ marginTop: 6 }}>
+            <div style={{ marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Budget used</span>
                 <span style={{ fontSize: 11, fontWeight: 800, color: monthStats.monthlyBudgetUsed > 100 ? '#dc2626' : monthStats.monthlyBudgetUsed > 80 ? '#d97706' : '#16a34a' }}>
