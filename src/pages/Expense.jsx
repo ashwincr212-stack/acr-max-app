@@ -996,6 +996,58 @@ export default function Expense(props) {
       tone: '#dc2626',
     }
   }, [monthStats.todaySpent, safeSpend])
+  const todayYesterdayMetric = useMemo(() => {
+    const todaySpent = Number(monthStats.todaySpent || 0)
+    const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
+
+    if (yesterdaySpent > 0) {
+      const percentChange = ((todaySpent - yesterdaySpent) / yesterdaySpent) * 100
+      const roundedChange = Math.round(Math.abs(percentChange))
+      if (todaySpent > yesterdaySpent) {
+        return {
+          value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
+          chip: `▲ ${roundedChange}%`,
+          chipBg: '#fee2e2',
+          chipColor: '#dc2626',
+          chipBorder: '#fca5a5',
+        }
+      }
+      if (todaySpent < yesterdaySpent) {
+        return {
+          value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
+          chip: `▼ ${roundedChange}%`,
+          chipBg: '#dcfce7',
+          chipColor: '#16a34a',
+          chipBorder: '#86efac',
+        }
+      }
+      return {
+        value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
+        chip: 'Same',
+        chipBg: '#e2e8f0',
+        chipColor: '#64748b',
+        chipBorder: '#cbd5e1',
+      }
+    }
+
+    if (todaySpent > 0) {
+      return {
+        value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
+        chip: 'New',
+        chipBg: '#fef3c7',
+        chipColor: '#d97706',
+        chipBorder: '#fcd34d',
+      }
+    }
+
+    return {
+      value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
+      chip: 'No spend',
+      chipBg: '#e2e8f0',
+      chipColor: '#64748b',
+      chipBorder: '#cbd5e1',
+    }
+  }, [monthStats.todaySpent, monthStats.yesterdaySpent])
 
   const todayLogs = useMemo(
     () => monthStats.currentMonthLogs.filter((log) => isSameDay(log.date, monthStats.now)),
@@ -1666,8 +1718,9 @@ export default function Expense(props) {
           </GlassCard>
 
           <GlassCard className="expense-full-bleed" style={{ padding: 8 }} accent="rgba(59,130,246,0.18)">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start' }}>
-              <div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start' }}>
+                <div>
                 <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>Monthly total spent</p>
                 <p className="syne" style={{ margin: '3px 0 0', fontSize: 23, lineHeight: 1, fontWeight: 800, color: '#0f172a' }}>
                   <CountUp value={monthStats.totalSpent} />
@@ -1678,27 +1731,41 @@ export default function Expense(props) {
                     <TinyStat label="Top" value={shortCategory(monthStats.topCategoryRow?.name || '--')} tone={monthStats.topCategoryRow?.color || '#2563eb'} />
                     <TinyStat label="Entries" value={monthStats.totalEntries} tone="#475569" />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 5 }}>
-                    <TinyStat
-                      label="Budget Balance"
-                      value={safeSpend.hasBudget ? fmt(safeSpend.budgetBalance) : 'Set budget'}
-                      tone={!safeSpend.hasBudget ? '#64748b' : safeSpend.budgetBalance >= 0 ? '#16a34a' : '#dc2626'}
-                    />
-                    <TinyStat
-                      label="Can Spend Daily"
-                      value={safeSpend.hasBudget ? `${fmt(safeSpend.canSpendDaily)}/day` : 'Set budget'}
-                      tone={canSpendDailyTone}
-                      sub={safeSpend.hasBudget ? 'To stay in budget' : 'Add budget first'}
-                    />
-                  </div>
+                </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
+                  <span style={{ padding: '3px 7px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 9.5, fontWeight: 800 }}>
+                    {health.status}
+                  </span>
+                  <span style={{ fontSize: 9, color: '#64748b', fontWeight: 700 }}>Tap for tips</span>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
-                <span style={{ padding: '3px 7px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 9.5, fontWeight: 800 }}>
-                  {health.status}
-                </span>
-                <span style={{ fontSize: 9, color: '#64748b', fontWeight: 700 }}>Tap for tips</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5 }}>
+                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Budget Balance</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: !safeSpend.hasBudget ? '#64748b' : safeSpend.budgetBalance >= 0 ? '#16a34a' : '#dc2626', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {safeSpend.hasBudget ? fmt(safeSpend.budgetBalance) : 'Set budget'}
+                  </p>
+                </div>
+                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Can Spend Daily</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: canSpendDailyTone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {safeSpend.hasBudget ? `${fmt(safeSpend.canSpendDaily)}/day` : 'Set budget'}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {safeSpend.hasBudget ? 'To stay in budget' : 'Add budget first'}
+                  </p>
+                </div>
+                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1 }}>Today / Yesterday</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 11.5, fontWeight: 800, color: '#334155', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {todayYesterdayMetric.value}
+                  </p>
+                  <span style={{ display: 'inline-flex', alignSelf: 'flex-start', marginTop: 3, padding: '1px 6px', borderRadius: 999, background: todayYesterdayMetric.chipBg, color: todayYesterdayMetric.chipColor, border: `1px solid ${todayYesterdayMetric.chipBorder}`, fontSize: 8, fontWeight: 800, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                    {todayYesterdayMetric.chip}
+                  </span>
+                </div>
               </div>
             </div>
 
