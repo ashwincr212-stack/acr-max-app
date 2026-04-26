@@ -272,7 +272,7 @@ const D = {
 };
 
 const R = {
-  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100vh",width:"100%",background:"#080510",color:"rgba(255,255,255,0.85)",overflowX:"hidden",paddingBottom:"max(96px, env(safe-area-inset-bottom))" },
+  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100vh",width:"100%",background:"transparent",color:"rgba(255,255,255,0.85)",overflowX:"hidden",paddingBottom:"max(96px, env(safe-area-inset-bottom))" },
   header: { position:"relative",overflow:"hidden",borderRadius:"0 0 16px 16px",background:"linear-gradient(165deg,#0e0820 0%,#130d28 55%,#080510 100%)" },
   orb1:   { position:"absolute",top:-50,left:-40,width:140,height:140,borderRadius:"50%",background:"radial-gradient(circle,rgba(162,155,254,0.16) 0%,transparent 70%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
   orb2:   { position:"absolute",top:-40,right:-50,width:120,height:120,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,211,42,0.07) 0%,transparent 70%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },

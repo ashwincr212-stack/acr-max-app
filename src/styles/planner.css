@@ -42,10 +42,7 @@
   height: 100dvh;
   height: 100vh;
   width: 100%;
-  background:
-    radial-gradient(circle at 15% -10%, rgba(109,40,217,0.12), transparent 34%),
-    radial-gradient(circle at 100% 0%, rgba(26,107,255,0.08), transparent 32%),
-    linear-gradient(180deg, #FBFCFF 0%, var(--p-bg) 45%, #EFF4FB 100%);
+  background: transparent;
   font-family: var(--p-font);
   color: var(--p-text-primary);
   -webkit-font-smoothing: antialiased;

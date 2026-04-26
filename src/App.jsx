@@ -646,7 +646,13 @@ function AppShell({ currentUser, onLogout }) {
   ]
 
   return (
-    <div className="flex h-screen w-full overflow-x-hidden app-shell font-sans">
+    <div
+      className="flex h-screen w-full overflow-x-hidden app-shell font-sans"
+      style={{
+        background:
+          'radial-gradient(circle at 14% -8%, rgba(124,58,237,0.09), transparent 30%), radial-gradient(circle at 100% 0%, rgba(14,165,233,0.08), transparent 28%), linear-gradient(180deg, #fbfcff 0%, #f4f7fb 46%, #eef3f8 100%)',
+      }}
+    >
 
       {/* DESKTOP SIDEBAR */}
       <div className="hidden md:flex w-72 sidebar p-6 flex-col z-10" style={{ flexShrink: 0 }}>

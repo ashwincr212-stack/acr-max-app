@@ -293,7 +293,7 @@ select option{background:#0d0618;color:#e8e0f0}
 `;
 
 const S = {
-  root: { fontFamily:"'Sora',sans-serif",minHeight:"100vh",width:"100%",background:"#080510",color:"rgba(255,255,255,0.85)",overflowX:"hidden",paddingBottom:"max(96px, env(safe-area-inset-bottom))" },
+  root: { fontFamily:"'Sora',sans-serif",minHeight:"100vh",width:"100%",background:"transparent",color:"rgba(255,255,255,0.85)",overflowX:"hidden",paddingBottom:"max(96px, env(safe-area-inset-bottom))" },
   hero: { position:"relative",overflow:"hidden",borderRadius:"0 0 20px 20px" },
   orb1: { position:"absolute",top:-60,left:-40,width:160,height:160,borderRadius:"50%",background:"radial-gradient(circle,rgba(138,43,226,0.16) 0%,transparent 70%)",animation:"floatOrb 10s ease-in-out infinite",pointerEvents:"none" },
   orb2: { position:"absolute",top:-40,right:-50,width:130,height:130,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,211,42,0.09) 0%,transparent 70%)",animation:"floatOrb 13s ease-in-out infinite reverse",pointerEvents:"none" },

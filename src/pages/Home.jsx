@@ -1413,7 +1413,7 @@ export default function Home({
         .acr-root {
           min-height:100vh; width:100%;
           padding:4px 1px 92px;
-          background:linear-gradient(180deg,#F8FAFC 0%,#F1F4F8 100%);
+          background:transparent;
           color:#0F172A;
         }
         .acr-shell { display:flex; flex-direction:column; gap:6px; width:100%; }

@@ -896,7 +896,7 @@ const C = {
 };
 
 const R = {
-  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100svh",background:"radial-gradient(circle at 16% -6%, rgba(251,191,36,0.3), transparent 32%), radial-gradient(circle at 100% 2%, rgba(125,211,252,0.26), transparent 34%), radial-gradient(circle at 50% 42%, rgba(255,255,255,0.65), transparent 34%), linear-gradient(180deg,#fffdf6 0%,#f4fbff 44%,#fff7e6 100%)",color:"#111827",overflowX:"hidden",paddingBottom:"max(96px, env(safe-area-inset-bottom))",width:"100%" },
+  root:   { fontFamily:"'Sora',sans-serif",minHeight:"100svh",background:"transparent",color:"#111827",overflowX:"hidden",paddingBottom:"max(96px, env(safe-area-inset-bottom))",width:"100%" },
   body:   { width:"100%",maxWidth:"none",margin:0,padding:"10px 4px 0",position:"relative",zIndex:1 },
   footer: { textAlign:"center",fontSize:10,color:"#9a6a16",marginTop:12,fontStyle:"italic",letterSpacing:"0.03em" },
 };
