@@ -1655,12 +1655,12 @@ export default function Expense(props) {
                   <CountUp value={monthStats.totalSpent} />
                 </p>
                 <div style={{ display: 'grid', gap: 5, marginTop: 6 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 5 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5 }}>
                     <TinyStat label="Today" value={fmt(monthStats.todaySpent)} tone="#d97706" />
                     <TinyStat label="Top" value={shortCategory(monthStats.topCategoryRow?.name || '--')} tone={monthStats.topCategoryRow?.color || '#2563eb'} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5 }}>
                     <TinyStat label="Entries" value={monthStats.totalEntries} tone="#475569" />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 5 }}>
                     <TinyStat
                       label="Budget Balance"
                       value={safeSpend.hasBudget ? fmt(safeSpend.budgetBalance) : 'Set budget'}
