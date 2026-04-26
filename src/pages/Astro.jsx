@@ -10,6 +10,7 @@ import React, {
 import { db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { normalizePanchangData as normalizeSharedPanchangData } from "./astroHelpers";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -870,7 +871,7 @@ export default function AstroPage() {
   const clock = useClock();
 
   // Normalize raw data whenever it changes
-  const normalized = useMemo(() => normalizePanchangData(rawData), [rawData]);
+  const normalized = useMemo(() => normalizeSharedPanchangData(rawData), [rawData]);
 
   // Recompute all live state from normalized data + current time
   // This runs on every clock tick via useMemo with clock.now dependency

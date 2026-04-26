@@ -3,7 +3,7 @@ import SurprisesModal from './SurprisesModal'
 import SkillMachineModal from './SkillMachine'
 import { db } from '../firebase'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore'
-import { fetchAstroDoc, getTodayIST, LOCATIONS, LOCATION_META } from './astroHelpers'
+import { fetchAstroDoc, getTodayIST, LOCATIONS, LOCATION_META, normalizePanchangData } from './astroHelpers'
 
 /* ---------------- helpers ---------------- */
 
@@ -86,6 +86,64 @@ function normalizeTimeValue(value) {
   else if (meridiem === 'PM' && hour < 12) hour += 12
   if (hour > 23 || minute > 59) return ''
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+function formatPanchangTime(value, field = '', fallback = '--') {
+  if (value == null || value === '') return fallback
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+  }
+  if (value && typeof value === 'object' && typeof value.toDate === 'function') {
+    const dateValue = value.toDate()
+    if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) {
+      return dateValue.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+    }
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const dateValue = new Date(value)
+    if (!Number.isNaN(dateValue.getTime())) {
+      return dateValue.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+    }
+  }
+  if (typeof value !== 'string') return fallback
+
+  const trimmed = value.trim()
+  if (!trimmed) return fallback
+
+  const meridiemMatch = trimmed.match(/(^|\s)(\d{1,2}):(\d{2})\s*(AM|PM)\b/i)
+  if (meridiemMatch) {
+    const hour = Number(meridiemMatch[2])
+    const minute = Number(meridiemMatch[3])
+    const meridiem = meridiemMatch[4].toUpperCase()
+    if (!Number.isNaN(hour) && !Number.isNaN(minute) && hour >= 1 && hour <= 12 && minute >= 0 && minute <= 59) {
+      return `${hour}:${String(minute).padStart(2, '0')} ${meridiem}`
+    }
+  }
+
+  const isDateLikeString =
+    /[TzZ]|GMT|UTC|[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4}/i.test(trimmed)
+  if (isDateLikeString) {
+    const parsed = new Date(trimmed)
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+    }
+  }
+
+  const normalized = normalizeTimeValue(trimmed)
+  if (!normalized) return fallback
+  const [hourText, minuteText] = normalized.split(':')
+  const hour = Number(hourText)
+  if (Number.isNaN(hour)) return fallback
+  let suffix = hour >= 12 ? 'PM' : 'AM'
+  const hadMeridiem = /\b(AM|PM)\b/i.test(trimmed)
+  if (!hadMeridiem && hour >= 1 && hour <= 12) {
+    if (field === 'sunrise') suffix = 'AM'
+    else if (field === 'sunset') suffix = 'PM'
+    else if (field === 'moonrise') suffix = 'PM'
+    else if (field === 'moonset') suffix = 'AM'
+  }
+  const displayHour = hour % 12 || 12
+  return `${displayHour}:${minuteText} ${suffix}`
 }
 
 function formatShortTime(value) {
@@ -438,16 +496,32 @@ function pickTimeLike(node, keys) {
 /* Read sunrise / sunset across many possible shapes. */
 function readSunrise(payload) {
   return pickTimeLike(payload, [
-    'sunrise', 'Sunrise', 'sunRise', 'sun_rise', 'sunrise_time', 'sun_rise_time',
-    'sun.rise', 'timings.sunrise', 'timings.sun_rise',
     'normalized.sunrise', 'response.sunrise', 'panchang.sunrise',
+    'timings.sunrise', 'timings.sun_rise', 'sun.rise',
+    'sunrise', 'Sunrise', 'sunRise', 'sun_rise', 'sunrise_time', 'sun_rise_time',
   ])
 }
 function readSunset(payload) {
   return pickTimeLike(payload, [
-    'sunset', 'Sunset', 'sunSet', 'sun_set', 'sunset_time', 'sun_set_time',
-    'sun.set', 'timings.sunset', 'timings.sun_set',
     'normalized.sunset', 'response.sunset', 'panchang.sunset',
+    'timings.sunset', 'timings.sun_set', 'sun.set',
+    'sunset', 'Sunset', 'sunSet', 'sun_set', 'sunset_time', 'sun_set_time',
+  ])
+}
+
+function readMoonrise(payload) {
+  return pickTimeLike(payload, [
+    'normalized.moonrise', 'response.moonrise', 'panchang.moonrise',
+    'timings.moonrise', 'timings.moon_rise',
+    'moonrise', 'Moonrise', 'moon_rise', 'moonRise', 'moonrise_time', 'moon_rise_time',
+  ])
+}
+
+function readMoonset(payload) {
+  return pickTimeLike(payload, [
+    'normalized.moonset', 'response.moonset', 'panchang.moonset',
+    'timings.moonset', 'timings.moon_set',
+    'moonset', 'Moonset', 'moon_set', 'moonSet', 'moonset_time', 'moon_set_time',
   ])
 }
 
@@ -553,6 +627,7 @@ function extractPanchangDetail(rawDetail) {
 function extractAstroSummary(rawResult) {
   // Resolve the actual payload object regardless of how fetchAstroDoc wraps it
   const data = getAstroPayload(rawResult)
+  const normalized = normalizePanchangData(data)
 
   // ── Festival: try every possible shape exhaustively ──
   const festivalSources = [
@@ -631,10 +706,10 @@ function extractAstroSummary(rawResult) {
     title: 'Daily Panchang',
     window: goodWindow || '',
     festival: festivalDisplay,
-    sunrise: readSunrise(data),
-    sunset: readSunset(data),
-    moonrise: pickTimeLike(data, ['moonrise', 'Moonrise', 'moon_rise', 'moonRise', 'moonrise_time', 'normalized.moonrise', 'response.moonrise']),
-    moonset: pickTimeLike(data, ['moonset', 'Moonset', 'moon_set', 'moonSet', 'moonset_time', 'normalized.moonset', 'response.moonset']),
+    sunrise: normalized?.sunrise && normalized.sunrise !== '—' ? normalized.sunrise : '',
+    sunset: normalized?.sunset && normalized.sunset !== '—' ? normalized.sunset : '',
+    moonrise: normalized?.moonrise && normalized.moonrise !== '—' ? normalized.moonrise : '',
+    moonset: normalized?.moonset && normalized.moonset !== '—' ? normalized.moonset : '',
     rahuKalam: readKalamRange(
       data,
       ['rahuKalam', 'rahu_kalam', 'rahukalam', 'rahukaalam', 'rahuKaal', 'rahu_kal', 'rahu kalam', 'RahuKalam', 'normalized.rahuKalam', 'response.rahuKalam'],
@@ -754,18 +829,38 @@ function LiveTimer({ secs, label, textColor }) {
   )
 }
 
+function getCelestialRows(snapshot = {}) {
+  return [
+    { type: 'sun', subtype: 'rise', label: 'Sunrise', val: snapshot.sunrise || '--' },
+    { type: 'sun', subtype: 'set', label: 'Sunset', val: snapshot.sunset || '--' },
+    { type: 'moon', subtype: 'rise', label: 'Moonrise', val: snapshot.moonrise || '--' },
+    { type: 'moon', subtype: 'set', label: 'Moonset', val: snapshot.moonset || '--' },
+  ]
+}
+
+function CelestialStrip({ snapshot }) {
+  const rows = getCelestialRows(snapshot)
+
+  return (
+    <div className="acr-celestial-strip" aria-label="Celestial timings">
+      {rows.map((row) => (
+        <div key={row.label} className="acr-celestial-seg">
+          <span className={`acr-cel-icon acr-cel-${row.type}-${row.subtype} acr-celestial-icon`} aria-hidden="true" />
+          <div className="acr-celestial-copy">
+            <span className="acr-celestial-label">{row.label}</span>
+            <strong className="acr-celestial-value">{row.val}</strong>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /* ---------------- Premium Astro card ---------------- */
 function PremiumAstroCard({ snapshot, onOpen, onLocationChange }) {
   const meta = LOCATION_META[snapshot.location] || { emoji: '🌿', tagline: 'Garden City' }
   const ps = snapshot.periodStatus || {}
   const mode = ps.mode || 'neutral'
-
-  const sunMoonRows = [
-    snapshot.sunrise  && { type: 'sun',  subtype: 'rise', label: 'Sunrise',  val: formatShortTime(snapshot.sunrise)  },
-    snapshot.sunset   && { type: 'sun',  subtype: 'set',  label: 'Sunset',   val: formatShortTime(snapshot.sunset)   },
-    snapshot.moonrise && { type: 'moon', subtype: 'rise', label: 'Moonrise', val: formatShortTime(snapshot.moonrise) },
-    snapshot.moonset  && { type: 'moon', subtype: 'set',  label: 'Moonset',  val: formatShortTime(snapshot.moonset)  },
-  ].filter(Boolean)
 
   const tiles = [
     { label: 'TITHI',     name: snapshot.tithiName     || '—' },
@@ -875,19 +970,6 @@ function PremiumAstroCard({ snapshot, onOpen, onLocationChange }) {
       </div>
 
       {/* sun/moon — CSS icons */}
-      {sunMoonRows.length > 0 && (
-        <div className="acr-astro-sunmoon">
-          {sunMoonRows.map((r, i) => (
-            <div key={i} className="acr-astro-sunmoon-chip">
-              <span className={`acr-cel-icon acr-cel-${r.type}-${r.subtype}`} aria-hidden="true" />
-              <div className="acr-sunmoon-text">
-                <span className="acr-sunmoon-lbl">{r.label}</span>
-                <strong className="acr-sunmoon-val">{r.val}</strong>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* panchang tiles — name only */}
       <div className="acr-astro-tiles">
@@ -1219,6 +1301,46 @@ export default function Home({
           display:flex; align-items:center; gap:4px;
         }
 
+        .acr-celestial-strip {
+          display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px;
+          margin:2px 0 10px;
+          padding:8px;
+          border-radius:18px;
+          background:
+            radial-gradient(circle at 18% 0%, rgba(245,158,11,0.18) 0%, transparent 34%),
+            radial-gradient(circle at 82% 100%, rgba(56,189,248,0.14) 0%, transparent 38%),
+            linear-gradient(135deg,#030712 0%,#08111F 38%,#0A1730 72%,#030712 100%);
+          border:1px solid rgba(251,191,36,0.26);
+          box-shadow:
+            0 14px 28px rgba(2,6,23,0.34),
+            inset 0 1px 0 rgba(255,255,255,0.05),
+            0 0 0 1px rgba(245,158,11,0.08),
+            0 0 22px rgba(245,158,11,0.08);
+        }
+        .acr-celestial-seg {
+          display:flex; align-items:center; gap:8px; min-width:0;
+          padding:8px 10px;
+          border-radius:14px;
+          background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+          border:1px solid rgba(255,255,255,0.08);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .acr-celestial-icon {
+          width:22px; height:22px;
+          box-shadow:
+            0 0 0 1px rgba(255,255,255,0.08),
+            0 0 14px rgba(251,191,36,0.12);
+        }
+        .acr-celestial-copy { display:flex; flex-direction:column; min-width:0; }
+        .acr-celestial-label {
+          font-size:8px; line-height:1; font-weight:800; letter-spacing:0.16em;
+          text-transform:uppercase; color:#94A3B8; white-space:nowrap;
+        }
+        .acr-celestial-value {
+          margin-top:4px;
+          font-size:12px; line-height:1.05; font-weight:800; color:#F8FAFC; white-space:nowrap;
+        }
+
         /* ----- Summary cards (2x2) ----- */
         .acr-sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
         .acr-sum {
@@ -1379,7 +1501,7 @@ export default function Home({
         .acr-astro-festival-row-dim .acr-astro-festival-name { color:#475569; font-weight:500; }
 
         /* mandala + period grid */
-        .acr-astro-main { display:grid; grid-template-columns:82px minmax(0,1fr); gap:10px; margin-bottom:8px; }
+        .acr-astro-main { display:grid; grid-template-columns:82px minmax(0,1fr); gap:10px; margin-bottom:6px; }
         .acr-astro-mandala-wrap {
           width:82px; height:82px; display:flex; align-items:center; justify-content:center;
           filter:drop-shadow(0 2px 12px rgba(245,158,11,0.42)) drop-shadow(0 0 6px rgba(251,191,36,0.22));
@@ -1414,14 +1536,6 @@ export default function Home({
         }
 
         /* sun / moon chips — CSS-only icons */
-        .acr-astro-sunmoon {
-          display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-bottom:8px;
-        }
-        .acr-astro-sunmoon-chip {
-          display:flex; align-items:center; gap:5px;
-          padding:4px 6px; border-radius:9px;
-          background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
-        }
         /* CSS celestial icons */
         .acr-cel-icon {
           width:18px; height:18px; border-radius:50%; flex-shrink:0; position:relative; display:block;
@@ -1447,9 +1561,6 @@ export default function Home({
           box-shadow:0 0 4px 1px rgba(148,163,184,0.38);
           opacity:0.72;
         }
-        .acr-sunmoon-text { display:flex; flex-direction:column; gap:0; min-width:0; }
-        .acr-sunmoon-lbl { font-size:8px; color:#94A3B8; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
-        .acr-sunmoon-val { font-size:10.5px; font-weight:800; color:#F8FAFC; white-space:nowrap; }
 
         /* panchang tiles — name only */
         .acr-astro-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
@@ -1515,6 +1626,9 @@ export default function Home({
 
         @media (max-width: 360px) {
           .acr-root { padding:5px 4px 80px; }
+          .acr-celestial-strip { grid-template-columns:1fr 1fr; gap:6px; padding:7px; }
+          .acr-celestial-seg { padding:8px; }
+          .acr-celestial-value { font-size:11px; }
           .acr-astro-main { grid-template-columns:78px minmax(0,1fr); }
           .acr-astro-mandala-wrap { width:78px; height:78px; }
           .acr-astro-tiles { grid-template-columns:repeat(2,1fr); }
@@ -1551,6 +1665,8 @@ export default function Home({
               </button>
             </div>
           </div>
+
+          <CelestialStrip snapshot={dashboardSnapshot.astro} />
 
           {/* ----- 4 summary cards ----- */}
           <div className="acr-sum-grid">
