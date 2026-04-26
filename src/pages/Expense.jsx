@@ -684,9 +684,10 @@ function CoachSignalCard({ emoji, title, status, helper, tone = '#2563eb', bg = 
     <div
       className={`coach-card coach-card-${severity}`}
       style={{
-        minHeight: 96,
-        padding: '10px 10px 9px',
-        borderRadius: 20,
+        minHeight: 70,
+        maxHeight: 76,
+        padding: '9px 10px',
+        borderRadius: 16,
         position: 'relative',
         overflow: 'hidden',
         background: palette.shell,
@@ -695,45 +696,62 @@ function CoachSignalCard({ emoji, title, status, helper, tone = '#2563eb', bg = 
       }}
     >
       <div className="coach-card-sheen" />
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+      <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: '32px minmax(0,1fr)', alignItems: 'center', gap: 8, minWidth: 0 }}>
         <span
           style={{
-            width: 34,
-            height: 34,
+            width: 32,
+            height: 32,
             borderRadius: '50%',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 17,
+            fontSize: 15,
             lineHeight: 1,
             background: palette.badgeBg,
-            boxShadow: `0 10px 20px ${tone}18, inset 0 1px 1px rgba(255,255,255,0.9)`,
+            boxShadow: `0 6px 12px ${tone}18, inset 0 1px 1px rgba(255,255,255,0.9)`,
             border: `1px solid ${tone}24`,
             flexShrink: 0,
           }}
         >
           {emoji}
         </span>
-        <span
-          style={{
-            padding: '4px 7px',
-            fontSize: 8.5,
-            fontWeight: 800,
-            letterSpacing: '0.04em',
-            borderRadius: 999,
-            color: tone,
-            background: palette.chipBg,
-            border: `1px solid ${palette.chipBorder}`,
-            whiteSpace: 'nowrap',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          {helper}
-        </span>
-      </div>
-      <div style={{ position: 'relative', zIndex: 1, marginTop: 9, display: 'grid', gap: 5 }}>
-        <span style={{ fontSize: 9, color: '#64748b', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.12em' }}>{title}</span>
-        <strong className="syne" style={{ fontSize: 15.5, lineHeight: 1.08, color: tone, fontWeight: 900 }}>{status}</strong>
+        <div style={{ minWidth: 0, display: 'grid', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minWidth: 0 }}>
+            <span style={{ minWidth: 0, fontSize: 10, color: '#64748b', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
+            <span
+              style={{
+                padding: '2px 6px',
+                fontSize: 8.5,
+                fontWeight: 800,
+                letterSpacing: '0.03em',
+                borderRadius: 999,
+                color: tone,
+                background: palette.chipBg,
+                border: `1px solid ${palette.chipBorder}`,
+                whiteSpace: 'nowrap',
+                backdropFilter: 'blur(8px)',
+                flexShrink: 0,
+              }}
+            >
+              {helper}
+            </span>
+          </div>
+          <strong
+            className="syne"
+            style={{
+              display: 'block',
+              fontSize: 16,
+              lineHeight: 1.05,
+              color: tone,
+              fontWeight: 900,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {status}
+          </strong>
+        </div>
       </div>
     </div>
   )
@@ -1241,12 +1259,12 @@ export default function Expense(props) {
     const moveTone = bestSaveMove === 'No more spends' ? '#dc2626' : bestSaveMove.startsWith('Cut ') ? '#d97706' : bestSaveMove === 'Go light' ? '#2563eb' : bestSaveMove === 'Good pace' ? '#16a34a' : '#64748b'
 
     return [
-      { key: 'money-mode', emoji: '🧭', title: 'Money Mode', status: moneyMode, helper: smartAlerts.length ? 'Live alerts' : 'Pace check', tone: moneyTone, bg: `${moneyTone}12`, border: `${moneyTone}2e` },
-      { key: 'today-move', emoji: '📆', title: 'Today Move', status: todayMove, helper: hasBudget ? 'Today only' : 'Need budget', tone: todayTone, bg: `${todayTone}12`, border: `${todayTone}2e` },
-      { key: 'leak-watch', emoji: '🕳️', title: 'Leak Watch', status: leakCategory ? `${leakCategory} leak` : 'No leak', helper: leakCategory ? 'Small repeats' : 'No repeats', tone: leakTone, bg: `${leakTone}12`, border: `${leakTone}2e` },
-      { key: 'top-control', emoji: '🎯', title: 'Top Control', status: !currentMonthEntries.length ? 'Add entries' : topCategory && topCategoryShare > 40 ? `Control ${topCategory.name}` : 'All fine', helper: topCategory ? 'Top share' : 'No spend data', tone: topTone, bg: `${topTone}12`, border: `${topTone}2e` },
+      { key: 'money-mode', emoji: '🧭', title: 'Mode', status: moneyMode, helper: smartAlerts.length ? 'Live alerts' : 'Pace check', tone: moneyTone, bg: `${moneyTone}12`, border: `${moneyTone}2e` },
+      { key: 'today-move', emoji: '📆', title: 'Today', status: todayMove, helper: hasBudget ? 'Today only' : 'Need budget', tone: todayTone, bg: `${todayTone}12`, border: `${todayTone}2e` },
+      { key: 'leak-watch', emoji: '🕳️', title: 'Leak', status: leakCategory ? `${leakCategory} leak` : 'No leak', helper: leakCategory ? 'Small repeats' : 'No repeats', tone: leakTone, bg: `${leakTone}12`, border: `${leakTone}2e` },
+      { key: 'top-control', emoji: '🎯', title: 'Control', status: !currentMonthEntries.length ? 'Add entries' : topCategory && topCategoryShare > 40 ? `Control ${topCategory.name}` : 'All fine', helper: topCategory ? 'Top share' : 'No spend data', tone: topTone, bg: `${topTone}12`, border: `${topTone}2e` },
       { key: 'trend', emoji: '📈', title: 'Trend', status: trend, helper: previous3.length >= 3 ? '3-day avg' : 'Daily compare', tone: trendTone, bg: `${trendTone}12`, border: `${trendTone}2e` },
-      { key: 'best-save', emoji: '⚡', title: 'Best Save Move', status: bestSaveMove, helper: hasBudget ? 'Next action' : 'Start budget', tone: moveTone, bg: `${moveTone}12`, border: `${moveTone}2e` },
+      { key: 'best-save', emoji: '⚡', title: 'Save', status: bestSaveMove, helper: hasBudget ? 'Next action' : 'Start budget', tone: moveTone, bg: `${moveTone}12`, border: `${moveTone}2e` },
     ]
   }, [monthStats, safeSpend, projection.daysInMonth, smartAlerts.length])
 
@@ -2034,8 +2052,8 @@ export default function Expense(props) {
           ) : null}
 
           {expenseTab === 'ai' ? (
-            <div style={{ display: 'grid', gap: 10 }}>
-              <GlassCard className="coach-shell" style={{ padding: 10 }} accent="rgba(124,58,237,0.24)">
+            <div style={{ display: 'grid', gap: 8 }}>
+              <GlassCard className="coach-shell" style={{ padding: 8 }} accent="rgba(124,58,237,0.24)">
                 <div className="coach-particles">
                   {[
                     { left: '7%', top: '18%', delay: '0s' },
@@ -2052,31 +2070,31 @@ export default function Expense(props) {
                   ))}
                 </div>
                 <div style={{ position: 'relative', zIndex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#0f172a', letterSpacing: '0.02em' }}>🧠 AI BUDGET COACH</p>
-                      <p style={{ margin: '4px 0 0', fontSize: 11, color: '#64748b', fontWeight: 600 }}>Live money signals</p>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: '#0f172a', letterSpacing: '0.02em' }}>🧠 AI BUDGET COACH</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 10, color: '#64748b', fontWeight: 600 }}>Live money signals</p>
                     </div>
                     <div
                       className="coach-pill"
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 6,
-                        padding: '5px 10px',
+                        gap: 5,
+                        padding: '4px 8px',
                         borderRadius: 999,
                         background: 'linear-gradient(135deg, rgba(124,58,237,0.13), rgba(59,130,246,0.10))',
                         border: '1px solid rgba(124,58,237,0.18)',
-                        boxShadow: '0 10px 22px rgba(124,58,237,0.10)',
+                        boxShadow: '0 6px 14px rgba(124,58,237,0.08)',
                         flexShrink: 0,
                       }}
                     >
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#7c3aed', boxShadow: '0 0 0 4px rgba(124,58,237,0.12)' }} />
-                      <span style={{ fontSize: 9.5, fontWeight: 900, color: '#6d28d9', letterSpacing: '0.12em' }}>SMART</span>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#7c3aed', boxShadow: '0 0 0 3px rgba(124,58,237,0.12)' }} />
+                      <span style={{ fontSize: 8.5, fontWeight: 900, color: '#6d28d9', letterSpacing: '0.1em' }}>SMART</span>
                     </div>
                   </div>
                 </div>
-                <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 7 }}>
+                <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
                   {coachSignals.map((signal) => (
                     <CoachSignalCard
                       key={signal.key}
