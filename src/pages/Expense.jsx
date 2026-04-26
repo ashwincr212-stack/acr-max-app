@@ -237,21 +237,27 @@ const calculateBurnRate = ({ averageDailySpend, monthlyBudget, daysInMonth }) =>
 const calculateSafeSpend = ({ monthlyBudget, totalSpent, todaySpent, now }) => {
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   const hasBudget = monthlyBudget > 0
-  const dailySpendableAmount = hasBudget ? monthlyBudget / daysInMonth : 0
-  const todayDifference = dailySpendableAmount - todaySpent
-  const remainingBudget = monthlyBudget - totalSpent
-  const remainingDays = Math.max(daysInMonth - now.getDate() + 1, 1)
-  const safeSpendToday = dailySpendableAmount
+  const baseDailyLimit = hasBudget && daysInMonth > 0 ? monthlyBudget / daysInMonth : 0
+  const budgetBalance = hasBudget ? monthlyBudget - totalSpent : 0
+  const daysLeftIncludingToday = Math.max(daysInMonth - now.getDate() + 1, 1)
+  const canSpendDaily =
+    hasBudget && budgetBalance > 0 ? budgetBalance / daysLeftIncludingToday : 0
+  const todayDifference = canSpendDaily - todaySpent
+  const safeSpendToday = canSpendDaily
   return {
     hasBudget,
     daysInMonth,
-    dailySpendableAmount,
+    baseDailyLimit,
+    budgetBalance,
+    daysLeftIncludingToday,
+    canSpendDaily,
+    dailySpendableAmount: canSpendDaily,
     todayDifference,
-    remainingBudget,
-    remainingDays,
+    remainingBudget: budgetBalance,
+    remainingDays: daysLeftIncludingToday,
     safeSpendToday,
-    message: hasBudget ? `${fmt(dailySpendableAmount)}/day` : 'Set budget',
-    sub: hasBudget ? 'Monthly budget / days in this month.' : 'Add budget to track daily spending.',
+    message: hasBudget ? `${fmt(canSpendDaily)}/day` : 'Set budget',
+    sub: hasBudget ? 'To stay in budget.' : 'Add budget to track daily spending.',
   }
 }
 
@@ -949,16 +955,26 @@ export default function Expense(props) {
         tone: '#64748b',
       }
     }
-    if (monthStats.todaySpent <= safeSpend.dailySpendableAmount) {
+    if (safeSpend.budgetBalance <= 0) {
+      return {
+        value: `${fmt(Math.abs(safeSpend.todayDifference))} over today`,
+        sub: "Budget exhausted. Today's revised limit is ₹0/day.",
+        tone: '#dc2626',
+      }
+    }
+    if (monthStats.todaySpent <= safeSpend.canSpendDaily) {
       return {
         value: `${fmt(safeSpend.todayDifference)} left today`,
-        sub: 'Under daily spend limit.',
-        tone: '#16a34a',
+        sub:
+          monthStats.todaySpent > safeSpend.canSpendDaily * 0.8
+            ? 'Close to the revised daily limit.'
+            : 'Under revised daily limit.',
+        tone: monthStats.todaySpent > safeSpend.canSpendDaily * 0.8 ? '#d97706' : '#16a34a',
       }
     }
     return {
       value: `${fmt(Math.abs(safeSpend.todayDifference))} over today`,
-      sub: 'Daily spend limit exceeded.',
+      sub: 'Daily limit crossed.',
       tone: '#dc2626',
     }
   }, [monthStats.todaySpent, safeSpend])
@@ -1096,11 +1112,11 @@ export default function Expense(props) {
         severity: 'high',
       })
     })
-    if (safeSpend.hasBudget && monthStats.todaySpent > safeSpend.dailySpendableAmount) {
+    if (safeSpend.hasBudget && monthStats.todaySpent > safeSpend.canSpendDaily) {
       items.push({
         icon: '!',
-        title: 'Daily spend limit exceeded',
-        text: `You spent ${fmt(Math.abs(safeSpend.todayDifference))} over today's daily limit.`,
+        title: 'Daily limit crossed',
+        text: `You spent ${fmt(Math.abs(safeSpend.todayDifference))} over today's revised limit.`,
         severity: 'medium',
       })
     }
@@ -1308,6 +1324,13 @@ export default function Expense(props) {
       : monthStats.monthlyBudgetUsed > 80
         ? 'linear-gradient(90deg,#f59e0b,#f97316)'
         : 'linear-gradient(90deg,#16a34a,#22c55e)'
+  const canSpendDailyTone = !safeSpend.hasBudget
+    ? '#64748b'
+    : safeSpend.budgetBalance <= 0 || monthStats.todaySpent > safeSpend.canSpendDaily
+      ? '#dc2626'
+      : monthStats.todaySpent > safeSpend.canSpendDaily * 0.8
+        ? '#d97706'
+        : '#16a34a'
 
   return (
     <>
@@ -1631,15 +1654,25 @@ export default function Expense(props) {
                 <p className="syne" style={{ margin: '4px 0 0', fontSize: 26, lineHeight: 1, fontWeight: 800, color: '#0f172a' }}>
                   <CountUp value={monthStats.totalSpent} />
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 6, marginTop: 7 }}>
-                  <TinyStat label="Today" value={fmt(monthStats.todaySpent)} tone="#d97706" />
-                  <TinyStat label="Entries" value={monthStats.totalEntries} tone="#475569" />
-                  <TinyStat label="Top" value={shortCategory(monthStats.topCategoryRow?.name || '--')} tone={monthStats.topCategoryRow?.color || '#2563eb'} />
-                  <TinyStat
-                    label={monthStats.monthlyBudget - monthStats.totalSpent >= 0 ? 'Left' : 'Over'}
-                    value={fmt(Math.abs(monthStats.monthlyBudget - monthStats.totalSpent))}
-                    tone={monthStats.monthlyBudget - monthStats.totalSpent >= 0 ? '#16a34a' : '#dc2626'}
-                  />
+                <div style={{ display: 'grid', gap: 6, marginTop: 7 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 6 }}>
+                    <TinyStat label="Today" value={fmt(monthStats.todaySpent)} tone="#d97706" />
+                    <TinyStat label="Top" value={shortCategory(monthStats.topCategoryRow?.name || '--')} tone={monthStats.topCategoryRow?.color || '#2563eb'} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 6 }}>
+                    <TinyStat label="Entries" value={monthStats.totalEntries} tone="#475569" />
+                    <TinyStat
+                      label="Budget Balance"
+                      value={safeSpend.hasBudget ? fmt(safeSpend.budgetBalance) : 'Set budget'}
+                      tone={!safeSpend.hasBudget ? '#64748b' : safeSpend.budgetBalance >= 0 ? '#16a34a' : '#dc2626'}
+                    />
+                    <TinyStat
+                      label="Can Spend Daily"
+                      value={safeSpend.hasBudget ? `${fmt(safeSpend.canSpendDaily)}/day` : 'Set budget'}
+                      tone={canSpendDailyTone}
+                      sub={safeSpend.hasBudget ? 'To stay in budget' : 'Add budget first'}
+                    />
+                  </div>
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -1776,7 +1809,7 @@ export default function Expense(props) {
           {expenseTab === 'overview' ? (
             <div style={{ display: 'grid', gap: 10 }}>
               <div className="exp-grid-overview" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                <div style={{ display: 'grid', gap: 8 }}><MiniOverviewCard label="Daily Spendable Amount" value={safeSpend.hasBudget ? `${fmt(safeSpend.dailySpendableAmount)}/day` : 'Set budget'} sub={safeSpend.hasBudget ? 'Monthly budget / days in this month.' : 'Add budget to track daily spending.'} tone={safeSpend.hasBudget ? '#2563eb' : '#64748b'} /><MiniOverviewCard label="Today's Spend Status" value={todaySpendStatus.value} sub={todaySpendStatus.sub} tone={todaySpendStatus.tone} /></div>
+                <div style={{ display: 'grid', gap: 8 }}><MiniOverviewCard label="Revised Daily Limit" value={safeSpend.hasBudget ? `${fmt(safeSpend.canSpendDaily)}/day` : 'Set budget'} sub={safeSpend.hasBudget ? `To stay in budget. Base ${fmt(safeSpend.baseDailyLimit)}/day.` : 'Add budget to track daily spending.'} tone={canSpendDailyTone} /><MiniOverviewCard label="Today's Spend Status" value={todaySpendStatus.value} sub={todaySpendStatus.sub} tone={todaySpendStatus.tone} /></div>
                 <div style={{ display: 'grid', gap: 8 }}>
                   <MiniOverviewCard label="Burn Rate" value={`${burnRate.burnRate.toFixed(1)}x`} sub={burnRate.burnRate > 1.1 ? 'Spending too fast.' : burnRate.burnRate < 0.9 ? 'Below plan pace.' : 'Close to plan.'} tone={burnRate.burnRate > 1.1 ? '#dc2626' : burnRate.burnRate < 0.9 ? '#16a34a' : '#d97706'} />
                   <MiniOverviewCard label="Today vs Yesterday" value={dailyComparison ? `${dailyComparison.diff <= 0 ? 'Down' : 'Up'} ${fmt(Math.abs(dailyComparison.diff))}` : '--'} sub={dailyComparison ? dailyComparison.diff <= 0 ? 'Lower than yesterday.' : 'Higher than yesterday.' : 'Need more entries.'} tone={dailyComparison ? dailyComparison.diff <= 0 ? '#16a34a' : '#dc2626' : '#64748b'} />
