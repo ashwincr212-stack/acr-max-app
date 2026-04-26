@@ -435,7 +435,7 @@ const StatusCard = memo(({ status, active, normalized, nowMs }) => {
       {isLive && active && (
         <div style={C.scPeriod}>
           <div style={C.scPRow}>
-            <span style={{...C.scPName,color:pal.acc}}>{active.label} — ends in</span>
+            <span style={{...C.scPName,color:pal.acc}}>{active.label} - ends in</span>
             <span style={{...C.scTimer,color:pal.acc}}>{fmtCountdown(secsLeft)}</span>
           </div>
           <div style={{...C.scTrack,background:pal.track}}>
@@ -508,7 +508,7 @@ const PeriodTracker = memo(({ normalized, active, nowMs }) => {
                   <span style={{...C.tIcon,color:period.color}}>{period.icon}</span>
                   <div>
                     <div style={{...C.tName,color:isLive?period.color:"#1f2937"}}>{period.label}</div>
-                    <div style={C.tTimes}>{range.startLabel} – {range.endLabel}</div>
+                    <div style={C.tTimes}>{range.startLabel} - {range.endLabel}</div>
                   </div>
                 </div>
                 <div style={C.tR}>
@@ -900,3 +900,4 @@ const R = {
   body:   { width:"100%",maxWidth:"none",margin:0,padding:"12px 12px 0",position:"relative",zIndex:1 },
   footer: { textAlign:"center",fontSize:10,color:"#9a6a16",marginTop:12,fontStyle:"italic",letterSpacing:"0.03em" },
 };
+

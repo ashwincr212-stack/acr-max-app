@@ -458,12 +458,16 @@ const StatusCard = memo(({ status, active, normalized, nowMs }) => {
   useTick(1000); // re-render every second for countdown
   if (!status) return null;
 
-  const secsLeft = active ? (() => {
+  const secsLeft = status.secsLeft ?? (active ? (() => {
     const r = parseRangeToDate(normalized?.[active.key], new Date(nowMs));
     return r ? Math.max(0, Math.floor((r.end - new Date(nowMs)) / 1000)) : 0;
-  })() : 0;
+  })() : 0);
 
-  const prog = active ? (() => {
+  const prog = status.progressRange ? (() => {
+    const r = status.progressRange;
+    const total = r.end - r.start, el = new Date(nowMs) - r.start;
+    return total > 0 ? Math.min(100, Math.max(0, Math.round(el / total * 100))) : 0;
+  })() : active ? (() => {
     const r = parseRangeToDate(normalized?.[active.key], new Date(nowMs));
     if (!r) return 0;
     const total = r.end - r.start, el = new Date(nowMs) - r.start;
@@ -508,7 +512,7 @@ const StatusCard = memo(({ status, active, normalized, nowMs }) => {
       {isLive && active && (
         <div style={C.scPeriod}>
           <div style={C.scPRow}>
-            <span style={{ ...C.scPName, color:pal.acc }}>{active.label} — ends in</span>
+            <span style={{ ...C.scPName, color:pal.acc }}>{active.label} - ends in</span>
             <span style={{ ...C.scTimer, color:pal.acc }}>{fmtCountdown(secsLeft)}</span>
           </div>
           <div style={{ ...C.scTrack, background:pal.track }}>
@@ -614,7 +618,7 @@ const PeriodTracker = memo(({ normalized, active, nowMs }) => {
                   <span style={{ ...C.tIcon, color:period.color }}>{period.icon}</span>
                   <div>
                     <div style={{ ...C.tName, color:isLive?period.color:"rgba(255,255,255,0.8)" }}>{period.label}</div>
-                    <div style={C.tTimes}>{range.startLabel} – {range.endLabel}</div>
+                    <div style={C.tTimes}>{range.startLabel} - {range.endLabel}</div>
                   </div>
                 </div>
                 <div style={C.tR}>
@@ -877,8 +881,8 @@ export default function AstroPage() {
   // This runs on every clock tick via useMemo with clock.now dependency
   const nowMs = clock.now.getTime();
 
-  const { active, next } = useMemo(
-    () => computeLiveState(normalized, nowMs),
+  const { active, activePeriods, next } = useMemo(
+    () => computeLiveStateWithOverlap(normalized, nowMs),
     [normalized, nowMs]
   );
 
@@ -888,8 +892,8 @@ export default function AstroPage() {
   );
 
   const status = useMemo(
-    () => computeSmartStatus(normalized, active, next),
-    [normalized, active, next]
+    () => computeSmartStatusWithOverlap(normalized, active, activePeriods, next, nowMs),
+    [normalized, active, activePeriods, next, nowMs]
   );
 
   // Auth
@@ -970,6 +974,94 @@ export default function AstroPage() {
 }
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
+
+function computeLiveStateWithOverlap(normalized, nowMs) {
+  if (!normalized) return { active: null, activePeriods: [], next: null };
+  const now = new Date(nowMs);
+  const allPeriods = [
+    ...KALAM_PERIODS,
+    normalized?.abhijitMuhurta
+      ? { key:"abhijitMuhurta", label:"Abhijit Muhurta", type:"good", icon:"☀", color:"#2ed573" }
+      : null,
+  ].filter(Boolean);
+
+  const activePeriods = [];
+  for (const period of allPeriods) {
+    const range = parseRangeToDate(normalized[period.key], now);
+    if (!range) continue;
+    if (now >= range.start && now <= range.end) activePeriods.push({ ...period, range });
+  }
+
+  const active = activePeriods.length === 1
+    ? activePeriods[0]
+    : activePeriods.length > 1
+      ? (() => {
+          const primary = activePeriods.find((period) => period.type === "bad")
+            || activePeriods.find((period) => period.type === "neutral")
+            || activePeriods[0];
+          const earliest = activePeriods.reduce((min, period) => (
+            period.range.end < min.range.end ? period : min
+          ), activePeriods[0]);
+          return {
+            ...primary,
+            key: earliest.key,
+            label: activePeriods.map((period) => period.label).join(" + "),
+            range: earliest.range,
+          };
+        })()
+      : null;
+
+  let next = null;
+  for (const period of allPeriods) {
+    const range = parseRangeToDate(normalized[period.key], now);
+    if (!range || range.start <= now) continue;
+    const secs = Math.floor((range.start - now) / 1000);
+    if (!next || secs < next.secs) next = { ...period, secs };
+  }
+
+  return { active, activePeriods, next };
+}
+
+function computeSmartStatusWithOverlap(normalized, active, activePeriods, next, nowMs) {
+  if (!normalized) return null;
+  if (activePeriods?.length > 1) {
+    const warningPeriods = activePeriods.filter((period) => period.type !== "good");
+    const hardWarnings = activePeriods.filter((period) => period.type === "bad");
+    const primary = hardWarnings[0] || warningPeriods[0] || activePeriods[0];
+    const earliest = activePeriods.reduce((min, period) => (
+      period.range.end < min.range.end ? period : min
+    ), activePeriods[0]);
+    const activeNames = activePeriods.map((period) => period.label);
+    const warningNames = warningPeriods.map((period) => period.label);
+    const hasAbhijit = activePeriods.some((period) => period.key === "abhijitMuhurta");
+    return {
+      type: hardWarnings.length ? "bad" : warningPeriods.length ? "neutral" : "good",
+      icon: hardWarnings.length ? "⚠" : warningPeriods.length ? "⚡" : "✨",
+      title: "Mixed Period",
+      message: hasAbhijit && warningNames.length
+        ? `${warningNames.join(" + ")} active — avoid major new starts. Abhijit Muhurta also running.`
+        : `${activeNames.join(" + ")} are active together right now.`,
+      extra: `Live now: ${activeNames.join(" + ")}`,
+      color: primary.color,
+      activeLabel: activeNames.join(" + "),
+      timerLabel: "Overlap ends in",
+      secsLeft: Math.max(0, Math.floor((earliest.range.end - new Date(nowMs)) / 1000)),
+      progressRange: earliest.range,
+      isOverlap: true,
+    };
+  }
+  const base = computeSmartStatus(normalized, active, next);
+  if (!base || !active) return base;
+  const range = active.range || parseRangeToDate(normalized[active.key], new Date(nowMs));
+  return {
+    ...base,
+    activeLabel: active.label,
+    timerLabel: "Ends in",
+    secsLeft: range ? Math.max(0, Math.floor((range.end - new Date(nowMs)) / 1000)) : 0,
+    progressRange: range,
+    isOverlap: false,
+  };
+}
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Sora:wght@300;400;500;600;700;800&display=swap');
@@ -1124,3 +1216,4 @@ const R = {
   body:   { maxWidth:480,margin:"0 auto",padding:"9px 10px 0",position:"relative",zIndex:1 },
   footer: { textAlign:"center",fontSize:10,color:"rgba(255,255,255,0.18)",marginTop:10,fontStyle:"italic",letterSpacing:"0.03em" },
 };
+

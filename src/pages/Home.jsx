@@ -272,6 +272,26 @@ function isNowWithinRange(range, now) {
   return nowMinutes >= start && nowMinutes <= end
 }
 
+function getAstroRangeStatus(range, nowMinutes, nowSeconds) {
+  const startMin = toMinutes(range?.start)
+  const endMin = toMinutes(range?.end)
+  if (startMin == null || endMin == null) return null
+  const inside = endMin >= startMin
+    ? nowMinutes >= startMin && nowMinutes < endMin
+    : nowMinutes >= startMin || nowMinutes < endMin
+  const startSecs = startMin * 60
+  const endSecs = endMin * 60
+  const remainSecs = endMin >= startMin
+    ? Math.max(0, endSecs - nowSeconds)
+    : nowSeconds < endSecs ? Math.max(0, endSecs - nowSeconds) : Math.max(0, (endMin + 1440) * 60 - nowSeconds)
+  const secsUntil = startSecs > nowSeconds ? startSecs - nowSeconds : null
+  return { inside, remainSecs, secsUntil }
+}
+
+function joinAstroLabels(labels = []) {
+  return labels.filter(Boolean).join(' + ')
+}
+
 /* All 4 kalam periods in priority order for status display */
 const KALAM_DEFS = [
   {
@@ -344,7 +364,7 @@ function computeAstroPeriodStatus(astroData, now) {
         chipColor: def.chipColor,
         glowColor: def.glowColor,
         textColor: def.textColor,
-        timeRange: `${formatShortTime(range.start)} – ${formatShortTime(range.end)}`,
+        timeRange: `${formatShortTime(range.start)} - ${formatShortTime(range.end)}`,
         timerLabel: 'Ends in',
         timerSecs: remainSecs,
         hasData: true,
@@ -382,7 +402,7 @@ function computeAstroPeriodStatus(astroData, now) {
       chipColor: nextDef.chipColor,
       glowColor: nextDef.glowColor,
       textColor: nextDef.textColor,
-      timeRange: `${formatShortTime(nextRange.start)} – ${formatShortTime(nextRange.end)}`,
+      timeRange: `${formatShortTime(nextRange.start)} - ${formatShortTime(nextRange.end)}`,
       timerLabel: 'Starts in',
       timerSecs: nextStartSecs,
       hasData: true,
@@ -407,6 +427,127 @@ function computeAstroPeriodStatus(astroData, now) {
   }
 
   // No period data at all
+  return {
+    mode: 'neutral',
+    label: 'No period data',
+    remark: 'Period timing unavailable.',
+    chipColor: '#64748B',
+    glowColor: 'rgba(100,116,139,0.12)',
+    textColor: '#94A3B8',
+    timeRange: '',
+    timerLabel: '',
+    timerSecs: 0,
+    hasData: false,
+    isActive: false,
+  }
+}
+
+function computeAstroPeriodStatusWithOverlap(astroData, now) {
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()
+  let hasAnyPeriodData = false
+  const activePeriods = []
+  let nextPeriod = null
+
+  for (const def of KALAM_DEFS) {
+    const raw = astroData?.[def.key]
+    if (!raw) continue
+    const range = parseAstroTimeRange(raw)
+    if (!range) continue
+    hasAnyPeriodData = true
+    const timing = getAstroRangeStatus(range, nowMinutes, nowSeconds)
+    if (!timing) continue
+    const entry = {
+      ...def,
+      timeRange: `${formatShortTime(range.start)} - ${formatShortTime(range.end)}`,
+      timerSecs: timing.remainSecs,
+      secsUntil: timing.secsUntil,
+    }
+    if (timing.inside) {
+      activePeriods.push(entry)
+    } else if (timing.secsUntil != null && (!nextPeriod || timing.secsUntil < nextPeriod.secsUntil)) {
+      nextPeriod = entry
+    }
+  }
+
+  if (activePeriods.length === 1) {
+    const active = activePeriods[0]
+    return {
+      mode: active.type,
+      label: active.label,
+      remark: active.remark,
+      chipColor: active.chipColor,
+      glowColor: active.glowColor,
+      textColor: active.textColor,
+      timeRange: active.timeRange,
+      timerLabel: 'Ends in',
+      timerSecs: active.timerSecs,
+      hasData: true,
+      isActive: true,
+      activePeriods,
+    }
+  }
+
+  if (activePeriods.length > 1) {
+    const cautionPeriods = activePeriods.filter((period) => period.type !== 'good')
+    const hardWarningPeriods = activePeriods.filter((period) => period.type === 'caution')
+    const primary = hardWarningPeriods[0] || cautionPeriods[0] || activePeriods[0]
+    const earliestEnding = activePeriods.reduce((min, period) => (
+      period.timerSecs < min.timerSecs ? period : min
+    ), activePeriods[0])
+    const activeLabels = activePeriods.map((period) => period.label)
+    const warningLabels = cautionPeriods.map((period) => period.label)
+    const hasAbhijit = activePeriods.some((period) => period.key === 'abhijitMuhurta')
+    return {
+      mode: hardWarningPeriods.length ? 'caution' : cautionPeriods.length ? 'neutral' : 'good',
+      label: 'Mixed Period',
+      remark: hasAbhijit && warningLabels.length
+        ? `${warningLabels.join(' + ')} active — avoid major new starts. Abhijit also running.`
+        : `${joinAstroLabels(activeLabels)} are active together right now.`,
+      chipColor: primary.chipColor,
+      glowColor: primary.glowColor,
+      textColor: primary.textColor,
+      timeRange: joinAstroLabels(activeLabels),
+      timerLabel: 'Overlap ends in',
+      timerSecs: earliestEnding.timerSecs,
+      hasData: true,
+      isActive: true,
+      activePeriods,
+    }
+  }
+
+  if (nextPeriod) {
+    return {
+      mode: nextPeriod.type,
+      label: nextPeriod.label,
+      remark: nextPeriod.remark,
+      chipColor: nextPeriod.chipColor,
+      glowColor: nextPeriod.glowColor,
+      textColor: nextPeriod.textColor,
+      timeRange: nextPeriod.timeRange,
+      timerLabel: 'Starts in',
+      timerSecs: nextPeriod.secsUntil,
+      hasData: true,
+      isActive: false,
+    }
+  }
+
+  if (hasAnyPeriodData) {
+    return {
+      mode: 'neutral',
+      label: 'No active Kaalam / Muhurtam now',
+      remark: 'All key periods completed today.',
+      chipColor: '#64748B',
+      glowColor: 'rgba(100,116,139,0.12)',
+      textColor: '#94A3B8',
+      timeRange: '',
+      timerLabel: '',
+      timerSecs: 0,
+      hasData: true,
+      isActive: false,
+    }
+  }
+
   return {
     mode: 'neutral',
     label: 'No period data',
@@ -1187,7 +1328,7 @@ export default function Home({
     if (sunriseMinutes !== null && sunsetMinutes !== null && sunsetMinutes > sunriseMinutes) {
       astroDayPct = Math.max(0, Math.min(100, ((nowMinutes - sunriseMinutes) / (sunsetMinutes - sunriseMinutes)) * 100))
     }
-    const astroStatus = computeAstroPeriodStatus(astroSnapshot, now)
+    const astroStatus = computeAstroPeriodStatusWithOverlap(astroSnapshot, now)
 
     // AI insights bullets
     const spendBullet = !todayLogs.length
@@ -1802,3 +1943,4 @@ export default function Home({
     </>
   )
 }
+
