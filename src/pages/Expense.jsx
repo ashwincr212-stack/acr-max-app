@@ -996,6 +996,30 @@ export default function Expense(props) {
       tone: '#dc2626',
     }
   }, [monthStats.todaySpent, safeSpend])
+  const summaryTodayStatusCard = useMemo(() => {
+    if (!safeSpend.hasBudget) {
+      return {
+        value: 'Set budget',
+        sub: 'Add budget to track daily spending.',
+        tone: '#64748b',
+      }
+    }
+
+    const remainingToday = Math.abs(safeSpend.todayDifference)
+    if (monthStats.todaySpent <= safeSpend.canSpendDaily) {
+      return {
+        value: `${fmt(remainingToday)} left`,
+        sub: 'Under daily limit',
+        tone: '#16a34a',
+      }
+    }
+
+    return {
+      value: `${fmt(remainingToday)} left`,
+      sub: 'Over daily limit',
+      tone: '#dc2626',
+    }
+  }, [monthStats.todaySpent, safeSpend])
   const todayYesterdayMetric = useMemo(() => {
     const todaySpent = Number(monthStats.todaySpent || 0)
     const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
@@ -1743,9 +1767,12 @@ export default function Expense(props) {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 2 }}>
                 <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Budget Balance</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: !safeSpend.hasBudget ? '#64748b' : safeSpend.budgetBalance >= 0 ? '#16a34a' : '#dc2626', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {safeSpend.hasBudget ? fmt(safeSpend.budgetBalance) : 'Set budget'}
+                  <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Today Status</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryTodayStatusCard.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {summaryTodayStatusCard.value}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {summaryTodayStatusCard.sub}
                   </p>
                 </div>
                 <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
@@ -1780,10 +1807,13 @@ export default function Expense(props) {
             </div>
 
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
-              <span style={chipStyle(monthStats.overBudgetCategories.length ? '#fff1f2' : '#ecfdf5', monthStats.overBudgetCategories.length ? '#dc2626' : '#16a34a')}>
-                {monthStats.overBudgetCategories.length} over budget
+              <span style={chipStyle(!safeSpend.hasBudget ? '#f8fafc' : safeSpend.budgetBalance >= 0 ? '#ecfdf5' : '#fff1f2', !safeSpend.hasBudget ? '#64748b' : safeSpend.budgetBalance >= 0 ? '#16a34a' : '#dc2626')}>
+                {safeSpend.hasBudget ? `${fmt(safeSpend.budgetBalance)} balance` : 'Set budget'}
               </span>
               <span style={chipStyle('#f8fafc', '#475569')}>{fmt(monthStats.monthlyBudget || 0)} budget</span>
+              <span style={chipStyle(monthStats.totalSpent > monthStats.monthlyBudget && monthStats.monthlyBudget > 0 ? '#fff1f2' : '#ecfdf5', monthStats.totalSpent > monthStats.monthlyBudget && monthStats.monthlyBudget > 0 ? '#dc2626' : '#16a34a')}>
+                {fmt(Math.max(monthStats.totalSpent - monthStats.monthlyBudget, 0))} over budget
+              </span>
             </div>
           </GlassCard>
 
