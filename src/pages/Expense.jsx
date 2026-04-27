@@ -1714,6 +1714,20 @@ export default function Expense(props) {
       : monthStats.todaySpent > safeSpend.canSpendDaily * 0.8
         ? '#d97706'
         : '#16a34a'
+  const summaryMetalCardStyle = {
+    background:
+      'linear-gradient(148deg, rgba(255,255,255,0.96) 0%, rgba(240,245,252,0.88) 34%, rgba(215,224,238,0.76) 70%, rgba(248,250,253,0.9) 100%)',
+    border: '1px solid rgba(255,255,255,0.5)',
+    boxShadow:
+      'inset 0 1px 0 rgba(255,255,255,0.98), inset 0 -1px 0 rgba(148,163,184,0.18), inset 8px 0 18px rgba(255,255,255,0.16), 0 10px 22px rgba(2,8,23,0.18)',
+    backdropFilter: 'blur(14px)',
+  }
+  const summaryBudgetChipStyle = {
+    border: '1px solid rgba(255,255,255,0.18)',
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.16), rgba(148,163,184,0.12))',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 20px rgba(2,8,23,0.18)',
+    backdropFilter: 'blur(10px)',
+  }
 
   return (
     <>
@@ -2060,19 +2074,24 @@ export default function Expense(props) {
             className="expense-full-bleed"
             style={{
               padding: 8,
-              border: '1px solid rgba(148,163,184,0.24)',
+              border: '1px solid rgba(148,163,184,0.22)',
               background:
-                'radial-gradient(circle at 16% 18%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 18%), radial-gradient(circle at 84% 22%, rgba(96,165,250,0.18) 0%, rgba(96,165,250,0) 24%), radial-gradient(circle at 72% 76%, rgba(125,211,252,0.10) 0%, rgba(125,211,252,0) 22%), radial-gradient(circle at 28% 78%, rgba(191,219,254,0.10) 0%, rgba(191,219,254,0) 18%), linear-gradient(155deg, #081326 0%, #0d1b38 44%, #12264d 72%, #0b1730 100%)',
+                'radial-gradient(circle at 50% 14%, rgba(96,165,250,0.28) 0%, rgba(96,165,250,0.12) 14%, rgba(96,165,250,0) 34%), radial-gradient(circle at 18% 20%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 14%), radial-gradient(circle at 82% 18%, rgba(129,140,248,0.18) 0%, rgba(129,140,248,0) 20%), radial-gradient(circle at 72% 76%, rgba(56,189,248,0.12) 0%, rgba(56,189,248,0) 18%), radial-gradient(circle at 26% 78%, rgba(191,219,254,0.11) 0%, rgba(191,219,254,0) 14%), radial-gradient(circle at 12% 62%, rgba(255,255,255,0.08) 0 1px, transparent 1.6px), radial-gradient(circle at 24% 34%, rgba(255,255,255,0.09) 0 1px, transparent 1.7px), radial-gradient(circle at 39% 72%, rgba(255,255,255,0.08) 0 1px, transparent 1.8px), radial-gradient(circle at 58% 28%, rgba(255,255,255,0.08) 0 1px, transparent 1.7px), radial-gradient(circle at 74% 58%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 86% 36%, rgba(255,255,255,0.08) 0 1px, transparent 1.7px), linear-gradient(160deg, #040916 0%, #091327 22%, #0d1c3b 48%, #12264d 72%, #081224 100%)',
               boxShadow:
-                '0 14px 32px rgba(2,8,23,0.28), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(59,130,246,0.08)',
+                '0 18px 38px rgba(2,8,23,0.34), inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(59,130,246,0.08)',
             }}
             accent="rgba(96,165,250,0.2)"
           >
-            <div style={{ display: 'grid', gap: 6 }}>
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.9 }}>
+              <div style={{ position: 'absolute', top: 12, left: '18%', width: 120, height: 120, borderRadius: '50%', background: 'radial-gradient(circle, rgba(125,211,252,0.18) 0%, rgba(125,211,252,0.08) 34%, rgba(125,211,252,0) 72%)', filter: 'blur(10px)' }} />
+              <div style={{ position: 'absolute', top: 18, right: 18, width: 74, height: 74, borderRadius: '50%', background: 'radial-gradient(circle, rgba(191,219,254,0.22) 0%, rgba(191,219,254,0.08) 38%, rgba(191,219,254,0) 74%)', filter: 'blur(12px)' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0) 24%, rgba(2,8,23,0.1) 100%)' }} />
+            </div>
+            <div style={{ display: 'grid', gap: 6, position: 'relative', zIndex: 1 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start' }}>
                 <div>
                 <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(226,232,240,0.82)' }}>Monthly total spent</p>
-                <p className="syne" style={{ margin: '3px 0 0', fontSize: 23, lineHeight: 1, fontWeight: 800, color: '#f8fbff', textShadow: '0 3px 12px rgba(15,23,42,0.28)' }}>
+                <p className="syne" style={{ margin: '3px 0 0', fontSize: 23, lineHeight: 1, fontWeight: 800, color: '#f8fbff', textShadow: '0 4px 18px rgba(59,130,246,0.18), 0 3px 12px rgba(15,23,42,0.3)' }}>
                   <CountUp value={monthStats.totalSpent} />
                 </p>
                 <div style={{ display: 'grid', gap: 8, marginTop: 11 }}>
@@ -2082,42 +2101,29 @@ export default function Expense(props) {
                       value={fmt(monthStats.todaySpent)}
                       tone="#b45309"
                       labelColor="#475569"
-                      style={{
-                        background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)',
-                        border: '1px solid rgba(226,232,240,0.9)',
-                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)',
-                        backdropFilter: 'blur(12px)',
-                      }}
+                      style={summaryMetalCardStyle}
                     />
                     <TinyStat
                       label="Top"
                       value={shortCategory(monthStats.topCategoryRow?.name || '--')}
                       tone={monthStats.topCategoryRow?.color || '#2563eb'}
                       labelColor="#475569"
-                      style={{
-                        background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)',
-                        border: '1px solid rgba(226,232,240,0.9)',
-                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)',
-                        backdropFilter: 'blur(12px)',
-                      }}
+                      style={summaryMetalCardStyle}
                     />
                     <TinyStat
                       label="Entries"
                       value={monthStats.totalEntries}
                       tone="#334155"
                       labelColor="#475569"
-                      style={{
-                        background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)',
-                        border: '1px solid rgba(226,232,240,0.9)',
-                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)',
-                        backdropFilter: 'blur(12px)',
-                      }}
+                      style={summaryMetalCardStyle}
                     />
                   </div>
                 </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
+                  <div style={{ padding: 5, borderRadius: 999, background: 'linear-gradient(145deg, rgba(255,255,255,0.1), rgba(148,163,184,0.08))', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(2,8,23,0.2)', backdropFilter: 'blur(10px)' }}>
+                    <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
+                  </div>
                   <span style={{ padding: '3px 7px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 9.5, fontWeight: 800 }}>
                     {health.status}
                   </span>
@@ -2125,7 +2131,7 @@ export default function Expense(props) {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 5 }}>
-                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)', minWidth: 0, backdropFilter: 'blur(12px)' }}>
+                <div style={{ padding: '6px 8px', borderRadius: 12, minWidth: 0, ...summaryMetalCardStyle }}>
                   <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Today Status</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryTodayStatusCard.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {summaryTodayStatusCard.value}
@@ -2134,7 +2140,7 @@ export default function Expense(props) {
                     {summaryTodayStatusCard.sub}
                   </p>
                 </div>
-                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)', minWidth: 0, backdropFilter: 'blur(12px)' }}>
+                <div style={{ padding: '6px 8px', borderRadius: 12, minWidth: 0, ...summaryMetalCardStyle }}>
                   <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Can Spend Daily</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: canSpendDailyTone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {safeSpend.hasBudget ? `${fmt(safeSpend.canSpendDaily)}/day` : 'Set budget'}
@@ -2143,7 +2149,7 @@ export default function Expense(props) {
                     {safeSpend.hasBudget ? 'To stay in budget' : 'Add budget first'}
                   </p>
                 </div>
-                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)', minWidth: 0, backdropFilter: 'blur(12px)' }}>
+                <div style={{ padding: '6px 8px', borderRadius: 12, minWidth: 0, ...summaryMetalCardStyle }}>
                   <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1 }}>Today / Yesterday</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: '#334155', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {todayYesterdayMetric.value}
@@ -2166,11 +2172,11 @@ export default function Expense(props) {
             </div>
 
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
-              <span style={chipStyle(!safeSpend.hasBudget ? '#f8fafc' : safeSpend.budgetBalance >= 0 ? '#ecfdf5' : '#fff1f2', !safeSpend.hasBudget ? '#64748b' : safeSpend.budgetBalance >= 0 ? '#16a34a' : '#dc2626')}>
+              <span style={{ ...chipStyle(!safeSpend.hasBudget ? 'rgba(255,255,255,0.18)' : safeSpend.budgetBalance >= 0 ? 'rgba(34,197,94,0.16)' : 'rgba(239,68,68,0.16)', !safeSpend.hasBudget ? '#e2e8f0' : safeSpend.budgetBalance >= 0 ? '#dcfce7' : '#fee2e2'), ...summaryBudgetChipStyle }}>
                 {safeSpend.hasBudget ? `${fmt(safeSpend.budgetBalance)} balance` : 'Set budget'}
               </span>
-              <span style={chipStyle('#f8fafc', '#475569')}>{fmt(monthStats.monthlyBudget || 0)} budget</span>
-              <span style={chipStyle(monthStats.totalSpent > monthStats.monthlyBudget && monthStats.monthlyBudget > 0 ? '#fff1f2' : '#ecfdf5', monthStats.totalSpent > monthStats.monthlyBudget && monthStats.monthlyBudget > 0 ? '#dc2626' : '#16a34a')}>
+              <span style={{ ...chipStyle('rgba(255,255,255,0.16)', '#f8fafc'), ...summaryBudgetChipStyle }}>{fmt(monthStats.monthlyBudget || 0)} budget</span>
+              <span style={{ ...chipStyle(monthStats.totalSpent > monthStats.monthlyBudget && monthStats.monthlyBudget > 0 ? 'rgba(239,68,68,0.16)' : 'rgba(34,197,94,0.16)', monthStats.totalSpent > monthStats.monthlyBudget && monthStats.monthlyBudget > 0 ? '#fee2e2' : '#dcfce7'), ...summaryBudgetChipStyle }}>
                 {fmt(Math.max(monthStats.totalSpent - monthStats.monthlyBudget, 0))} over budget
               </span>
             </div>
