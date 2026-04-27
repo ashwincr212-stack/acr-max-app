@@ -712,12 +712,12 @@ function TooltipCard({ active, payload, label }) {
   )
 }
 
-function TinyStat({ label, value, tone = '#2563eb', sub }) {
+function TinyStat({ label, value, tone = '#2563eb', sub, style = {}, labelColor = '#64748b' }) {
   return (
-    <div style={{ padding: '7px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)' }}>
-      <p style={{ margin: 0, fontSize: 9, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
+    <div style={{ padding: '7px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', ...style }}>
+      <p style={{ margin: 0, fontSize: 9, color: labelColor, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
       <p style={{ margin: '3px 0 0', fontSize: 13.5, fontWeight: 800, color: tone, lineHeight: 1.08 }}>{value}</p>
-      {sub ? <p style={{ margin: '3px 0 0', fontSize: 9.5, color: '#64748b', lineHeight: 1.3 }}>{sub}</p> : null}
+      {sub ? <p style={{ margin: '3px 0 0', fontSize: 9.5, color: labelColor, lineHeight: 1.3 }}>{sub}</p> : null}
     </div>
   )
 }
@@ -2056,19 +2056,63 @@ export default function Expense(props) {
             </div>
           </GlassCard>
 
-          <GlassCard className="expense-full-bleed" style={{ padding: 8 }} accent="rgba(59,130,246,0.18)">
+          <GlassCard
+            className="expense-full-bleed"
+            style={{
+              padding: 8,
+              border: '1px solid rgba(148,163,184,0.24)',
+              background:
+                'radial-gradient(circle at 16% 18%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 18%), radial-gradient(circle at 84% 22%, rgba(96,165,250,0.18) 0%, rgba(96,165,250,0) 24%), radial-gradient(circle at 72% 76%, rgba(125,211,252,0.10) 0%, rgba(125,211,252,0) 22%), radial-gradient(circle at 28% 78%, rgba(191,219,254,0.10) 0%, rgba(191,219,254,0) 18%), linear-gradient(155deg, #081326 0%, #0d1b38 44%, #12264d 72%, #0b1730 100%)',
+              boxShadow:
+                '0 14px 32px rgba(2,8,23,0.28), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(59,130,246,0.08)',
+            }}
+            accent="rgba(96,165,250,0.2)"
+          >
             <div style={{ display: 'grid', gap: 6 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start' }}>
                 <div>
-                <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>Monthly total spent</p>
-                <p className="syne" style={{ margin: '3px 0 0', fontSize: 23, lineHeight: 1, fontWeight: 800, color: '#0f172a' }}>
+                <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(226,232,240,0.82)' }}>Monthly total spent</p>
+                <p className="syne" style={{ margin: '3px 0 0', fontSize: 23, lineHeight: 1, fontWeight: 800, color: '#f8fbff', textShadow: '0 3px 12px rgba(15,23,42,0.28)' }}>
                   <CountUp value={monthStats.totalSpent} />
                 </p>
-                <div style={{ display: 'grid', gap: 7, marginTop: 8 }}>
+                <div style={{ display: 'grid', gap: 8, marginTop: 11 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5 }}>
-                    <TinyStat label="Today" value={fmt(monthStats.todaySpent)} tone="#d97706" />
-                    <TinyStat label="Top" value={shortCategory(monthStats.topCategoryRow?.name || '--')} tone={monthStats.topCategoryRow?.color || '#2563eb'} />
-                    <TinyStat label="Entries" value={monthStats.totalEntries} tone="#475569" />
+                    <TinyStat
+                      label="Today"
+                      value={fmt(monthStats.todaySpent)}
+                      tone="#b45309"
+                      labelColor="#475569"
+                      style={{
+                        background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)',
+                        border: '1px solid rgba(226,232,240,0.9)',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)',
+                        backdropFilter: 'blur(12px)',
+                      }}
+                    />
+                    <TinyStat
+                      label="Top"
+                      value={shortCategory(monthStats.topCategoryRow?.name || '--')}
+                      tone={monthStats.topCategoryRow?.color || '#2563eb'}
+                      labelColor="#475569"
+                      style={{
+                        background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)',
+                        border: '1px solid rgba(226,232,240,0.9)',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)',
+                        backdropFilter: 'blur(12px)',
+                      }}
+                    />
+                    <TinyStat
+                      label="Entries"
+                      value={monthStats.totalEntries}
+                      tone="#334155"
+                      labelColor="#475569"
+                      style={{
+                        background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)',
+                        border: '1px solid rgba(226,232,240,0.9)',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)',
+                        backdropFilter: 'blur(12px)',
+                      }}
+                    />
                   </div>
                 </div>
                 </div>
@@ -2077,30 +2121,30 @@ export default function Expense(props) {
                   <span style={{ padding: '3px 7px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 9.5, fontWeight: 800 }}>
                     {health.status}
                   </span>
-                  <span style={{ fontSize: 9, color: '#64748b', fontWeight: 700 }}>Tap for tips</span>
+                  <span style={{ fontSize: 9, color: 'rgba(226,232,240,0.76)', fontWeight: 700 }}>Tap for tips</span>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 2 }}>
-                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Today Status</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 5 }}>
+                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)', minWidth: 0, backdropFilter: 'blur(12px)' }}>
+                  <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Today Status</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryTodayStatusCard.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {summaryTodayStatusCard.value}
                   </p>
-                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {summaryTodayStatusCard.sub}
                   </p>
                 </div>
-                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Can Spend Daily</p>
+                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)', minWidth: 0, backdropFilter: 'blur(12px)' }}>
+                  <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1 }}>Can Spend Daily</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: canSpendDailyTone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {safeSpend.hasBudget ? `${fmt(safeSpend.canSpendDaily)}/day` : 'Set budget'}
                   </p>
-                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {safeSpend.hasBudget ? 'To stay in budget' : 'Add budget first'}
                   </p>
                 </div>
-                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(226,232,240,0.92)', minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 8.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1 }}>Today / Yesterday</p>
+                <div style={{ padding: '6px 8px', borderRadius: 12, background: 'linear-gradient(160deg, rgba(255,255,255,0.92), rgba(226,232,240,0.82) 54%, rgba(203,213,225,0.74) 100%)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), inset 0 -1px 0 rgba(148,163,184,0.16), 0 8px 18px rgba(15,23,42,0.16)', minWidth: 0, backdropFilter: 'blur(12px)' }}>
+                  <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1 }}>Today / Yesterday</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: '#334155', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {todayYesterdayMetric.value}
                   </p>
@@ -2113,7 +2157,7 @@ export default function Expense(props) {
 
             <div style={{ marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Budget used</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(226,232,240,0.82)' }}>Budget used</span>
                 <span style={{ fontSize: 11, fontWeight: 800, color: monthStats.monthlyBudgetUsed > 100 ? '#dc2626' : monthStats.monthlyBudgetUsed > 80 ? '#d97706' : '#16a34a' }}>
                   {Math.round(monthStats.monthlyBudgetUsed)}%
                 </span>
