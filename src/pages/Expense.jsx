@@ -865,27 +865,140 @@ function CoachSignalCard({ emoji, title, status, helper, tone = '#2563eb', bg = 
   )
 }
 
-function HealthRing({ score, onClick }) {
-  const tone = score >= 70 ? '#16a34a' : score >= 40 ? '#d97706' : '#dc2626'
+function HealthRing({ score, onClick, budgetPct = 0, ringBurst = false }) {
+  // Color based on budget usage percent (not health score)
+  const pct = clamp(budgetPct, 0, 100)
+  const riskColor = pct < 60 ? '#22c55e' : pct < 85 ? '#facc15' : '#ef4444'
+  const riskGlow  = pct < 60 ? 'rgba(34,197,94,0.55)'  : pct < 85 ? 'rgba(250,204,21,0.50)' : 'rgba(239,68,68,0.55)'
+  const riskGlowSoft = pct < 60 ? 'rgba(34,197,94,0.18)' : pct < 85 ? 'rgba(250,204,21,0.16)' : 'rgba(239,68,68,0.18)'
+
+  // SVG arc math
+  const SIZE = 80
+  const STROKE = 7
+  const R = (SIZE - STROKE) / 2
+  const CIRC = 2 * Math.PI * R
+  const filled = CIRC * (pct / 100)
+  const gap = CIRC - filled
+
+  const orbPulse = ringBurst ? 'pcOrbBurst 0.75s ease-out forwards' : 'pcOrbPulse 2.8s ease-in-out infinite'
+  const ringFlash = ringBurst ? 'pcRingFlash 0.75s ease-out forwards' : undefined
+
   return (
     <button
       onClick={onClick}
+      aria-label="Open expense health details"
       style={{
-        width: 52,
-        height: 52,
+        position: 'relative',
+        width: SIZE,
+        height: SIZE,
         borderRadius: '50%',
         border: 'none',
-        background: `conic-gradient(${tone} ${clamp(score, 0, 100) * 3.6}deg, rgba(226,232,240,0.85) 0deg)`,
-        padding: 3,
+        background: 'transparent',
         cursor: 'pointer',
-        boxShadow: `0 0 0 4px ${tone}12, 0 6px 14px rgba(15,23,42,0.06)`,
-        animation: score < 40 ? 'expPulseDanger 2s ease-in-out infinite' : score < 70 ? 'expPulseSoft 2.2s ease-in-out infinite' : 'none',
+        padding: 0,
+        flexShrink: 0,
       }}
-      aria-label="Open expense health details"
     >
-      <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'rgba(255,255,255,0.96)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-        <span className="syne" style={{ fontSize: 15, fontWeight: 800, lineHeight: 1, color: tone }}>{score}</span>
-        <span style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Health</span>
+      {/* ── OUTER BUDGET ORBIT RING (SVG) ── */}
+      <svg
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          transform: 'rotate(-90deg)',
+          animation: ringFlash ? ringFlash : 'pcRingRotate 18s linear infinite',
+          transition: 'filter 0.6s ease',
+          filter: ringBurst ? `drop-shadow(0 0 7px ${riskColor})` : `drop-shadow(0 0 3px ${riskColor}88)`,
+        }}
+      >
+        <defs>
+          <linearGradient id="pcOrbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={riskColor} stopOpacity="1" />
+            <stop offset="60%" stopColor={riskColor} stopOpacity="0.75" />
+            <stop offset="100%" stopColor={pct < 60 ? '#06b6d4' : pct < 85 ? '#fb923c' : '#f43f5e'} stopOpacity="0.5" />
+          </linearGradient>
+        </defs>
+        {/* Track */}
+        <circle
+          cx={SIZE / 2} cy={SIZE / 2} r={R}
+          fill="none"
+          stroke="rgba(255,255,255,0.07)"
+          strokeWidth={STROKE}
+        />
+        {/* Filled arc */}
+        <circle
+          cx={SIZE / 2} cy={SIZE / 2} r={R}
+          fill="none"
+          stroke="url(#pcOrbitGrad)"
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          strokeDasharray={`${filled} ${gap}`}
+          strokeDashoffset={0}
+          style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(.34,1.2,.64,1)' }}
+        />
+        {/* Leading dot glow */}
+        {pct > 2 && (
+          <circle
+            cx={SIZE / 2 + R * Math.cos((filled / CIRC) * 2 * Math.PI - Math.PI / 2)}
+            cy={SIZE / 2 + R * Math.sin((filled / CIRC) * 2 * Math.PI - Math.PI / 2)}
+            r={STROKE / 2 + 0.5}
+            fill={riskColor}
+            style={{ filter: `blur(1px)` }}
+          />
+        )}
+      </svg>
+
+      {/* ── MIDDLE HALO GLOW ── */}
+      <div style={{
+        position: 'absolute',
+        inset: STROKE + 4,
+        borderRadius: '50%',
+        background: riskGlowSoft,
+        filter: 'blur(8px)',
+        transition: 'background 0.6s ease',
+        pointerEvents: 'none',
+      }} />
+
+      {/* ── INNER PULSE ORB ── */}
+      <div style={{
+        position: 'absolute',
+        inset: STROKE + 8,
+        borderRadius: '50%',
+        background: `radial-gradient(circle at 38% 32%,
+          rgba(180,230,255,0.92) 0%,
+          rgba(80,160,255,0.80) 22%,
+          rgba(30,80,200,0.88) 52%,
+          rgba(10,20,80,0.96) 80%,
+          rgba(2,6,30,1) 100%)`,
+        boxShadow: `0 0 18px 4px ${riskGlow}, 0 0 6px 2px ${riskColor}55, inset 0 2px 6px rgba(255,255,255,0.18)`,
+        animation: orbPulse,
+        transition: 'box-shadow 0.6s ease',
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}>
+        {/* Glass highlight */}
+        <div style={{
+          position: 'absolute',
+          top: '8%',
+          left: '14%',
+          width: '52%',
+          height: '36%',
+          borderRadius: '50%',
+          background: 'linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.06) 60%, transparent 100%)',
+          filter: 'blur(1.5px)',
+        }} />
+        {/* Depth wave */}
+        <div style={{
+          position: 'absolute',
+          bottom: '10%',
+          left: '-10%',
+          right: '-10%',
+          height: '40%',
+          borderRadius: '50%',
+          background: 'radial-gradient(ellipse at 50% 80%, rgba(100,200,255,0.18) 0%, transparent 70%)',
+        }} />
       </div>
     </button>
   )
@@ -1153,6 +1266,8 @@ export default function Expense(props) {
   const [autoBudgetEditing, setAutoBudgetEditing] = useState(false)
   const [autoBudgetDrafts, setAutoBudgetDrafts] = useState({})
   const [showBudgetToast, setShowBudgetToast] = useState(false)
+  const [ringBurst, setRingBurst] = useState(false)
+  const prevLogCountRef = useRef(null)
 
   const normalizedLogs = useMemo(() => logs.map(normalizeLog).sort((a, b) => b.millis - a.millis), [logs])
   const normalizedFilteredLogs = useMemo(() => filteredLogs.map(normalizeLog).sort((a, b) => b.millis - a.millis), [filteredLogs])
@@ -1673,6 +1788,21 @@ export default function Expense(props) {
     return () => window.clearTimeout(timer)
   }, [showBudgetToast])
 
+  // ── Ring burst: fires when a new expense is added (skip first mount) ──
+  useEffect(() => {
+    const currentCount = logs.length
+    if (prevLogCountRef.current === null) {
+      prevLogCountRef.current = currentCount
+      return
+    }
+    if (currentCount !== prevLogCountRef.current) {
+      prevLogCountRef.current = currentCount
+      setRingBurst(true)
+      const t = window.setTimeout(() => setRingBurst(false), 900)
+      return () => window.clearTimeout(t)
+    }
+  }, [logs.length])
+
   const exportCSV = () => {
     const rows = [['ID', 'Category', 'Amount', 'Time', 'Note']]
     logs.forEach((log) => rows.push([log.id, log.category, log.amount, log.time || '', log.note || '']))
@@ -1778,6 +1908,24 @@ export default function Expense(props) {
         .expense-full-bleed {
           width: 100%;
           box-sizing: border-box;
+        }
+        @keyframes pcOrbPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+        @keyframes pcOrbBurst {
+          0% { transform: scale(1); opacity: 1; }
+          30% { transform: scale(1.12); opacity: 0.92; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes pcRingRotate {
+          from { transform: rotate(-90deg); }
+          to { transform: rotate(270deg); }
+        }
+        @keyframes pcRingFlash {
+          0% { filter: drop-shadow(0 0 3px currentColor); }
+          40% { filter: drop-shadow(0 0 12px currentColor) drop-shadow(0 0 22px currentColor); }
+          100% { filter: drop-shadow(0 0 3px currentColor); }
         }
         @keyframes expPulse {
           0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.18); }
@@ -2188,10 +2336,13 @@ export default function Expense(props) {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                  <div style={{ padding: 5, borderRadius: 999, background: 'linear-gradient(145deg, rgba(255,255,255,0.1), rgba(148,163,184,0.08))', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(2,8,23,0.2)', backdropFilter: 'blur(10px)', animation: 'expRingAura 3.2s ease-in-out infinite' }}>
-                    <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <HealthRing
+                    score={health.score}
+                    budgetPct={monthStats.monthlyBudgetUsed}
+                    ringBurst={ringBurst}
+                    onClick={() => setShowHealthSheet(true)}
+                  />
                   <span style={{ padding: '3px 7px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 9.5, fontWeight: 800 }}>
                     {health.status}
                   </span>
