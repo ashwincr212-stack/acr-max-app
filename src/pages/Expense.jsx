@@ -1726,6 +1726,26 @@ export default function Expense(props) {
       'inset 0 1px 1px rgba(255,255,255,0.98), inset -6px -8px 16px rgba(15,23,42,0.09), inset 2px 2px 6px rgba(255,255,255,0.60), 0 8px 20px rgba(0,0,0,0.22)',
     backdropFilter: 'blur(18px)',
   }
+  const summaryTopMetalCardStyle = {
+    ...summaryMetalCardStyle,
+    background:
+      'linear-gradient(135deg, rgba(255,255,255,0.99) 0%, rgba(243,247,253,0.95) 40%, rgba(214,223,236,0.86) 74%, rgba(235,240,248,0.92) 100%)',
+  }
+  const summaryStatusCardStyle = {
+    ...summaryMetalCardStyle,
+    background:
+      'linear-gradient(135deg, rgba(250,255,252,0.98) 0%, rgba(238,248,242,0.93) 40%, rgba(212,231,220,0.84) 74%, rgba(231,242,236,0.9) 100%)',
+  }
+  const summaryDailyCardStyle = {
+    ...summaryMetalCardStyle,
+    background:
+      'linear-gradient(135deg, rgba(248,253,255,0.98) 0%, rgba(236,247,250,0.93) 40%, rgba(210,228,234,0.84) 74%, rgba(229,240,244,0.9) 100%)',
+  }
+  const summaryCompareCardStyle = {
+    ...summaryMetalCardStyle,
+    background:
+      'linear-gradient(135deg, rgba(250,249,255,0.98) 0%, rgba(240,241,250,0.93) 40%, rgba(217,221,240,0.84) 74%, rgba(234,237,246,0.9) 100%)',
+  }
 
   // ─── UPDATED: dark glass capsule budget chips ─────────────────────────────
   const summaryBudgetChipStyle = {
@@ -1734,6 +1754,17 @@ export default function Expense(props) {
     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.12), 0 6px 16px rgba(2,8,23,0.22)',
     backdropFilter: 'blur(14px)',
     color: 'rgba(226,232,240,0.92)',
+  }
+  const timelineFilterStyle = {
+    ...inputStyle,
+    minWidth: 0,
+    height: 36,
+    padding: '8px 9px',
+    borderRadius: 11,
+    border: '1px solid rgba(255,255,255,0.72)',
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.95), rgba(232,239,247,0.8))',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.98), inset 0 -1px 0 rgba(148,163,184,0.12), 0 8px 20px rgba(15,23,42,0.06)',
+    backdropFilter: 'blur(12px)',
   }
 
   return (
@@ -1762,6 +1793,10 @@ export default function Expense(props) {
         @keyframes expPulseDanger {
           0%, 100% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220,38,38,0.12), 0 10px 22px rgba(15,23,42,0.08); }
           50% { transform: scale(1.05); box-shadow: 0 0 0 9px rgba(220,38,38,0.15), 0 10px 22px rgba(15,23,42,0.08); }
+        }
+        @keyframes expRingAura {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(96,165,250,0.10), 0 10px 24px rgba(2,8,23,0.20); }
+          50% { box-shadow: 0 0 0 5px rgba(96,165,250,0.08), 0 14px 30px rgba(2,8,23,0.24); }
         }
         @keyframes coachShellGlow {
           0%, 100% { box-shadow: 0 0 0 1px rgba(124,58,237,0.10), 0 22px 42px rgba(124,58,237,0.08), inset 0 1px 0 rgba(255,255,255,0.72); }
@@ -2017,7 +2052,7 @@ export default function Expense(props) {
         />
       ) : null}
 
-      <div className="exp-root expense-page-root" style={{ width: '100%', maxWidth: 'none', margin: 0, padding: '0 1px', paddingBottom: 196, color: '#0f172a' }}>
+      <div className="exp-root expense-page-root" style={{ width: '100%', maxWidth: 'none', margin: 0, padding: '0 1px', paddingBottom: 214, color: '#0f172a' }}>
         {showBudgetToast ? (
           <div style={{ position: 'fixed', left: '50%', bottom: 102, transform: 'translateX(-50%)', zIndex: 6200, padding: '10px 14px', borderRadius: 999, background: 'rgba(15,23,42,0.92)', color: '#fff', fontSize: 11.5, fontWeight: 800, boxShadow: '0 12px 24px rgba(15,23,42,0.2)' }}>
             Budget updated ⚡
@@ -2149,7 +2184,7 @@ export default function Expense(props) {
                       { label: 'Top', value: shortCategory(monthStats.topCategoryRow?.name || '--'), tone: monthStats.topCategoryRow?.color || '#2563eb' },
                       { label: 'Entries', value: String(monthStats.totalEntries), tone: '#334155' },
                     ].map((item) => (
-                      <div key={item.label} style={{ ...summaryMetalCardStyle, padding: '7px 8px', borderRadius: 12 }}>
+                      <div key={item.label} style={{ ...summaryTopMetalCardStyle, padding: '7px 8px', borderRadius: 11 }}>
                         {/* diagonal chrome shine overlay */}
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
                         <p style={{ margin: 0, fontSize: 9, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', position: 'relative', zIndex: 1 }}>{item.label}</p>
@@ -2159,21 +2194,21 @@ export default function Expense(props) {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{ padding: 5, borderRadius: 999, background: 'linear-gradient(145deg, rgba(255,255,255,0.1), rgba(148,163,184,0.08))', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(2,8,23,0.2)', backdropFilter: 'blur(10px)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                  <div style={{ padding: 5, borderRadius: 999, background: 'linear-gradient(145deg, rgba(255,255,255,0.1), rgba(148,163,184,0.08))', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(2,8,23,0.2)', backdropFilter: 'blur(10px)', animation: 'expRingAura 3.2s ease-in-out infinite' }}>
                     <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
                   </div>
                   <span style={{ padding: '3px 7px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 9.5, fontWeight: 800 }}>
                     {health.status}
                   </span>
-                  <span style={{ fontSize: 9, color: 'rgba(226,232,240,0.76)', fontWeight: 700 }}>Tap for tips</span>
+                  <span style={{ padding: '3px 7px', borderRadius: 999, border: '1px solid rgba(191,219,254,0.24)', background: 'linear-gradient(145deg, rgba(255,255,255,0.14), rgba(96,165,250,0.10))', color: 'rgba(226,232,240,0.86)', fontSize: 8.5, fontWeight: 800, letterSpacing: '0.03em', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)' }}>Tap for tips</span>
                 </div>
               </div>
 
               {/* ─── bottom row micro cards: Today Status / Can Spend Daily / Today vs Yesterday ── */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 5 }}>
                 {/* Today Status */}
-                <div style={{ ...summaryMetalCardStyle, padding: '6px 8px', borderRadius: 12, minWidth: 0 }}>
+                <div style={{ ...summaryStatusCardStyle, padding: '6px 8px', borderRadius: 11, minWidth: 0 }}>
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
                   <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>Today Status</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryTodayStatusCard.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
@@ -2185,7 +2220,7 @@ export default function Expense(props) {
                 </div>
 
                 {/* Can Spend Daily */}
-                <div style={{ ...summaryMetalCardStyle, padding: '6px 8px', borderRadius: 12, minWidth: 0 }}>
+                <div style={{ ...summaryDailyCardStyle, padding: '6px 8px', borderRadius: 11, minWidth: 0 }}>
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
                   <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>Can Spend Daily</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: canSpendDailyTone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
@@ -2197,7 +2232,7 @@ export default function Expense(props) {
                 </div>
 
                 {/* Today / Yesterday */}
-                <div style={{ ...summaryMetalCardStyle, padding: '6px 8px', borderRadius: 12, minWidth: 0 }}>
+                <div style={{ ...summaryCompareCardStyle, padding: '6px 8px', borderRadius: 11, minWidth: 0 }}>
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
                   <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>Today / Yesterday</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: '#334155', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
@@ -2259,7 +2294,16 @@ export default function Expense(props) {
           </GlassCard>
 
           {expenseTab === 'daily' ? (
-            <GlassCard className="expense-full-bleed" style={{ padding: 9 }} accent="rgba(226,232,240,0.84)">
+            <GlassCard
+              className="expense-full-bleed"
+              style={{
+                padding: 9,
+                background: 'linear-gradient(155deg, rgba(255,255,255,0.95), rgba(244,247,251,0.9) 46%, rgba(232,238,245,0.9) 100%)',
+                border: '1px solid rgba(255,255,255,0.88)',
+                boxShadow: '0 10px 22px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.94)',
+              }}
+              accent="rgba(226,232,240,0.7)"
+            >
               <SectionHdr
                 title="Expense Timeline"
                 accent="#475569"
@@ -2267,14 +2311,14 @@ export default function Expense(props) {
               />
 
               <div className="exp-filter-row" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.8fr 0.8fr', gap: 6, marginBottom: 8 }}>
-                <input type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 36, padding: '8px 9px' }} />
-                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 36, padding: '8px 7px', fontSize: 10.5 }}>
+                <input type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={timelineFilterStyle} />
+                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...timelineFilterStyle, padding: '8px 7px', fontSize: 10.5 }}>
                   <option value="All">All categories</option>
                   {categories.map((category) => (
                     <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inputStyle, minWidth: 0, height: 36, padding: '8px 7px', fontSize: 10.5 }}>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...timelineFilterStyle, padding: '8px 7px', fontSize: 10.5 }}>
                   <option value="time">Latest</option>
                   <option value="amount">Highest</option>
                   <option value="category">A-Z</option>
@@ -2282,7 +2326,7 @@ export default function Expense(props) {
               </div>
 
               {todayLogs.length ? (
-                <div style={{ marginBottom: 8, padding: '6px 8px', borderRadius: 11, background: 'linear-gradient(145deg,#eff6ff,#ffffff)', border: '1px solid #bfdbfe' }}>
+                <div style={{ marginBottom: 8, padding: '6px 8px', borderRadius: 11, background: 'linear-gradient(145deg, rgba(239,246,255,0.94), rgba(255,255,255,0.92))', border: '1px solid rgba(191,219,254,0.82)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.96), 0 6px 14px rgba(37,99,235,0.05)' }}>
                   <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: '#1d4ed8' }}>
                     Today {fmt(monthStats.todaySpent)} · {todayLogs.length} entries · Top {shortCategory(getTopCategories(todayLogs, 1)[0]?.name || '—')}
                   </p>
@@ -2290,10 +2334,13 @@ export default function Expense(props) {
               ) : null}
 
               {logGroups.length ? (
-                <div style={{ display: 'grid', gap: 8 }}>
+                <div style={{ display: 'grid', gap: 9, paddingBottom: 78 }}>
                   {logGroups.map((group) => (
                     <div key={group.title}>
-                      <p style={{ margin: '0 0 5px', fontSize: 10, fontWeight: 800, color: group.title === 'Today' ? '#1d4ed8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group.title}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: 999, background: group.title === 'Today' ? '#3b82f6' : group.title === 'Yesterday' ? '#64748b' : '#94a3b8', boxShadow: group.title === 'Today' ? '0 0 0 4px rgba(59,130,246,0.10)' : group.title === 'Yesterday' ? '0 0 0 4px rgba(100,116,139,0.08)' : '0 0 0 4px rgba(148,163,184,0.08)' }} />
+                        <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: group.title === 'Today' ? '#1d4ed8' : group.title === 'Yesterday' ? '#475569' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group.title}</p>
+                      </div>
                       <div style={{ display: 'grid', gap: 5 }}>
                         {group.items.map((log) => (
                           <div
@@ -2304,12 +2351,23 @@ export default function Expense(props) {
                               gap: 7,
                               alignItems: 'center',
                               padding: '7px 8px',
-                              borderRadius: 12,
-                              background: group.title === 'Today' ? 'linear-gradient(145deg,#f8fbff,#ffffff)' : 'rgba(255,255,255,0.62)',
-                              border: group.title === 'Today' ? '1px solid #bfdbfe' : '1px solid rgba(226,232,240,0.9)',
-                              boxShadow: group.title === 'Today' ? '0 4px 10px rgba(37,99,235,0.04)' : 'none',
+                              borderRadius: 11,
+                              background: group.title === 'Today'
+                                ? 'linear-gradient(145deg, rgba(248,251,255,0.96), rgba(255,255,255,0.94), rgba(237,244,253,0.88))'
+                                : group.title === 'Yesterday'
+                                  ? 'linear-gradient(145deg, rgba(255,255,255,0.92), rgba(243,246,250,0.9), rgba(231,236,242,0.84))'
+                                  : 'linear-gradient(145deg, rgba(255,255,255,0.88), rgba(244,247,251,0.86))',
+                              border: group.title === 'Today'
+                                ? '1px solid rgba(191,219,254,0.82)'
+                                : group.title === 'Yesterday'
+                                  ? '1px solid rgba(226,232,240,0.76)'
+                                  : '1px solid rgba(226,232,240,0.68)',
+                              boxShadow: group.title === 'Today'
+                                ? 'inset 0 1px 0 rgba(255,255,255,0.98), 0 8px 18px rgba(37,99,235,0.06)'
+                                : 'inset 0 1px 0 rgba(255,255,255,0.94), 0 6px 14px rgba(15,23,42,0.04)',
                               opacity: deletingId === log.id ? 0.45 : 1,
                               transition: 'opacity 0.2s ease',
+                              backdropFilter: 'blur(10px)',
                             }}
                           >
                             <div style={{ width: 28, height: 28, borderRadius: 10, background: `${CAT_COLORS[log.category] || '#64748b'}18`, color: CAT_COLORS[log.category] || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
