@@ -14,6 +14,8 @@
   YAxis,
 } from 'recharts'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const BUDGET_DEFAULTS = {
   Food: 2000,
@@ -74,9 +76,93 @@ const TABS = [
 
 const DAY_MS = 86400000
 const SMALL_SPEND_THRESHOLD = 100
+const BUDGET_STORAGE_KEY_PREFIX = 'acr_expense_budgets_'
 
 const fmt = (n) => `₹${Math.round(Number(n || 0)).toLocaleString('en-IN')}`
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
+
+const normalizeBudgetMap = (value) =>
+  Object.entries(value || {}).reduce((acc, [key, amount]) => {
+    const nextAmount = Number(amount)
+    if (!key || !Number.isFinite(nextAmount) || nextAmount < 0) return acc
+    acc[key] = nextAmount
+    return acc
+  }, {})
+
+const mergeBudgetsWithDefaults = (savedBudgets) => ({
+  ...BUDGET_DEFAULTS,
+  ...normalizeBudgetMap(savedBudgets),
+})
+
+const getBudgetOwnerId = () => {
+  if (typeof window === 'undefined') return 'guest'
+  try {
+    const raw = window.sessionStorage.getItem('acr_session')
+    const session = raw ? JSON.parse(raw) : null
+    return session?.username?.toLowerCase?.() || 'guest'
+  } catch {
+    return 'guest'
+  }
+}
+
+const getBudgetStorageKey = () => `${BUDGET_STORAGE_KEY_PREFIX}${getBudgetOwnerId()}`
+
+const getBudgetFirestoreOwnerId = () => {
+  const ownerId = getBudgetOwnerId()
+  return ownerId && ownerId !== 'guest' ? ownerId : null
+}
+
+const loadStoredBudgets = (storageKey) => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) return null
+    return mergeBudgetsWithDefaults(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+const persistStoredBudgets = (storageKey, nextBudgets) => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(normalizeBudgetMap(nextBudgets)))
+  } catch {}
+}
+
+const subscribeUserBudgets = (ownerId, callback, onError) => {
+  if (!ownerId) return () => {}
+  const ref = doc(db, 'acr_users', ownerId)
+  return onSnapshot(
+    ref,
+    (snap) => {
+      const data = snap.exists() ? snap.data() : {}
+      callback(mergeBudgetsWithDefaults(data?.expenseBudgets))
+    },
+    (error) => {
+      console.error('[Budget Sync] Listener error:', error)
+      onError?.(error)
+    }
+  )
+}
+
+const persistUserBudgets = async (ownerId, nextBudgets) => {
+  if (!ownerId) return false
+  try {
+    await setDoc(
+      doc(db, 'acr_users', ownerId),
+      {
+        expenseBudgets: normalizeBudgetMap(nextBudgets),
+        expenseBudgetsUpdatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
+    return true
+  } catch (error) {
+    console.error('[Budget Sync] Save error:', error)
+    return false
+  }
+}
 
 const toMillis = (value) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -891,7 +977,16 @@ function HealthRing({ score, onClick }) {
   )
 }
 
-function BottomSheet({ title, subtitle, onClose, children, accent = 'rgba(59,130,246,0.15)' }) {
+function BottomSheet({
+  title,
+  subtitle,
+  onClose,
+  children,
+  accent = 'rgba(59,130,246,0.15)',
+  bodyScrollable = true,
+  bodyStyle = {},
+  sheetMaxHeight = '75vh',
+}) {
   return (
       <div
         onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -907,7 +1002,19 @@ function BottomSheet({ title, subtitle, onClose, children, accent = 'rgba(59,130
           padding: '10px 10px',
         }}
       >
-      <GlassCard style={{ width: '92vw', maxWidth: 520, maxHeight: '75vh', overflowY: 'auto', borderRadius: 22, padding: 11 }} accent={accent}>
+      <GlassCard
+        style={{
+          width: '92vw',
+          maxWidth: 520,
+          maxHeight: sheetMaxHeight,
+          overflow: 'hidden',
+          borderRadius: 22,
+          padding: 11,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+        accent={accent}
+      >
         <div style={{ width: 44, height: 5, borderRadius: 999, background: '#cbd5e1', margin: '0 auto 12px' }} />
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
           <div>
@@ -916,7 +1023,16 @@ function BottomSheet({ title, subtitle, onClose, children, accent = 'rgba(59,130
           </div>
           <button onClick={onClose} style={actionBtn('#64748b', '#f8fafc')}>Close</button>
         </div>
-        {children}
+        <div
+          style={{
+            minHeight: 0,
+            flex: 1,
+            ...(bodyScrollable ? { overflowY: 'auto', paddingRight: 2 } : {}),
+            ...bodyStyle,
+          }}
+        >
+          {children}
+        </div>
       </GlassCard>
     </div>
   )
@@ -970,96 +1086,252 @@ function AutoBudgetSheet({
   onClose,
 }) {
   return (
-    <BottomSheet title="Auto Budget" subtitle={hasHistory ? 'Using your spending history for the split.' : 'Using a default split for now.'} onClose={onClose} accent="rgba(124,58,237,0.18)">
-      <div style={{ display: 'grid', gap: 10 }}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monthly Budget Amount</p>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="5000"
-            autoFocus
-            style={inputStyle}
-          />
-        </div>
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 5000,
+        background: 'rgba(15,23,42,0.34)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '12px',
+        overflow: 'hidden',
+      }}
+    >
+      <style>{`
+        .ab-modal {
+          width: min(92vw, 420px);
+          height: min(82dvh, 680px);
+          max-height: calc(100dvh - 24px);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border-radius: 24px;
+          position: relative;
+          border: 1px solid rgba(255,255,255,0.92);
+          background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(244,247,251,0.88) 45%, rgba(235,240,245,0.92));
+          box-shadow: 0 6px 14px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.94), inset 0 -1px 0 rgba(148,163,184,0.06);
+          backdrop-filter: blur(18px);
+        }
+        .ab-top {
+          flex: 0 0 auto;
+          position: relative;
+          z-index: 1;
+          display: grid;
+          gap: 10px;
+          padding: 12px 12px 0 12px;
+        }
+        .ab-middle {
+          flex: 1 1 auto;
+          min-height: 0;
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          margin: 10px 12px 0 12px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.62);
+          border: 1px solid rgba(226,232,240,0.92);
+          overflow: hidden;
+        }
+        .ab-middle-header {
+          flex: 0 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 10px 10px 8px 10px;
+          border-bottom: 1px solid rgba(226,232,240,0.72);
+        }
+        .ab-scroll {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          padding: 8px 10px 16px 10px;
+          scrollbar-width: thin;
+          scrollbar-color: #c4b5fd rgba(237,233,254,0.65);
+        }
+        .ab-scroll::-webkit-scrollbar { width: 7px; }
+        .ab-scroll::-webkit-scrollbar-track { background: rgba(237,233,254,0.7); border-radius: 999px; }
+        .ab-scroll::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#c4b5fd,#8b5cf6); border-radius: 999px; }
+        .ab-bottom {
+          flex: 0 0 auto;
+          position: relative;
+          z-index: 1;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 10px 12px 14px 12px;
+          border-top: 1px solid rgba(226,232,240,0.82);
+          background: linear-gradient(180deg, rgba(245,243,255,0.78), rgba(255,255,255,0.98) 36%);
+        }
+        @media (max-height: 760px) {
+          .ab-modal {
+            height: calc(100dvh - 24px);
+          }
+          .ab-top {
+            gap: 8px;
+            padding: 10px 12px 0 12px;
+          }
+        }
+      `}</style>
 
-        <div style={{ display: 'grid', gap: 6 }}>
-          <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Style</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
-            {['Safe', 'Balanced', 'Strict'].map((option) => {
-              const active = style === option
-              return (
-                <button
-                  key={option}
-                  onClick={() => setStyle(option)}
-                  style={{
-                    padding: '9px 8px',
-                    borderRadius: 13,
-                    border: `1px solid ${active ? '#7c3aed44' : '#dbe2ea'}`,
-                    background: active ? 'linear-gradient(145deg,#faf5ff,#ffffff)' : 'rgba(255,255,255,0.9)',
-                    color: active ? '#6d28d9' : '#475569',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: active ? '0 0 0 3px rgba(124,58,237,0.08)' : 'none',
-                  }}
-                >
-                  {option}
-                </button>
-              )
-            })}
+      <div className="ab-modal">
+        {/* accent overlay */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(circle at top right, rgba(124,58,237,0.18), transparent 34%)',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+
+        {/* ── ZONE 1: TOP ── */}
+        <div className="ab-top">
+          <div style={{ width: 44, height: 5, borderRadius: 999, background: '#cbd5e1', margin: '0 auto' }} />
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#0f172a' }}>Auto Budget</p>
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: '#64748b' }}>
+                {hasHistory ? 'Using your spending history for the split.' : 'Using a default split for now.'}
+              </p>
+            </div>
+            <button onClick={onClose} style={actionBtn('#64748b', '#f8fafc')}>Close</button>
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Monthly Budget Amount
+            </p>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="5000"
+              autoFocus
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Style
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+              {['Safe', 'Balanced', 'Strict'].map((option) => {
+                const active = style === option
+                return (
+                  <button
+                    key={option}
+                    onClick={() => setStyle(option)}
+                    style={{
+                      padding: '9px 8px',
+                      borderRadius: 13,
+                      border: `1px solid ${active ? '#7c3aed44' : '#dbe2ea'}`,
+                      background: active ? 'linear-gradient(145deg,#faf5ff,#ffffff)' : 'rgba(255,255,255,0.9)',
+                      color: active ? '#6d28d9' : '#475569',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: active ? '0 0 0 3px rgba(124,58,237,0.08)' : 'none',
+                    }}
+                  >
+                    {option}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
-        <div style={{ padding: '10px 10px', borderRadius: 16, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-            <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: '#0f172a' }}>Suggested category split</p>
+        {/* ── ZONE 2: MIDDLE (scrollable) ── */}
+        <div className="ab-middle">
+          <div className="ab-middle-header">
+            <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: '#0f172a' }}>
+              Suggested category split
+            </p>
             <span style={chipStyle(hasHistory ? '#ecfdf5' : '#eff6ff', hasHistory ? '#16a34a' : '#2563eb')}>
               {hasHistory ? 'History based' : 'Default split'}
             </span>
           </div>
-          <div style={{ display: 'grid', gap: 7, maxHeight: '40vh', overflowY: 'auto', paddingRight: 2 }}>
-            {previewRows.map((row) => (
-              <div key={row.category} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 10 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {(CAT_ICONS[row.category] || '💸') + ' ' + row.category}
-                    </p>
-                    <p style={{ margin: 0, fontSize: 9.5, fontWeight: 800, color: '#64748b' }}>{Math.round(row.pct)}%</p>
+
+          <div className="ab-scroll">
+            <div style={{ display: 'grid', gap: 7 }}>
+              {previewRows.map((row) => (
+                <div
+                  key={row.category}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0,1fr) auto',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '7px 8px',
+                    borderRadius: 12,
+                    background: 'rgba(255,255,255,0.7)',
+                    border: '1px solid rgba(226,232,240,0.9)',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {(CAT_ICONS[row.category] || '💸') + ' ' + row.category}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 9.5, fontWeight: 800, color: '#64748b' }}>
+                        {Math.round(row.pct)}%
+                      </p>
+                    </div>
+                    <ProgressLine
+                      pct={row.pct}
+                      tone={`linear-gradient(90deg,${CAT_COLORS[row.category] || CAT_COLORS.Other},${(CAT_COLORS[row.category] || CAT_COLORS.Other)}cc)`}
+                      height={7}
+                    />
                   </div>
-                  <ProgressLine pct={row.pct} tone={`linear-gradient(90deg,${CAT_COLORS[row.category] || CAT_COLORS.Other},${(CAT_COLORS[row.category] || CAT_COLORS.Other)}cc)`} height={7} />
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      value={draftBudgets[row.category] ?? ''}
+                      onChange={(e) =>
+                        setDraftBudgets((prev) => ({
+                          ...prev,
+                          [row.category]: Math.max(0, Number(e.target.value || 0)),
+                        }))
+                      }
+                      style={{ ...inputStyle, width: 88, padding: '8px 8px', fontSize: 10.5 }}
+                    />
+                  ) : (
+                    <strong className="syne" style={{ fontSize: 14, color: '#0f172a' }}>
+                      {fmt(row.amount)}
+                    </strong>
+                  )}
                 </div>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    value={draftBudgets[row.category] ?? ''}
-                    onChange={(e) =>
-                      setDraftBudgets((prev) => ({
-                        ...prev,
-                        [row.category]: Math.max(0, Number(e.target.value || 0)),
-                      }))
-                    }
-                    style={{ ...inputStyle, width: 88, padding: '8px 8px', fontSize: 10.5 }}
-                  />
-                ) : (
-                  <strong className="syne" style={{ fontSize: 14, color: '#0f172a' }}>{fmt(row.amount)}</strong>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        {/* ── ZONE 3: BOTTOM (always visible) ── */}
+        <div className="ab-bottom">
           <button onClick={onClose} style={actionBtn('#64748b', '#f8fafc')}>Cancel</button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setIsEditing(true)} style={actionBtn('#2563eb', '#eff6ff')}>Edit</button>
-            <button onClick={onApply} style={{ ...actionBtn('#fff', '#7c3aed'), border: 'none', boxShadow: '0 10px 18px rgba(124,58,237,0.22)' }}>Apply</button>
+            <button
+              onClick={onApply}
+              style={{ ...actionBtn('#fff', '#7c3aed'), border: 'none', boxShadow: '0 10px 18px rgba(124,58,237,0.22)' }}
+            >
+              Apply
+            </button>
           </div>
         </div>
       </div>
-    </BottomSheet>
+    </div>
   )
 }
 
@@ -1136,7 +1408,9 @@ export default function Expense(props) {
     fileInputRef,
   } = props
 
-  const [budgets, setBudgets] = useState(BUDGET_DEFAULTS)
+  const budgetStorageKey = getBudgetStorageKey()
+  const budgetFirestoreOwnerId = getBudgetFirestoreOwnerId()
+  const [budgets, setBudgets] = useState(() => mergeBudgetsWithDefaults(BUDGET_DEFAULTS))
   const [editingBudget, setEditingBudget] = useState(null)
   const [budgetInput, setBudgetInput] = useState('')
   const [noteInput, setNoteInput] = useState('')
@@ -1153,6 +1427,38 @@ export default function Expense(props) {
   const [autoBudgetEditing, setAutoBudgetEditing] = useState(false)
   const [autoBudgetDrafts, setAutoBudgetDrafts] = useState({})
   const [showBudgetToast, setShowBudgetToast] = useState(false)
+
+  useEffect(() => {
+    const savedBudgets = loadStoredBudgets(budgetStorageKey)
+    setBudgets(savedBudgets || mergeBudgetsWithDefaults(BUDGET_DEFAULTS))
+
+    if (!budgetFirestoreOwnerId) return undefined
+
+    const unsubscribe = subscribeUserBudgets(
+      budgetFirestoreOwnerId,
+      (nextBudgets) => {
+        setBudgets(nextBudgets)
+        persistStoredBudgets(budgetStorageKey, nextBudgets)
+      },
+      () => {
+        const fallbackBudgets = loadStoredBudgets(budgetStorageKey)
+        if (fallbackBudgets) setBudgets(fallbackBudgets)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [budgetFirestoreOwnerId, budgetStorageKey])
+
+  const syncBudgets = async (nextBudgets, { showToast = false } = {}) => {
+    setBudgets(nextBudgets)
+    persistStoredBudgets(budgetStorageKey, nextBudgets)
+
+    if (budgetFirestoreOwnerId) {
+      await persistUserBudgets(budgetFirestoreOwnerId, nextBudgets)
+    }
+
+    if (showToast) setShowBudgetToast(true)
+  }
 
   const normalizedLogs = useMemo(() => logs.map(normalizeLog).sort((a, b) => b.millis - a.millis), [logs])
   const normalizedFilteredLogs = useMemo(() => filteredLogs.map(normalizeLog).sort((a, b) => b.millis - a.millis), [filteredLogs])
@@ -1609,9 +1915,12 @@ export default function Expense(props) {
     }, 260)
   }
 
-  const saveBudget = (category) => {
+  const saveBudget = async (category) => {
     const value = parseFloat(budgetInput)
-    if (!Number.isNaN(value) && value > 0) setBudgets((prev) => ({ ...prev, [category]: value }))
+    if (!Number.isNaN(value) && value > 0) {
+      const nextBudgets = { ...budgets, [category]: value }
+      await syncBudgets(nextBudgets)
+    }
     setEditingBudget(null)
     setBudgetInput('')
   }
@@ -1641,11 +1950,11 @@ export default function Expense(props) {
     setShowAutoBudgetSheet(true)
   }
 
-  const applyAutoBudget = () => {
+  const applyAutoBudget = async () => {
     const totalBudget = Math.max(0, Math.round(Number(autoBudgetAmount || 0)))
     if (!totalBudget) return
 
-    const nextBudgets = autoBudgetEditing
+    const nextBudgets = mergeBudgetsWithDefaults(autoBudgetEditing
       ? categories.reduce((acc, category) => {
           acc[category] = Math.max(0, Number(autoBudgetDrafts[category] ?? autoBudgetPlan.byCategory[category] ?? 0))
           return acc
@@ -1653,13 +1962,12 @@ export default function Expense(props) {
       : categories.reduce((acc, category) => {
           acc[category] = Number(autoBudgetPlan.byCategory[category] || 0)
           return acc
-        }, {})
+        }, {}))
 
-    setBudgets((prev) => ({ ...prev, ...nextBudgets }))
+    await syncBudgets(nextBudgets, { showToast: true })
     setShowAutoBudgetSheet(false)
     setAutoBudgetEditing(false)
     setAutoBudgetDrafts({})
-    setShowBudgetToast(true)
   }
 
   useEffect(() => {
@@ -1892,6 +2200,99 @@ export default function Expense(props) {
           transform: rotate(14deg);
           animation: coachShimmer 7s linear infinite;
           pointer-events: none;
+        }
+        .auto-budget-modal {
+          width: min(92vw, 420px);
+          height: min(82vh, 680px);
+          max-height: calc(100dvh - 24px);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border-radius: 24px;
+        }
+        .auto-budget-header {
+          display: grid;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+        .auto-budget-scroll-shell {
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          margin-top: 10px;
+          padding: 10px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.62);
+          border: 1px solid rgba(226,232,240,0.92);
+        }
+        .auto-budget-scroll {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          padding-right: 4px;
+          padding-bottom: 16px;
+          scrollbar-width: thin;
+          scrollbar-color: #c4b5fd rgba(237,233,254,0.65);
+        }
+        .auto-budget-actions {
+          flex-shrink: 0;
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          padding-top: 10px;
+          margin-top: 10px;
+          border-top: 1px solid rgba(226,232,240,0.82);
+          background: linear-gradient(180deg, rgba(245,243,255,0.78), rgba(255,255,255,0.98) 36%);
+          position: relative;
+          z-index: 2;
+        }
+        .auto-budget-action-group {
+          display: flex;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .auto-budget-scroll::-webkit-scrollbar {
+          width: 7px;
+        }
+        .auto-budget-scroll::-webkit-scrollbar-track {
+          background: rgba(237,233,254,0.7);
+          border-radius: 999px;
+        }
+        .auto-budget-scroll::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, #c4b5fd, #8b5cf6);
+          border-radius: 999px;
+        }
+        @media (max-height: 760px) {
+          .auto-budget-modal {
+            height: calc(100dvh - 24px) !important;
+          }
+          .auto-budget-header {
+            gap: 8px;
+          }
+          .auto-budget-title {
+            font-size: 15px !important;
+          }
+          .auto-budget-subtitle {
+            font-size: 10px !important;
+            line-height: 1.35;
+          }
+          .auto-budget-scroll-shell {
+            margin-top: 8px;
+            padding: 9px;
+          }
+          .auto-budget-scroll-head {
+            margin-bottom: 7px !important;
+          }
+          .auto-budget-row {
+            padding: 6px 7px !important;
+          }
+          .auto-budget-actions {
+            margin-top: 8px;
+            padding-top: 8px;
+          }
         }
         @media (max-width: 640px) {
           .expense-page-root {
