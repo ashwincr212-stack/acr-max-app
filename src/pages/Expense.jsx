@@ -271,6 +271,114 @@ const categoryGroupName = (category = '') => {
   return 'Other'
 }
 
+const AUTO_BUDGET_STYLE_WEIGHTS = {
+  Safe: { Needs: 1.08, Lifestyle: 0.9, Travel: 0.98, Other: 0.96 },
+  Balanced: { Needs: 1, Lifestyle: 1, Travel: 1, Other: 1 },
+  Strict: { Needs: 1.14, Lifestyle: 0.72, Travel: 0.9, Other: 0.82 },
+}
+
+const AUTO_BUDGET_DEFAULT_SPLIT = {
+  Food: 11,
+  Petrol: 10,
+  Smoke: 3,
+  Liquor: 4,
+  'Electricity Bill': 12,
+  'Water Bill': 4,
+  'Mobile Recharge': 3,
+  Groceries: 20,
+  Vegetables: 9,
+  Snacks: 5,
+  CSD: 6,
+  'Hotel Food': 7,
+  Other: 6,
+}
+
+const getAutoBudgetBaseWeights = (categories = [], logs = []) => {
+  const totals = {}
+  let totalSpent = 0
+  logs.forEach((log) => {
+    const category = log.category || 'Other'
+    const amount = Number(log.amount || 0)
+    if (!categories.includes(category) || amount <= 0) return
+    totals[category] = (totals[category] || 0) + amount
+    totalSpent += amount
+  })
+
+  const categoriesWithHistory = Object.keys(totals).filter((key) => totals[key] > 0)
+  const hasHistory = categoriesWithHistory.length >= Math.min(3, Math.max(categories.length - 1, 1)) || totalSpent >= 1000
+
+  if (hasHistory && totalSpent > 0) {
+    return {
+      hasHistory: true,
+      weights: categories.reduce((acc, category) => {
+        acc[category] = (totals[category] || 0) / totalSpent
+        return acc
+      }, {}),
+    }
+  }
+
+  const defaultTotal = categories.reduce((sum, category) => sum + (AUTO_BUDGET_DEFAULT_SPLIT[category] || 4), 0) || 1
+  return {
+    hasHistory: false,
+    weights: categories.reduce((acc, category) => {
+      acc[category] = (AUTO_BUDGET_DEFAULT_SPLIT[category] || 4) / defaultTotal
+      return acc
+    }, {}),
+  }
+}
+
+const buildAutoBudgetPlan = ({ totalBudget, categories = [], logs = [], style = 'Balanced' }) => {
+  const budget = Math.max(0, Math.round(Number(totalBudget || 0)))
+  const { weights: baseWeights, hasHistory } = getAutoBudgetBaseWeights(categories, logs)
+  const styleWeights = AUTO_BUDGET_STYLE_WEIGHTS[style] || AUTO_BUDGET_STYLE_WEIGHTS.Balanced
+
+  const adjustedWeights = categories.reduce((acc, category) => {
+    const group = categoryGroupName(category)
+    const baseWeight = baseWeights[category] || 0
+    const multiplier = styleWeights[group] || 1
+    acc[category] = Math.max(baseWeight * multiplier, 0.0001)
+    return acc
+  }, {})
+
+  const totalWeight = Object.values(adjustedWeights).reduce((sum, value) => sum + value, 0) || 1
+  const rawAllocations = categories.map((category) => {
+    const raw = (budget * adjustedWeights[category]) / totalWeight
+    return {
+      category,
+      raw,
+      amount: Math.floor(raw),
+      fraction: raw - Math.floor(raw),
+    }
+  })
+
+  let remainder = budget - rawAllocations.reduce((sum, item) => sum + item.amount, 0)
+  rawAllocations
+    .sort((a, b) => b.fraction - a.fraction)
+    .forEach((item) => {
+      if (remainder <= 0) return
+      item.amount += 1
+      remainder -= 1
+    })
+
+  const byCategory = rawAllocations.reduce((acc, item) => {
+    acc[item.category] = item.amount
+    return acc
+  }, {})
+
+  return {
+    byCategory,
+    rows: categories
+      .map((category) => ({
+        category,
+        amount: byCategory[category] || 0,
+        pct: budget > 0 ? ((byCategory[category] || 0) / budget) * 100 : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount),
+    total: budget,
+    hasHistory,
+  }
+}
+
 const detectMoneyLeaks = (logs) => {
   const buckets = {}
   logs.forEach((log) => {
@@ -847,6 +955,114 @@ function ExpenseAlertsSheet({ alerts, onClose, onViewBudgets }) {
   )
 }
 
+function AutoBudgetSheet({
+  amount,
+  setAmount,
+  style,
+  setStyle,
+  previewRows,
+  hasHistory,
+  isEditing,
+  setIsEditing,
+  draftBudgets,
+  setDraftBudgets,
+  onApply,
+  onClose,
+}) {
+  return (
+    <BottomSheet title="Auto Budget" subtitle={hasHistory ? 'Using your spending history for the split.' : 'Using a default split for now.'} onClose={onClose} accent="rgba(124,58,237,0.18)">
+      <div style={{ display: 'grid', gap: 10 }}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monthly Budget Amount</p>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="5000"
+            autoFocus
+            style={inputStyle}
+          />
+        </div>
+
+        <div style={{ display: 'grid', gap: 6 }}>
+          <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Style</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+            {['Safe', 'Balanced', 'Strict'].map((option) => {
+              const active = style === option
+              return (
+                <button
+                  key={option}
+                  onClick={() => setStyle(option)}
+                  style={{
+                    padding: '9px 8px',
+                    borderRadius: 13,
+                    border: `1px solid ${active ? '#7c3aed44' : '#dbe2ea'}`,
+                    background: active ? 'linear-gradient(145deg,#faf5ff,#ffffff)' : 'rgba(255,255,255,0.9)',
+                    color: active ? '#6d28d9' : '#475569',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: active ? '0 0 0 3px rgba(124,58,237,0.08)' : 'none',
+                  }}
+                >
+                  {option}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div style={{ padding: '10px 10px', borderRadius: 16, background: 'rgba(255,255,255,0.62)', border: '1px solid rgba(226,232,240,0.92)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+            <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: '#0f172a' }}>Suggested category split</p>
+            <span style={chipStyle(hasHistory ? '#ecfdf5' : '#eff6ff', hasHistory ? '#16a34a' : '#2563eb')}>
+              {hasHistory ? 'History based' : 'Default split'}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gap: 7, maxHeight: '40vh', overflowY: 'auto', paddingRight: 2 }}>
+            {previewRows.map((row) => (
+              <div key={row.category} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {(CAT_ICONS[row.category] || '💸') + ' ' + row.category}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 9.5, fontWeight: 800, color: '#64748b' }}>{Math.round(row.pct)}%</p>
+                  </div>
+                  <ProgressLine pct={row.pct} tone={`linear-gradient(90deg,${CAT_COLORS[row.category] || CAT_COLORS.Other},${(CAT_COLORS[row.category] || CAT_COLORS.Other)}cc)`} height={7} />
+                </div>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={draftBudgets[row.category] ?? ''}
+                    onChange={(e) =>
+                      setDraftBudgets((prev) => ({
+                        ...prev,
+                        [row.category]: Math.max(0, Number(e.target.value || 0)),
+                      }))
+                    }
+                    style={{ ...inputStyle, width: 88, padding: '8px 8px', fontSize: 10.5 }}
+                  />
+                ) : (
+                  <strong className="syne" style={{ fontSize: 14, color: '#0f172a' }}>{fmt(row.amount)}</strong>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+          <button onClick={onClose} style={actionBtn('#64748b', '#f8fafc')}>Cancel</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setIsEditing(true)} style={actionBtn('#2563eb', '#eff6ff')}>Edit</button>
+            <button onClick={onApply} style={{ ...actionBtn('#fff', '#7c3aed'), border: 'none', boxShadow: '0 10px 18px rgba(124,58,237,0.22)' }}>Apply</button>
+          </div>
+        </div>
+      </div>
+    </BottomSheet>
+  )
+}
+
 function BudgetRow({ row, editingBudget, budgetInput, setBudgetInput, setEditingBudget, saveBudget, onAdjust, onReduceDaily, onIgnore }) {
   const over = row.budget > 0 && row.spent > row.budget
   const pct = row.budget > 0 ? clamp((row.spent / row.budget) * 100, 0, 100) : 0
@@ -931,9 +1147,41 @@ export default function Expense(props) {
   const [showAlertsSheet, setShowAlertsSheet] = useState(false)
   const [showHealthSheet, setShowHealthSheet] = useState(false)
   const [showChallengeSheet, setShowChallengeSheet] = useState(false)
+  const [showAutoBudgetSheet, setShowAutoBudgetSheet] = useState(false)
+  const [autoBudgetAmount, setAutoBudgetAmount] = useState('')
+  const [autoBudgetStyle, setAutoBudgetStyle] = useState('Balanced')
+  const [autoBudgetEditing, setAutoBudgetEditing] = useState(false)
+  const [autoBudgetDrafts, setAutoBudgetDrafts] = useState({})
+  const [showBudgetToast, setShowBudgetToast] = useState(false)
 
   const normalizedLogs = useMemo(() => logs.map(normalizeLog).sort((a, b) => b.millis - a.millis), [logs])
   const normalizedFilteredLogs = useMemo(() => filteredLogs.map(normalizeLog).sort((a, b) => b.millis - a.millis), [filteredLogs])
+  const autoBudgetPlan = useMemo(
+    () =>
+      buildAutoBudgetPlan({
+        totalBudget: autoBudgetAmount,
+        categories,
+        logs: normalizedLogs,
+        style: autoBudgetStyle,
+      }),
+    [autoBudgetAmount, autoBudgetStyle, categories, normalizedLogs]
+  )
+  const autoBudgetDraftTotal = useMemo(
+    () => Object.values(autoBudgetDrafts || {}).reduce((sum, value) => sum + Number(value || 0), 0),
+    [autoBudgetDrafts]
+  )
+  const autoBudgetPreviewRows = useMemo(
+    () =>
+      autoBudgetPlan.rows.map((row) => ({
+        ...row,
+        amount: autoBudgetEditing ? Number(autoBudgetDrafts[row.category] ?? row.amount) : row.amount,
+        pct:
+          autoBudgetEditing && autoBudgetDraftTotal > 0
+            ? (Number(autoBudgetDrafts[row.category] ?? row.amount) / autoBudgetDraftTotal) * 100
+            : row.pct,
+      })),
+    [autoBudgetDraftTotal, autoBudgetDrafts, autoBudgetEditing, autoBudgetPlan.rows]
+  )
 
   const monthStats = useMemo(() => getMonthStats(normalizedLogs, budgets), [normalizedLogs, budgets])
   const projection = useMemo(
@@ -1384,6 +1632,47 @@ export default function Expense(props) {
     window.alert(`${row.name} kept as-is. This is a UI placeholder and does not change your budget.`)
   }
 
+  const openAutoBudget = () => {
+    const startingTotal = monthStats.monthlyBudget || Object.values(budgets || {}).reduce((sum, value) => sum + Number(value || 0), 0)
+    setAutoBudgetAmount(startingTotal > 0 ? String(Math.round(startingTotal)) : '')
+    setAutoBudgetStyle('Balanced')
+    setAutoBudgetEditing(false)
+    setAutoBudgetDrafts({})
+    setShowAutoBudgetSheet(true)
+  }
+
+  const applyAutoBudget = () => {
+    const totalBudget = Math.max(0, Math.round(Number(autoBudgetAmount || 0)))
+    if (!totalBudget) return
+
+    const nextBudgets = autoBudgetEditing
+      ? categories.reduce((acc, category) => {
+          acc[category] = Math.max(0, Number(autoBudgetDrafts[category] ?? autoBudgetPlan.byCategory[category] ?? 0))
+          return acc
+        }, {})
+      : categories.reduce((acc, category) => {
+          acc[category] = Number(autoBudgetPlan.byCategory[category] || 0)
+          return acc
+        }, {})
+
+    setBudgets((prev) => ({ ...prev, ...nextBudgets }))
+    setShowAutoBudgetSheet(false)
+    setAutoBudgetEditing(false)
+    setAutoBudgetDrafts({})
+    setShowBudgetToast(true)
+  }
+
+  useEffect(() => {
+    if (!showAutoBudgetSheet || autoBudgetEditing) return
+    setAutoBudgetDrafts(autoBudgetPlan.byCategory)
+  }, [autoBudgetPlan.byCategory, autoBudgetEditing, showAutoBudgetSheet])
+
+  useEffect(() => {
+    if (!showBudgetToast) return undefined
+    const timer = window.setTimeout(() => setShowBudgetToast(false), 1800)
+    return () => window.clearTimeout(timer)
+  }, [showBudgetToast])
+
   const exportCSV = () => {
     const rows = [['ID', 'Category', 'Amount', 'Time', 'Note']]
     logs.forEach((log) => rows.push([log.id, log.category, log.amount, log.time || '', log.note || '']))
@@ -1686,7 +1975,33 @@ export default function Expense(props) {
         </BottomSheet>
       ) : null}
 
+      {showAutoBudgetSheet ? (
+        <AutoBudgetSheet
+          amount={autoBudgetAmount}
+          setAmount={setAutoBudgetAmount}
+          style={autoBudgetStyle}
+          setStyle={setAutoBudgetStyle}
+          previewRows={autoBudgetPreviewRows}
+          hasHistory={autoBudgetPlan.hasHistory}
+          isEditing={autoBudgetEditing}
+          setIsEditing={setAutoBudgetEditing}
+          draftBudgets={autoBudgetDrafts}
+          setDraftBudgets={setAutoBudgetDrafts}
+          onApply={applyAutoBudget}
+          onClose={() => {
+            setShowAutoBudgetSheet(false)
+            setAutoBudgetEditing(false)
+            setAutoBudgetDrafts({})
+          }}
+        />
+      ) : null}
+
       <div className="exp-root expense-page-root" style={{ width: '100%', maxWidth: 'none', margin: 0, padding: '0 1px', paddingBottom: 196, color: '#0f172a' }}>
+        {showBudgetToast ? (
+          <div style={{ position: 'fixed', left: '50%', bottom: 102, transform: 'translateX(-50%)', zIndex: 6200, padding: '10px 14px', borderRadius: 999, background: 'rgba(15,23,42,0.92)', color: '#fff', fontSize: 11.5, fontWeight: 800, boxShadow: '0 12px 24px rgba(15,23,42,0.2)' }}>
+            Budget updated ⚡
+          </div>
+        ) : null}
         <div style={{ display: 'grid', gap: 6 }}>
           <GlassCard className="expense-full-bleed" style={{ padding: 8 }} accent="rgba(245,158,11,0.18)">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -2077,6 +2392,30 @@ export default function Expense(props) {
           {expenseTab === 'budget' ? (
             <GlassCard style={{ padding: 11 }} accent="rgba(124,58,237,0.16)">
               <SectionHdr title="Budget Goals" accent="#7c3aed" subtitle="Compact monthly rows with quick actions." />
+              <div style={{ marginBottom: 10 }}>
+                <button
+                  onClick={openAutoBudget}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '11px 12px',
+                    borderRadius: 15,
+                    border: '1px solid rgba(124,58,237,0.22)',
+                    background: 'linear-gradient(145deg,#faf5ff,#ffffff 54%,#f5f3ff)',
+                    color: '#6d28d9',
+                    fontSize: 12,
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    boxShadow: '0 10px 20px rgba(124,58,237,0.08), inset 0 1px 0 rgba(255,255,255,0.96)',
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>⚡</span>
+                  Auto Budget
+                </button>
+              </div>
               <div style={{ display: 'grid', gap: 10 }}>
                 {categories.map((category) => {
                   const summaryRow = currentMonthSummary.find((row) => row.name === category)
