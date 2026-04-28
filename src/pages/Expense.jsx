@@ -1690,6 +1690,9 @@ export default function Expense(props) {
     const todayCrossed = hasCrossStepRef.current ? todaySpent > wasDailyLimitRef.current : todaySpent > todayAllowedLimit
     const crossedWasDailyLimit = hasCrossStepRef.current ? wasDailyLimitRef.current : todayAllowedLimit
     const crossedNowDailyLimit = hasCrossStepRef.current ? nowDailyLimitRef.current : revisedDailyLimit
+    const revisionStartTodaySpent = hasCrossStepRef.current ? Number(lastCrossedSpendRef.current || 0) : 0
+    const postRevisionSpent = Math.max(todaySpent - revisionStartTodaySpent, 0)
+    const revisedTodayRemaining = crossedNowDailyLimit - postRevisionSpent
 
     if (budgetBalance <= 0) {
       return {
@@ -1713,12 +1716,15 @@ export default function Expense(props) {
     if (todayCrossed) {
       return {
         todayStatus: {
-          value: `${fmt(Math.max(crossedNowDailyLimit, 0))}/day`,
-          sub: 'Spendable',
+          value:
+            revisedTodayRemaining >= 0
+              ? `${fmt(Math.max(revisedTodayRemaining, 0))} left`
+              : `${fmt(Math.abs(revisedTodayRemaining))} over`,
+          sub: revisedTodayRemaining >= 0 ? 'Spendable' : 'No spend left',
           footer: 'Revised',
           divider: true,
           footerDivider: true,
-          tone: '#dc2626',
+          tone: revisedTodayRemaining >= 0 ? '#16a34a' : '#dc2626',
           background: 'linear-gradient(135deg, rgba(255,245,245,0.95), rgba(254,202,202,0.78), rgba(255,245,245,0.60))',
           border: '1px solid rgba(239,68,68,0.30)',
         },
@@ -1729,6 +1735,7 @@ export default function Expense(props) {
           ],
           sub: 'Revised for remaining days',
           tone: '#d97706',
+          wrapSub: true,
           background: 'linear-gradient(135deg, rgba(255,251,235,0.95), rgba(253,230,138,0.72), rgba(255,251,235,0.60))',
           border: '1px solid rgba(245,158,11,0.30)',
         },
@@ -1895,6 +1902,23 @@ export default function Expense(props) {
       chipBg: '#e2e8f0',
       chipColor: '#64748b',
       chipBorder: '#cbd5e1',
+    }
+  }, [monthStats.todaySpent, monthStats.yesterdaySpent])
+  const todayVsYesterdayDisplay = useMemo(() => {
+    const todaySpent = Number(monthStats.todaySpent || 0)
+    const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
+    const diff = todaySpent - yesterdaySpent
+    const pct =
+      yesterdaySpent > 0
+        ? Math.round((Math.abs(diff) / yesterdaySpent) * 100)
+        : todaySpent > 0
+          ? 100
+          : 0
+
+    return {
+      arrow: diff > 0 ? '↑' : diff < 0 ? '↓' : '→',
+      label: diff > 0 ? `${pct}% More` : diff < 0 ? `${pct}% Less` : 'Same',
+      tone: diff > 0 ? '#dc2626' : diff < 0 ? '#16a34a' : '#64748b',
     }
   }, [monthStats.todaySpent, monthStats.yesterdaySpent])
 
@@ -2298,10 +2322,10 @@ export default function Expense(props) {
   const summaryTopMetalCardStyle = {
     position: 'relative',
     overflow: 'hidden',
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.92), rgba(210,220,235,0.75), rgba(255,255,255,0.55))',
-    border: '1px solid rgba(255,255,255,0.35)',
-    boxShadow: '0 6px 14px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.95)',
-    backdropFilter: 'blur(12px)',
+    background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
+    border: '1px solid rgba(226,232,240,0.95)',
+    boxShadow: '0 8px 18px rgba(15,23,42,0.14), inset 0 1px 0 rgba(255,255,255,0.95)',
+    backdropFilter: 'blur(10px)',
   }
   // ─── BOTTOM ROW: Today Status → green tint ───────────────────────────────
   const summaryStatusCardStyle = {
@@ -2337,6 +2361,65 @@ export default function Expense(props) {
     gap: 4,
     minWidth: 0,
     padding: '2px 0',
+  }
+  const heroMicroCardBaseStyle = {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 17,
+    border: '1px solid rgba(226,232,240,0.95)',
+    background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
+    boxShadow: '0 8px 18px rgba(15,23,42,0.14), inset 0 1px 0 rgba(255,255,255,0.95)',
+    backdropFilter: 'blur(10px)',
+  }
+  const heroMicroLabelStyle = {
+    margin: 0,
+    fontSize: 8.5,
+    color: '#475569',
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    lineHeight: 1.1,
+    position: 'relative',
+    zIndex: 1,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  }
+  const heroMicroValueStyle = {
+    margin: '4px 0 0',
+    fontSize: 13.5,
+    fontWeight: 900,
+    color: '#0f172a',
+    lineHeight: 1.08,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    position: 'relative',
+    zIndex: 1,
+  }
+  const comparisonRowStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+    minWidth: 0,
+  }
+  const comparisonKeyStyle = {
+    fontSize: 10,
+    fontWeight: 800,
+    color: '#475569',
+    lineHeight: 1.1,
+    flexShrink: 0,
+  }
+  const comparisonMoneyStyle = {
+    fontSize: 11.5,
+    fontWeight: 900,
+    color: '#334155',
+    lineHeight: 1.15,
+    whiteSpace: 'nowrap',
+  }
+  const comparisonDividerStyle = {
+    borderTop: '1px solid rgba(226,232,240,0.9)',
   }
 
   const timelineFilterStyle = {
@@ -2858,11 +2941,9 @@ export default function Expense(props) {
                       { label: 'Top', value: shortCategory(monthStats.topCategoryRow?.name || '--'), tone: monthStats.topCategoryRow?.color || '#2563eb' },
                       { label: 'Entries', value: String(monthStats.totalEntries), tone: '#334155' },
                     ].map((item) => (
-                      <div key={item.label} style={{ ...summaryTopMetalCardStyle, padding: '7px 8px', borderRadius: 11 }}>
-                        {/* diagonal chrome shine overlay */}
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
-                        <p style={{ margin: 0, fontSize: 9, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', position: 'relative', zIndex: 1 }}>{item.label}</p>
-                        <p style={{ margin: '3px 0 0', fontSize: 13.5, fontWeight: 800, color: item.tone, lineHeight: 1.08, position: 'relative', zIndex: 1 }}>{item.value}</p>
+                      <div key={item.label} style={{ ...summaryTopMetalCardStyle, padding: '8px 10px', borderRadius: 17 }}>
+                        <p style={{ ...heroMicroLabelStyle, fontSize: 8.8 }}>{item.label}</p>
+                        <p style={{ ...heroMicroValueStyle, fontSize: 14, color: item.label === 'Today' ? '#ea580c' : item.label === 'Top' ? '#0f172a' : '#334155' }}>{item.value}</p>
                       </div>
                     ))}
                   </div>
@@ -2880,20 +2961,17 @@ export default function Expense(props) {
               </div>
 
               {/* bottom row micro cards: Today Status / Can Spend Daily / Today vs Yesterday */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 5 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '0.92fr 1.18fr 0.9fr', gap: 5, marginTop: 5 }}>
                 {/* Today Status — green tint */}
                 <div
                   style={{
-                    ...summaryStatusCardStyle,
-                    background: summaryDailyBudgetCards.todayStatus.background,
-                    border: summaryDailyBudgetCards.todayStatus.border,
-                    padding: '6px 8px',
-                    borderRadius: 11,
+                    ...heroMicroCardBaseStyle,
+                    padding: '8px 10px',
+                    borderRadius: 17,
                     minWidth: 0,
                   }}
                 >
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
-                  <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>Today Status</p>
+                  <p style={heroMicroLabelStyle}>Today Status</p>
                   {summaryDailyBudgetCards.todayStatus.rows ? (
                     <div style={{ marginTop: 4, display: 'grid', gap: 0, position: 'relative', zIndex: 1 }}>
                       {summaryDailyBudgetCards.todayStatus.rows.map((row, index) => (
@@ -2904,14 +2982,14 @@ export default function Expense(props) {
                             borderTop: index === 0 ? 'none' : '1px solid rgba(71,85,105,0.12)',
                           }}
                         >
-                          <span style={{ fontSize: 8, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>{row.label}</span>
-                          <span style={{ fontSize: 10.5, fontWeight: 800, color: summaryDailyBudgetCards.todayStatus.tone, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{row.value}</span>
+                          <span style={{ fontSize: 8, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{row.label}</span>
+                          <span style={{ fontSize: 10.5, fontWeight: 900, color: summaryDailyBudgetCards.todayStatus.tone, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{row.value}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                      <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryDailyBudgetCards.todayStatus.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <p style={{ ...heroMicroValueStyle, color: summaryDailyBudgetCards.todayStatus.tone, fontSize: 13.5 }}>
                         {summaryDailyBudgetCards.todayStatus.value}
                       </p>
                       {summaryDailyBudgetCards.todayStatus.divider ? (
@@ -2919,7 +2997,7 @@ export default function Expense(props) {
                       ) : null}
                     </div>
                   )}
-                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
+                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1, fontWeight: 700 }}>
                     {summaryDailyBudgetCards.todayStatus.sub}
                   </p>
                   {summaryDailyBudgetCards.todayStatus.footer ? (
@@ -2927,7 +3005,7 @@ export default function Expense(props) {
                       {summaryDailyBudgetCards.todayStatus.footerDivider ? (
                         <div style={{ width: 24, height: 1, borderRadius: 999, background: 'rgba(71,85,105,0.20)', margin: '4px 0 3px' }} />
                       ) : null}
-                      <p style={{ margin: 0, fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <p style={{ margin: 0, fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700 }}>
                         {summaryDailyBudgetCards.todayStatus.footer}
                       </p>
                     </div>
@@ -2937,16 +3015,13 @@ export default function Expense(props) {
                 {/* Can Spend Daily — cyan/blue tint */}
                 <div
                   style={{
-                    ...summaryDailyCardStyle,
-                    background: summaryDailyBudgetCards.canSpendDaily.background,
-                    border: summaryDailyBudgetCards.canSpendDaily.border,
-                    padding: '6px 8px',
-                    borderRadius: 11,
+                    ...heroMicroCardBaseStyle,
+                    padding: '8px 10px',
+                    borderRadius: 17,
                     minWidth: 0,
                   }}
                 >
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
-                  <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>Can Spend Daily</p>
+                  <p style={heroMicroLabelStyle}>Can Spend Daily</p>
                   {summaryDailyBudgetCards.canSpendDaily.rows ? (
                     <div style={{ marginTop: 4, display: 'grid', gap: 0, position: 'relative', zIndex: 1 }}>
                       {summaryDailyBudgetCards.canSpendDaily.rows.map((row, index) => (
@@ -2957,31 +3032,64 @@ export default function Expense(props) {
                             borderTop: index === 0 ? 'none' : '1px solid rgba(71,85,105,0.12)',
                           }}
                         >
-                          <span style={{ fontSize: 8, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>{row.label}</span>
-                          <span style={{ fontSize: 10, fontWeight: 800, color: summaryDailyBudgetCards.canSpendDaily.tone, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{row.value}</span>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>{row.label}</span>
+                          <span style={{ fontSize: 11.8, fontWeight: 900, color: '#ea580c', lineHeight: 1.1, whiteSpace: 'nowrap' }}>{row.value}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryDailyBudgetCards.canSpendDaily.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
+                    <p style={{ ...heroMicroValueStyle, color: summaryDailyBudgetCards.canSpendDaily.tone }}>
                       {summaryDailyBudgetCards.canSpendDaily.value}
                     </p>
                   )}
-                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
+                  <p
+                    style={{
+                      margin: '3px 0 0',
+                      fontSize: summaryDailyBudgetCards.canSpendDaily.wrapSub ? 9.5 : 8,
+                      color: '#64748b',
+                      lineHeight: 1.15,
+                      position: 'relative',
+                      zIndex: 1,
+                      fontWeight: 700,
+                      ...(summaryDailyBudgetCards.canSpendDaily.wrapSub
+                        ? { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }
+                        : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }),
+                    }}
+                  >
                     {summaryDailyBudgetCards.canSpendDaily.sub}
                   </p>
                 </div>
 
-                {/* Today / Yesterday — violet tint */}
-                <div style={{ ...summaryCompareCardStyle, padding: '6px 8px', borderRadius: 11, minWidth: 0 }}>
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
-                  <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>Today / Yesterday</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: '#334155', lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
-                    {todayYesterdayMetric.value}
-                  </p>
-                  <span style={{ display: 'inline-flex', alignSelf: 'flex-start', marginTop: 3, padding: '1px 6px', borderRadius: 999, background: todayYesterdayMetric.chipBg, color: todayYesterdayMetric.chipColor, border: `1px solid ${todayYesterdayMetric.chipBorder}`, fontSize: 8, fontWeight: 800, lineHeight: 1.2, whiteSpace: 'nowrap', position: 'relative', zIndex: 1 }}>
-                    {todayYesterdayMetric.chip}
-                  </span>
+                {/* Today / Yesterday */}
+                <div
+                  style={{
+                    ...heroMicroCardBaseStyle,
+                    padding: '8px 10px',
+                    borderRadius: 17,
+                    minWidth: 0,
+                  }}
+                >
+                  <p style={heroMicroLabelStyle}>Today / Yestd</p>
+                  <div style={{ display: 'grid', gap: 4, marginTop: 6, position: 'relative', zIndex: 1 }}>
+                    <div style={comparisonRowStyle}>
+                      <span style={comparisonKeyStyle}>Y</span>
+                      <strong style={comparisonMoneyStyle}>{fmt(monthStats.yesterdaySpent)}</strong>
+                    </div>
+                    <div style={comparisonDividerStyle} />
+                    <div style={comparisonRowStyle}>
+                      <span style={comparisonKeyStyle}>T</span>
+                      <strong style={comparisonMoneyStyle}>{fmt(monthStats.todaySpent)}</strong>
+                    </div>
+                    <div style={comparisonDividerStyle} />
+                    <div style={comparisonRowStyle}>
+                      <span style={{ ...comparisonKeyStyle, color: todayVsYesterdayDisplay.tone }}>
+                        {todayVsYesterdayDisplay.arrow}
+                      </span>
+                      <strong style={{ ...comparisonMoneyStyle, color: todayVsYesterdayDisplay.tone }}>
+                        {todayVsYesterdayDisplay.label}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
               </div>
 
