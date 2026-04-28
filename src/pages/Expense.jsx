@@ -1553,8 +1553,8 @@ export default function Expense(props) {
       budgetBalance,
       crossedBaseline,
       hasSavedExtra,
-      monthlyBudget,
       revisedDailyLimit,
+      monthlyBudget,
       savedExtra,
       todayAllowedLimit,
       todayDate,
@@ -1674,10 +1674,19 @@ export default function Expense(props) {
       revisedDailyLimit,
       savedExtra,
       todayAllowedLimit,
+      todayLimitWithExtra,
       todayRemaining,
       todaySpent,
+      yesterdaySpent,
       yesterdayDailyLimit,
     } = summaryDailyBudgetContext
+    const safeTodayLimitWithExtra = Number(todayLimitWithExtra || todayAllowedLimit || baseDailyLimit || 0)
+    const safeTodayRemaining = safeTodayLimitWithExtra - todaySpent
+    const safeTodayActiveLimit = Number((hasSavedExtra ? safeTodayLimitWithExtra : todayAllowedLimit || baseDailyLimit || 0))
+    const todaySpendable = Math.max(safeTodayActiveLimit - todaySpent, 0)
+    const safeYesterdayDailyLimit = Math.max(Number(yesterdayDailyLimit || baseDailyLimit || 0), 0)
+    const safeYesterdaySpent = Math.max(Number(yesterdaySpent || 0), 0)
+    const yesterdayCrossed = safeYesterdaySpent > safeYesterdayDailyLimit
     const todayCrossed = hasCrossStepRef.current ? todaySpent > wasDailyLimitRef.current : todaySpent > todayAllowedLimit
     const crossedWasDailyLimit = hasCrossStepRef.current ? wasDailyLimitRef.current : todayAllowedLimit
     const crossedNowDailyLimit = hasCrossStepRef.current ? nowDailyLimitRef.current : revisedDailyLimit
@@ -1704,12 +1713,11 @@ export default function Expense(props) {
     if (todayCrossed) {
       return {
         todayStatus: {
-          rows: [
-            { label: 'Limit', value: fmt(Math.max(crossedWasDailyLimit, 0)) },
-            { label: 'Spent', value: fmt(todaySpent) },
-            { label: 'Revised', value: `${fmt(Math.max(crossedNowDailyLimit, 0))}/day` },
-          ],
-          sub: 'Limit crossed',
+          value: `${fmt(Math.max(crossedNowDailyLimit, 0))}/day`,
+          sub: 'Spendable',
+          footer: 'Revised',
+          divider: true,
+          footerDivider: true,
           tone: '#dc2626',
           background: 'linear-gradient(135deg, rgba(255,245,245,0.95), rgba(254,202,202,0.78), rgba(255,245,245,0.60))',
           border: '1px solid rgba(239,68,68,0.30)',
@@ -1738,10 +1746,54 @@ export default function Expense(props) {
         },
         canSpendDaily: {
           rows: [
-            { label: 'Yesterday', value: fmt(yesterdayDailyLimit) },
-            { label: 'Today', value: fmt(todayLimitWithExtra) },
+            { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
+            { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
           ],
-          sub: 'Extra added today',
+          sub: 'Current daily limit',
+          tone: '#0f766e',
+          background: blueCardBackground,
+          border: blueCardBorder,
+        },
+      }
+    }
+
+    if (yesterdayCrossed && todaySpent === 0) {
+      return {
+        todayStatus: {
+          value: 'Overused',
+          sub: 'Yesterday crossed',
+          tone: '#d97706',
+          background: 'linear-gradient(135deg, rgba(255,251,235,0.95), rgba(253,230,138,0.72), rgba(255,251,235,0.60))',
+          border: '1px solid rgba(245,158,11,0.30)',
+        },
+        canSpendDaily: {
+          rows: [
+            { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
+            { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
+          ],
+          sub: 'Current daily limit',
+          tone: '#0f766e',
+          background: blueCardBackground,
+          border: blueCardBorder,
+        },
+      }
+    }
+
+    if (!todaySpent) {
+      return {
+        todayStatus: {
+          value: 'Ready today',
+          sub: 'Start within limit',
+          tone: '#16a34a',
+          background: greenCardBackground,
+          border: greenCardBorder,
+        },
+        canSpendDaily: {
+          rows: [
+            { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
+            { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
+          ],
+          sub: 'Current daily limit',
           tone: '#0f766e',
           background: blueCardBackground,
           border: blueCardBorder,
@@ -1752,18 +1804,19 @@ export default function Expense(props) {
     if (hasSavedExtra && todaySpent > 0) {
       return {
         todayStatus: {
-          value: `${fmt(todayRemaining)} left`,
-          sub: 'Using saved extra',
+          value: fmt(Math.max(safeTodayRemaining, 0)),
+          sub: 'Spendable',
+          divider: true,
           tone: '#16a34a',
           background: greenCardBackground,
           border: greenCardBorder,
         },
         canSpendDaily: {
           rows: [
-            { label: 'Yesterday', value: fmt(yesterdayDailyLimit) },
-            { label: 'Today', value: fmt(todayLimitWithExtra) },
+            { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
+            { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
           ],
-          sub: `Includes extra ${fmt(savedExtra)}`,
+          sub: 'Current daily limit',
           tone: '#0f766e',
           background: blueCardBackground,
           border: blueCardBorder,
@@ -1773,14 +1826,18 @@ export default function Expense(props) {
 
     return {
       todayStatus: {
-        value: `${fmt(todayRemaining)} left`,
-        sub: 'Safe today',
+        value: fmt(Math.max(todaySpendable, 0)),
+        sub: 'Spendable',
+        divider: true,
         tone: '#16a34a',
         background: greenCardBackground,
         border: greenCardBorder,
       },
       canSpendDaily: {
-        value: `${fmt(baseDailyLimit)}/day`,
+        rows: [
+          { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
+          { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
+        ],
         sub: 'Current daily limit',
         tone: '#0f766e',
         background: blueCardBackground,
@@ -2853,13 +2910,28 @@ export default function Expense(props) {
                       ))}
                     </div>
                   ) : (
-                    <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryDailyBudgetCards.todayStatus.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
-                      {summaryDailyBudgetCards.todayStatus.value}
-                    </p>
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryDailyBudgetCards.todayStatus.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {summaryDailyBudgetCards.todayStatus.value}
+                      </p>
+                      {summaryDailyBudgetCards.todayStatus.divider ? (
+                        <div style={{ width: 24, height: 1, borderRadius: 999, background: 'rgba(71,85,105,0.20)', margin: '4px 0 3px' }} />
+                      ) : null}
+                    </div>
                   )}
                   <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
                     {summaryDailyBudgetCards.todayStatus.sub}
                   </p>
+                  {summaryDailyBudgetCards.todayStatus.footer ? (
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      {summaryDailyBudgetCards.todayStatus.footerDivider ? (
+                        <div style={{ width: 24, height: 1, borderRadius: 999, background: 'rgba(71,85,105,0.20)', margin: '4px 0 3px' }} />
+                      ) : null}
+                      <p style={{ margin: 0, fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {summaryDailyBudgetCards.todayStatus.footer}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Can Spend Daily — cyan/blue tint */}
