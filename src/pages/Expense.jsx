@@ -1427,6 +1427,12 @@ export default function Expense(props) {
   const [autoBudgetEditing, setAutoBudgetEditing] = useState(false)
   const [autoBudgetDrafts, setAutoBudgetDrafts] = useState({})
   const [showBudgetToast, setShowBudgetToast] = useState(false)
+  const activeCrossLimitRef = useRef(0)
+  const wasDailyLimitRef = useRef(0)
+  const nowDailyLimitRef = useRef(0)
+  const lastCrossedSpendRef = useRef(0)
+  const hasCrossStepRef = useRef(false)
+  const [crossStepVersion, setCrossStepVersion] = useState(0)
 
   useEffect(() => {
     const savedBudgets = loadStoredBudgets(budgetStorageKey)
@@ -1519,6 +1525,92 @@ export default function Expense(props) {
       }),
     [monthStats]
   )
+  const summaryDailyBudgetContext = useMemo(() => {
+    const monthlyBudget = Number(monthStats.monthlyBudget || 0)
+    const totalSpent = Number(monthStats.totalSpent || 0)
+    const todaySpent = Number(monthStats.todaySpent || 0)
+    const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
+    const todayDate = Number(monthStats.now?.getDate?.() || new Date().getDate())
+    const daysInMonth = Number(safeSpend.daysInMonth || 0)
+    const baseDailyLimit = Number(safeSpend.baseDailyLimit || 0)
+    const spendingBeforeToday = totalSpent - todaySpent
+    const budgetBeforeToday = monthlyBudget - spendingBeforeToday
+    const daysLeftIncludingToday = Math.max(daysInMonth - todayDate + 1, 1)
+    const daysLeftAfterToday = Math.max(daysInMonth - todayDate, 1)
+    const budgetBalance = monthlyBudget - totalSpent
+    const todayAllowedLimit =
+      budgetBeforeToday > 0 ? Math.max(budgetBeforeToday / daysLeftIncludingToday, 0) : 0
+    const revisedDailyLimit =
+      budgetBalance > 0 ? Math.max(budgetBalance / daysLeftAfterToday, 0) : 0
+    const savedExtra = Math.max(baseDailyLimit - yesterdaySpent, 0)
+    const todayLimitWithExtra = baseDailyLimit + savedExtra
+    const todayRemaining = todayLimitWithExtra - todaySpent
+    const hasSavedExtra = savedExtra > 0
+    const crossedBaseline = todaySpent > todayAllowedLimit
+
+    return {
+      baseDailyLimit,
+      budgetBalance,
+      crossedBaseline,
+      hasSavedExtra,
+      monthlyBudget,
+      revisedDailyLimit,
+      savedExtra,
+      todayAllowedLimit,
+      todayDate,
+      todayLimitWithExtra,
+      todayRemaining,
+      todaySpent,
+      totalSpent,
+      yesterdayDailyLimit: baseDailyLimit,
+      yesterdaySpent,
+    }
+  }, [monthStats.monthlyBudget, monthStats.now, monthStats.todaySpent, monthStats.totalSpent, monthStats.yesterdaySpent, safeSpend.baseDailyLimit, safeSpend.daysInMonth])
+  const crossStepResetKey = `${budgetStorageKey}|${monthStats.now.getFullYear()}-${monthStats.now.getMonth()}-${monthStats.now.getDate()}|${Math.round(summaryDailyBudgetContext.monthlyBudget)}`
+
+  useEffect(() => {
+    activeCrossLimitRef.current = summaryDailyBudgetContext.todayAllowedLimit
+    wasDailyLimitRef.current = 0
+    nowDailyLimitRef.current = 0
+    lastCrossedSpendRef.current = 0
+    hasCrossStepRef.current = false
+    setCrossStepVersion((value) => value + 1)
+  }, [crossStepResetKey])
+
+  useEffect(() => {
+    const { crossedBaseline, revisedDailyLimit, todayAllowedLimit, todaySpent } = summaryDailyBudgetContext
+
+    if (!crossedBaseline) {
+      activeCrossLimitRef.current = todayAllowedLimit
+      if (hasCrossStepRef.current) {
+        wasDailyLimitRef.current = 0
+        nowDailyLimitRef.current = 0
+        lastCrossedSpendRef.current = 0
+        hasCrossStepRef.current = false
+        setCrossStepVersion((value) => value + 1)
+      }
+      return
+    }
+
+    if (!hasCrossStepRef.current) {
+      wasDailyLimitRef.current = todayAllowedLimit
+      nowDailyLimitRef.current = revisedDailyLimit
+      activeCrossLimitRef.current = revisedDailyLimit
+      lastCrossedSpendRef.current = todaySpent
+      hasCrossStepRef.current = true
+      setCrossStepVersion((value) => value + 1)
+      return
+    }
+
+    const additionalSpendSinceLastCross = todaySpent - lastCrossedSpendRef.current
+    if (additionalSpendSinceLastCross > activeCrossLimitRef.current) {
+      wasDailyLimitRef.current = activeCrossLimitRef.current
+      nowDailyLimitRef.current = revisedDailyLimit
+      activeCrossLimitRef.current = revisedDailyLimit
+      lastCrossedSpendRef.current = todaySpent
+      setCrossStepVersion((value) => value + 1)
+    }
+  }, [summaryDailyBudgetContext])
   const todaySpendStatus = useMemo(() => {
     if (!safeSpend.hasBudget) {
       return {
@@ -1550,30 +1642,152 @@ export default function Expense(props) {
       tone: '#dc2626',
     }
   }, [monthStats.todaySpent, safeSpend])
-  const summaryTodayStatusCard = useMemo(() => {
+  const summaryDailyBudgetCards = useMemo(() => {
+    const greenCardBackground = 'linear-gradient(135deg, rgba(240,255,248,0.95), rgba(200,240,218,0.78), rgba(240,255,248,0.60))'
+    const greenCardBorder = '1px solid rgba(80,200,120,0.30)'
+    const blueCardBackground = 'linear-gradient(135deg, rgba(235,248,255,0.95), rgba(190,225,245,0.78), rgba(235,248,255,0.60))'
+    const blueCardBorder = '1px solid rgba(56,189,248,0.30)'
+
     if (!safeSpend.hasBudget) {
       return {
-        value: 'Set budget',
-        sub: 'Add budget to track daily spending.',
-        tone: '#64748b',
+        todayStatus: {
+          value: 'Set budget',
+          sub: 'Add budget to track daily spending.',
+          tone: '#64748b',
+          background: greenCardBackground,
+          border: greenCardBorder,
+        },
+        canSpendDaily: {
+          value: 'Set budget',
+          sub: 'Add budget first',
+          tone: '#64748b',
+          background: blueCardBackground,
+          border: blueCardBorder,
+        },
       }
     }
 
-    const remainingToday = Math.abs(safeSpend.todayDifference)
-    if (monthStats.todaySpent <= safeSpend.canSpendDaily) {
+    const {
+      baseDailyLimit,
+      budgetBalance,
+      hasSavedExtra,
+      revisedDailyLimit,
+      savedExtra,
+      todayAllowedLimit,
+      todayRemaining,
+      todaySpent,
+      yesterdayDailyLimit,
+    } = summaryDailyBudgetContext
+    const todayCrossed = hasCrossStepRef.current ? todaySpent > wasDailyLimitRef.current : todaySpent > todayAllowedLimit
+    const crossedWasDailyLimit = hasCrossStepRef.current ? wasDailyLimitRef.current : todayAllowedLimit
+    const crossedNowDailyLimit = hasCrossStepRef.current ? nowDailyLimitRef.current : revisedDailyLimit
+
+    if (budgetBalance <= 0) {
       return {
-        value: `${fmt(remainingToday)} left`,
-        sub: 'Under daily limit',
-        tone: '#16a34a',
+        todayStatus: {
+          value: `${fmt(0)} left`,
+          sub: 'Budget exhausted',
+          tone: '#dc2626',
+          background: 'linear-gradient(135deg, rgba(255,245,245,0.95), rgba(254,202,202,0.78), rgba(255,245,245,0.60))',
+          border: '1px solid rgba(239,68,68,0.30)',
+        },
+        canSpendDaily: {
+          value: `${fmt(0)}/day`,
+          sub: 'No budget left',
+          tone: '#dc2626',
+          background: 'linear-gradient(135deg, rgba(255,245,245,0.95), rgba(254,202,202,0.78), rgba(255,245,245,0.60))',
+          border: '1px solid rgba(239,68,68,0.30)',
+        },
+      }
+    }
+
+    if (todayCrossed) {
+      return {
+        todayStatus: {
+          rows: [
+            { label: 'Limit', value: fmt(Math.max(crossedWasDailyLimit, 0)) },
+            { label: 'Spent', value: fmt(todaySpent) },
+            { label: 'Revised', value: `${fmt(Math.max(crossedNowDailyLimit, 0))}/day` },
+          ],
+          sub: 'Limit crossed',
+          tone: '#dc2626',
+          background: 'linear-gradient(135deg, rgba(255,245,245,0.95), rgba(254,202,202,0.78), rgba(255,245,245,0.60))',
+          border: '1px solid rgba(239,68,68,0.30)',
+        },
+        canSpendDaily: {
+          rows: [
+            { label: 'Was', value: `${fmt(Math.max(crossedWasDailyLimit, 0))}/day` },
+            { label: 'Now', value: `${fmt(Math.max(crossedNowDailyLimit, 0))}/day` },
+          ],
+          sub: 'Revised for remaining days',
+          tone: '#d97706',
+          background: 'linear-gradient(135deg, rgba(255,251,235,0.95), rgba(253,230,138,0.72), rgba(255,251,235,0.60))',
+          border: '1px solid rgba(245,158,11,0.30)',
+        },
+      }
+    }
+
+    if (hasSavedExtra && todaySpent === 0) {
+      return {
+        todayStatus: {
+          value: `${fmt(savedExtra)} extra`,
+          sub: 'Saved yesterday',
+          tone: '#16a34a',
+          background: greenCardBackground,
+          border: greenCardBorder,
+        },
+        canSpendDaily: {
+          rows: [
+            { label: 'Yesterday', value: fmt(yesterdayDailyLimit) },
+            { label: 'Today', value: fmt(todayLimitWithExtra) },
+          ],
+          sub: 'Extra added today',
+          tone: '#0f766e',
+          background: blueCardBackground,
+          border: blueCardBorder,
+        },
+      }
+    }
+
+    if (hasSavedExtra && todaySpent > 0) {
+      return {
+        todayStatus: {
+          value: `${fmt(todayRemaining)} left`,
+          sub: 'Using saved extra',
+          tone: '#16a34a',
+          background: greenCardBackground,
+          border: greenCardBorder,
+        },
+        canSpendDaily: {
+          rows: [
+            { label: 'Yesterday', value: fmt(yesterdayDailyLimit) },
+            { label: 'Today', value: fmt(todayLimitWithExtra) },
+          ],
+          sub: `Includes extra ${fmt(savedExtra)}`,
+          tone: '#0f766e',
+          background: blueCardBackground,
+          border: blueCardBorder,
+        },
       }
     }
 
     return {
-      value: `${fmt(remainingToday)} left`,
-      sub: 'Over daily limit',
-      tone: '#dc2626',
+      todayStatus: {
+        value: `${fmt(todayRemaining)} left`,
+        sub: 'Safe today',
+        tone: '#16a34a',
+        background: greenCardBackground,
+        border: greenCardBorder,
+      },
+      canSpendDaily: {
+        value: `${fmt(baseDailyLimit)}/day`,
+        sub: 'Current daily limit',
+        tone: '#0f766e',
+        background: blueCardBackground,
+        border: blueCardBorder,
+      },
     }
-  }, [monthStats.todaySpent, safeSpend])
+  }, [crossStepVersion, safeSpend.hasBudget, summaryDailyBudgetContext])
   const todayYesterdayMetric = useMemo(() => {
     const todaySpent = Number(monthStats.todaySpent || 0)
     const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
@@ -2058,6 +2272,14 @@ export default function Expense(props) {
     border: '1px solid rgba(139,92,246,0.30)',
     boxShadow: '0 6px 14px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.95)',
     backdropFilter: 'blur(12px)',
+  }
+  const summarySplitRowStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+    minWidth: 0,
+    padding: '2px 0',
   }
 
   const timelineFilterStyle = {
@@ -2603,26 +2825,78 @@ export default function Expense(props) {
               {/* bottom row micro cards: Today Status / Can Spend Daily / Today vs Yesterday */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 5 }}>
                 {/* Today Status — green tint */}
-                <div style={{ ...summaryStatusCardStyle, padding: '6px 8px', borderRadius: 11, minWidth: 0 }}>
+                <div
+                  style={{
+                    ...summaryStatusCardStyle,
+                    background: summaryDailyBudgetCards.todayStatus.background,
+                    border: summaryDailyBudgetCards.todayStatus.border,
+                    padding: '6px 8px',
+                    borderRadius: 11,
+                    minWidth: 0,
+                  }}
+                >
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
                   <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>Today Status</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryTodayStatusCard.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
-                    {summaryTodayStatusCard.value}
-                  </p>
+                  {summaryDailyBudgetCards.todayStatus.rows ? (
+                    <div style={{ marginTop: 4, display: 'grid', gap: 0, position: 'relative', zIndex: 1 }}>
+                      {summaryDailyBudgetCards.todayStatus.rows.map((row, index) => (
+                        <div
+                          key={`${row.label}-${index}`}
+                          style={{
+                            ...summarySplitRowStyle,
+                            borderTop: index === 0 ? 'none' : '1px solid rgba(71,85,105,0.12)',
+                          }}
+                        >
+                          <span style={{ fontSize: 8, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>{row.label}</span>
+                          <span style={{ fontSize: 10.5, fontWeight: 800, color: summaryDailyBudgetCards.todayStatus.tone, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryDailyBudgetCards.todayStatus.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
+                      {summaryDailyBudgetCards.todayStatus.value}
+                    </p>
+                  )}
                   <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
-                    {summaryTodayStatusCard.sub}
+                    {summaryDailyBudgetCards.todayStatus.sub}
                   </p>
                 </div>
 
                 {/* Can Spend Daily — cyan/blue tint */}
-                <div style={{ ...summaryDailyCardStyle, padding: '6px 8px', borderRadius: 11, minWidth: 0 }}>
+                <div
+                  style={{
+                    ...summaryDailyCardStyle,
+                    background: summaryDailyBudgetCards.canSpendDaily.background,
+                    border: summaryDailyBudgetCards.canSpendDaily.border,
+                    padding: '6px 8px',
+                    borderRadius: 11,
+                    minWidth: 0,
+                  }}
+                >
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(118deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)', pointerEvents: 'none', borderRadius: 'inherit' }} />
                   <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>Can Spend Daily</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: canSpendDailyTone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
-                    {safeSpend.hasBudget ? `${fmt(safeSpend.canSpendDaily)}/day` : 'Set budget'}
-                  </p>
+                  {summaryDailyBudgetCards.canSpendDaily.rows ? (
+                    <div style={{ marginTop: 4, display: 'grid', gap: 0, position: 'relative', zIndex: 1 }}>
+                      {summaryDailyBudgetCards.canSpendDaily.rows.map((row, index) => (
+                        <div
+                          key={`${row.label}-${index}`}
+                          style={{
+                            ...summarySplitRowStyle,
+                            borderTop: index === 0 ? 'none' : '1px solid rgba(71,85,105,0.12)',
+                          }}
+                        >
+                          <span style={{ fontSize: 8, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>{row.label}</span>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: summaryDailyBudgetCards.canSpendDaily.tone, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 800, color: summaryDailyBudgetCards.canSpendDaily.tone, lineHeight: 1.08, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
+                      {summaryDailyBudgetCards.canSpendDaily.value}
+                    </p>
+                  )}
                   <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1 }}>
-                    {safeSpend.hasBudget ? 'To stay in budget' : 'Add budget first'}
+                    {summaryDailyBudgetCards.canSpendDaily.sub}
                   </p>
                 </div>
 
