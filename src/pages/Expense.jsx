@@ -587,6 +587,179 @@ const getDailyComparison = (todayLogs, yesterdayLogs) => {
   return { todayTotal, yesterdayTotal, diff, biggestIncrease }
 }
 
+const getTodayComparison = ({ todaySpent, yesterdaySpent }) => {
+  const today = Number(todaySpent || 0)
+  const yesterday = Number(yesterdaySpent || 0)
+  const diff = today - yesterday
+  const pct = yesterday > 0 ? Math.round((Math.abs(diff) / yesterday) * 100) : 0
+
+  if (diff > 0) {
+    return {
+      todayValue: fmt(today),
+      yesterdayValue: fmt(yesterday),
+      changeLabel: `↑ ${pct}% More`,
+      tone: '#dc2626',
+      badgeBg: 'rgba(254,226,226,0.98)',
+      badgeBorder: 'rgba(248,113,113,0.36)',
+    }
+  }
+
+  if (diff < 0) {
+    return {
+      todayValue: fmt(today),
+      yesterdayValue: fmt(yesterday),
+      changeLabel: `↓ ${pct}% Less`,
+      tone: '#16a34a',
+      badgeBg: 'rgba(220,252,231,0.98)',
+      badgeBorder: 'rgba(74,222,128,0.34)',
+    }
+  }
+
+  return {
+    todayValue: fmt(today),
+    yesterdayValue: fmt(yesterday),
+    changeLabel: yesterday > 0 ? '→ Same' : '→ No comparison',
+    tone: '#64748b',
+    badgeBg: 'rgba(226,232,240,0.98)',
+    badgeBorder: 'rgba(203,213,225,0.34)',
+  }
+}
+
+const getSpendingControlState = ({
+  hasBudget,
+  summaryContext,
+}) => {
+  const todaySpent = Number(summaryContext?.todaySpent || 0)
+  const totalSpent = Number(summaryContext?.totalSpent || 0)
+  const monthlyBudget = Number(summaryContext?.monthlyBudget || 0)
+  const todayLimit = Math.max(Number(summaryContext?.activeTodayLimit || 0), 0)
+  const limitSpent = Math.max(Number(summaryContext?.limitSpent || 0), 0)
+  const usedPct = Number(summaryContext?.usedPct || 0)
+  const availableToday = Math.max(Number(summaryContext?.availableToday || 0), 0)
+  const monthlyOverBy = Math.max(totalSpent - monthlyBudget, 0)
+  const oldLimit = Math.max(Number(summaryContext?.oldLimit || 0), 0)
+  const newLimit = Math.max(Number(summaryContext?.newLimit || 0), 0)
+  const hasNewLimitSet = Boolean(summaryContext?.hasNewLimitSet)
+  const progressPct = todayLimit > 0 ? clamp((limitSpent / todayLimit) * 100, 0, 100) : 0
+
+  if (!hasBudget || monthlyBudget <= 0) {
+    return {
+      key: 'set-budget',
+      badge: 'Set budget',
+      tone: '#64748b',
+      progressTone: 'linear-gradient(90deg,#94a3b8,#cbd5e1)',
+      progressPct: 0,
+      rows: [
+        { label: 'Today Limit', value: 'Set budget' },
+        { label: 'Current Limit Used', value: fmt(0) },
+        { label: 'Status', value: 'SET BUDGET\nAdd budget' },
+      ],
+      message: 'Set a budget to calculate daily limit.',
+      footers: [],
+    }
+  }
+
+  if (monthlyOverBy > 0) {
+    return {
+      key: 'budget-crossed',
+      badge: 'Budget crossed',
+      tone: '#dc2626',
+      progressTone: 'linear-gradient(90deg,#ef4444,#fb7185)',
+      progressPct: 100,
+      rows: [
+        { label: 'Today Limit', value: fmt(0) },
+        { label: 'Current Limit Used', value: fmt(todaySpent) },
+        { label: 'Status', value: `BUDGET CROSSED\n${fmt(monthlyOverBy)}` },
+      ],
+      message: 'Monthly budget crossed.',
+      footers: [],
+    }
+  }
+
+  if (hasNewLimitSet) {
+    return {
+      key: 'new-limit',
+      badge: 'New limit',
+      tone: '#2563eb',
+      progressTone: 'linear-gradient(90deg,#2563eb,#60a5fa)',
+      progressPct,
+      rows: [
+        { label: 'Today Limit', value: fmt(todayLimit) },
+        { label: 'Current Limit Used', value: fmt(limitSpent) },
+        { label: 'Status', value: `NEW LIMIT SET\n${fmt(oldLimit)} → ${fmt(newLimit || todayLimit)}` },
+      ],
+      message: 'New daily limit started after earlier limit was used.',
+      footers: [],
+    }
+  }
+
+  if (availableToday <= 0 || todaySpent === todayLimit || usedPct >= 100) {
+    return {
+      key: 'limit-used',
+      badge: 'Limit used',
+      tone: '#dc2626',
+      progressTone: 'linear-gradient(90deg,#ef4444,#fb7185)',
+      progressPct,
+      rows: [
+        { label: 'Today Limit', value: fmt(todayLimit) },
+        { label: 'Current Limit Used', value: fmt(limitSpent) },
+        { label: 'Status', value: 'LIMIT USED\n₹0 available' },
+      ],
+      message: 'Daily limit used for this round.',
+      footers: [],
+    }
+  }
+
+  if (usedPct > 70) {
+    return {
+      key: 'nearing-limit',
+      badge: 'Nearing limit',
+      tone: '#d97706',
+      progressTone: 'linear-gradient(90deg,#f59e0b,#f97316)',
+      progressPct,
+      rows: [
+        { label: 'Today Limit', value: fmt(todayLimit) },
+        { label: 'Current Limit Used', value: fmt(limitSpent) },
+        { label: 'Status', value: `ACTIVE LIMIT\n${fmt(availableToday)} available` },
+      ],
+      message: 'Daily limit updates when your spending crosses the limit.',
+      footers: [],
+    }
+  }
+
+  if (usedPct > 30) {
+    return {
+      key: 'good-control',
+      badge: 'Good control',
+      tone: '#16a34a',
+      progressTone: 'linear-gradient(90deg,#16a34a,#4ade80)',
+      progressPct,
+      rows: [
+        { label: 'Today Limit', value: fmt(todayLimit) },
+        { label: 'Current Limit Used', value: fmt(limitSpent) },
+        { label: 'Status', value: `ACTIVE LIMIT\n${fmt(availableToday)} available` },
+      ],
+      message: 'Daily limit updates when your spending crosses the limit.',
+      footers: [],
+    }
+  }
+
+  return {
+    key: 'excellent',
+    badge: 'Excellent',
+    tone: '#2563eb',
+    progressTone: 'linear-gradient(90deg,#2563eb,#60a5fa)',
+    progressPct,
+    rows: [
+      { label: 'Today Limit', value: fmt(todayLimit) },
+      { label: 'Current Limit Used', value: fmt(limitSpent) },
+      { label: 'Status', value: `ACTIVE LIMIT\n${fmt(availableToday)} available` },
+    ],
+    message: 'Daily limit updates when your spending crosses the limit.',
+    footers: [],
+  }
+}
+
 const getHealthIssues = ({ monthStats, safeSpend, projection, burnRate, leakData }) => {
   const issues = []
   if (monthStats.monthlyBudgetUsed > 100) issues.push(`Budget is already at ${Math.round(monthStats.monthlyBudgetUsed)}% this month.`)
@@ -1427,12 +1600,13 @@ export default function Expense(props) {
   const [autoBudgetEditing, setAutoBudgetEditing] = useState(false)
   const [autoBudgetDrafts, setAutoBudgetDrafts] = useState({})
   const [showBudgetToast, setShowBudgetToast] = useState(false)
-  const activeCrossLimitRef = useRef(0)
-  const wasDailyLimitRef = useRef(0)
-  const nowDailyLimitRef = useRef(0)
-  const lastCrossedSpendRef = useRef(0)
-  const hasCrossStepRef = useRef(false)
-  const [crossStepVersion, setCrossStepVersion] = useState(0)
+  const activeTodayLimitRef = useRef(0)
+  const consumedBeforeCurrentLimitRef = useRef(0)
+  const lastTodaySpentRef = useRef(0)
+  const lastLimitResetInfoRef = useRef(null)
+  const lastLimitDateRef = useRef('')
+  const lastMonthlyBudgetRef = useRef(0)
+  const lastBudgetOwnerRef = useRef('')
 
   useEffect(() => {
     const savedBudgets = loadStoredBudgets(budgetStorageKey)
@@ -1529,88 +1703,117 @@ export default function Expense(props) {
     const monthlyBudget = Number(monthStats.monthlyBudget || 0)
     const totalSpent = Number(monthStats.totalSpent || 0)
     const todaySpent = Number(monthStats.todaySpent || 0)
-    const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
-    const todayDate = Number(monthStats.now?.getDate?.() || new Date().getDate())
-    const daysInMonth = Number(safeSpend.daysInMonth || 0)
-    const baseDailyLimit = Number(safeSpend.baseDailyLimit || 0)
-    const spendingBeforeToday = totalSpent - todaySpent
-    const budgetBeforeToday = monthlyBudget - spendingBeforeToday
-    const daysLeftIncludingToday = Math.max(daysInMonth - todayDate + 1, 1)
-    const daysLeftAfterToday = Math.max(daysInMonth - todayDate, 1)
-    const budgetBalance = monthlyBudget - totalSpent
-    const todayAllowedLimit =
-      budgetBeforeToday > 0 ? Math.max(budgetBeforeToday / daysLeftIncludingToday, 0) : 0
-    const revisedDailyLimit =
-      budgetBalance > 0 ? Math.max(budgetBalance / daysLeftAfterToday, 0) : 0
-    const savedExtra = Math.max(baseDailyLimit - yesterdaySpent, 0)
-    const todayLimitWithExtra = baseDailyLimit + savedExtra
-    const todayRemaining = todayLimitWithExtra - todaySpent
-    const hasSavedExtra = savedExtra > 0
-    const crossedBaseline = todaySpent > todayAllowedLimit
+    const remainingDays = Math.max(Number(safeSpend.remainingDays || 1), 1)
+    const availableMonthlyBudget = Math.max(monthlyBudget - totalSpent, 0)
+    const baseTodayLimit = monthlyBudget > 0 ? monthlyBudget / remainingDays : 0
+    const safeDailyLimit =
+      availableMonthlyBudget > 0 ? (availableMonthlyBudget + todaySpent) / remainingDays : 0
 
     return {
-      baseDailyLimit,
-      budgetBalance,
-      crossedBaseline,
-      hasSavedExtra,
-      revisedDailyLimit,
+      availableMonthlyBudget,
+      baseTodayLimit,
       monthlyBudget,
-      savedExtra,
-      todayAllowedLimit,
-      todayDate,
-      todayLimitWithExtra,
-      todayRemaining,
+      remainingDays,
+      safeDailyLimit,
       todaySpent,
       totalSpent,
-      yesterdayDailyLimit: baseDailyLimit,
-      yesterdaySpent,
     }
-  }, [monthStats.monthlyBudget, monthStats.now, monthStats.todaySpent, monthStats.totalSpent, monthStats.yesterdaySpent, safeSpend.baseDailyLimit, safeSpend.daysInMonth])
-  const crossStepResetKey = `${budgetStorageKey}|${monthStats.now.getFullYear()}-${monthStats.now.getMonth()}-${monthStats.now.getDate()}|${Math.round(summaryDailyBudgetContext.monthlyBudget)}`
+  }, [monthStats.monthlyBudget, monthStats.now, monthStats.todaySpent, monthStats.totalSpent, safeSpend.remainingDays])
 
-  useEffect(() => {
-    activeCrossLimitRef.current = summaryDailyBudgetContext.todayAllowedLimit
-    wasDailyLimitRef.current = 0
-    nowDailyLimitRef.current = 0
-    lastCrossedSpendRef.current = 0
-    hasCrossStepRef.current = false
-    setCrossStepVersion((value) => value + 1)
-  }, [crossStepResetKey])
+  const spendingControlContext = useMemo(() => {
+    const monthlyBudget = Number(summaryDailyBudgetContext?.monthlyBudget || 0)
+    const totalSpent = Number(summaryDailyBudgetContext?.totalSpent || 0)
+    const todaySpent = Number(summaryDailyBudgetContext?.todaySpent || 0)
+    const remainingDays = Math.max(Number(summaryDailyBudgetContext?.remainingDays || 1), 1)
+    const remainingMonthlyBudget = Math.max(Number(summaryDailyBudgetContext?.availableMonthlyBudget || 0), 0)
+    const baseNextLimit = remainingMonthlyBudget > 0 ? remainingMonthlyBudget / remainingDays : 0
+    const dateKey = getStartOfDay(monthStats.now).toISOString().slice(0, 10)
+    const ownerKey = budgetFirestoreOwnerId || budgetStorageKey
 
-  useEffect(() => {
-    const { crossedBaseline, revisedDailyLimit, todayAllowedLimit, todaySpent } = summaryDailyBudgetContext
+    if (
+      lastLimitDateRef.current !== dateKey ||
+      lastBudgetOwnerRef.current !== ownerKey ||
+      lastMonthlyBudgetRef.current !== monthlyBudget ||
+      lastTodaySpentRef.current > todaySpent ||
+      todaySpent === 0
+    ) {
+      lastLimitDateRef.current = dateKey
+      lastBudgetOwnerRef.current = ownerKey
+      lastMonthlyBudgetRef.current = monthlyBudget
+      activeTodayLimitRef.current = 0
+      consumedBeforeCurrentLimitRef.current = 0
+      lastTodaySpentRef.current = 0
+      lastLimitResetInfoRef.current = null
+    }
 
-    if (!crossedBaseline) {
-      activeCrossLimitRef.current = todayAllowedLimit
-      if (hasCrossStepRef.current) {
-        wasDailyLimitRef.current = 0
-        nowDailyLimitRef.current = 0
-        lastCrossedSpendRef.current = 0
-        hasCrossStepRef.current = false
-        setCrossStepVersion((value) => value + 1)
+    if (monthlyBudget <= 0) {
+      activeTodayLimitRef.current = 0
+      consumedBeforeCurrentLimitRef.current = 0
+      lastLimitResetInfoRef.current = null
+      return {
+        activeTodayLimit: 0,
+        availableToday: 0,
+        hasNewLimitSet: false,
+        limitSpent: 0,
+        monthlyBudget,
+        newLimit: 0,
+        oldLimit: 0,
+        todaySpent,
+        totalSpent,
+        usedPct: 0,
       }
-      return
     }
 
-    if (!hasCrossStepRef.current) {
-      wasDailyLimitRef.current = todayAllowedLimit
-      nowDailyLimitRef.current = revisedDailyLimit
-      activeCrossLimitRef.current = revisedDailyLimit
-      lastCrossedSpendRef.current = todaySpent
-      hasCrossStepRef.current = true
-      setCrossStepVersion((value) => value + 1)
-      return
+    if (activeTodayLimitRef.current <= 0) {
+      activeTodayLimitRef.current = baseNextLimit
     }
 
-    const additionalSpendSinceLastCross = todaySpent - lastCrossedSpendRef.current
-    if (additionalSpendSinceLastCross > activeCrossLimitRef.current) {
-      wasDailyLimitRef.current = activeCrossLimitRef.current
-      nowDailyLimitRef.current = revisedDailyLimit
-      activeCrossLimitRef.current = revisedDailyLimit
-      lastCrossedSpendRef.current = todaySpent
-      setCrossStepVersion((value) => value + 1)
+    let activeTodayLimit = Math.max(Number(activeTodayLimitRef.current || 0), 0)
+    let oldLimit = 0
+    let newLimit = activeTodayLimit
+    let hasNewLimitSet = false
+    const monthlyOverBy = Math.max(totalSpent - monthlyBudget, 0)
+    let currentBucketSpent = Math.max(todaySpent - consumedBeforeCurrentLimitRef.current, 0)
+
+    if (monthlyOverBy <= 0 && currentBucketSpent > activeTodayLimit) {
+      oldLimit = activeTodayLimit
+      let overflow = currentBucketSpent - oldLimit
+      consumedBeforeCurrentLimitRef.current += oldLimit
+      const newLimitFromBudget = remainingMonthlyBudget > 0 ? remainingMonthlyBudget / remainingDays : 0
+      newLimit = Math.max(newLimitFromBudget, overflow)
+      while (newLimit > 0 && overflow > newLimit) {
+        consumedBeforeCurrentLimitRef.current += newLimit
+        overflow -= newLimit
+        newLimit = Math.max(newLimitFromBudget, overflow)
+      }
+      activeTodayLimitRef.current = newLimit
+      activeTodayLimit = newLimit
+      currentBucketSpent = overflow
+      hasNewLimitSet = true
+      lastLimitResetInfoRef.current = { oldLimit, newLimit }
+    } else {
+      lastLimitResetInfoRef.current = null
+      oldLimit = 0
     }
-  }, [summaryDailyBudgetContext])
+
+    const limitSpent = monthlyOverBy > 0 ? todaySpent : Math.max(Math.min(currentBucketSpent, activeTodayLimit), 0)
+    const availableToday = monthlyOverBy > 0 ? 0 : Math.max(activeTodayLimit - limitSpent, 0)
+    const usedPct = activeTodayLimit > 0 ? Math.min((limitSpent / activeTodayLimit) * 100, 100) : 0
+
+    return {
+      activeTodayLimit,
+      availableToday,
+      hasNewLimitSet,
+      limitSpent,
+      monthlyBudget,
+      newLimit,
+      oldLimit,
+      todaySpent,
+      totalSpent,
+      usedPct,
+    }
+  }, [budgetFirestoreOwnerId, monthStats.now, summaryDailyBudgetContext])
+
   const todaySpendStatus = useMemo(() => {
     if (!safeSpend.hasBudget) {
       return {
@@ -1642,285 +1845,26 @@ export default function Expense(props) {
       tone: '#dc2626',
     }
   }, [monthStats.todaySpent, safeSpend])
-  const summaryDailyBudgetCards = useMemo(() => {
-    const greenCardBackground = 'linear-gradient(135deg, rgba(240,255,248,0.95), rgba(200,240,218,0.78), rgba(240,255,248,0.60))'
-    const greenCardBorder = '1px solid rgba(80,200,120,0.30)'
-    const blueCardBackground = 'linear-gradient(135deg, rgba(235,248,255,0.95), rgba(190,225,245,0.78), rgba(235,248,255,0.60))'
-    const blueCardBorder = '1px solid rgba(56,189,248,0.30)'
+  const todayComparisonCard = useMemo(
+    () =>
+      getTodayComparison({
+        todaySpent: monthStats.todaySpent,
+        yesterdaySpent: monthStats.yesterdaySpent,
+      }),
+    [monthStats.todaySpent, monthStats.yesterdaySpent]
+  )
+  const spendingControlState = useMemo(
+    () =>
+      getSpendingControlState({
+        hasBudget: safeSpend.hasBudget,
+        summaryContext: spendingControlContext,
+      }),
+    [safeSpend.hasBudget, spendingControlContext]
+  )
 
-    if (!safeSpend.hasBudget) {
-      return {
-        todayStatus: {
-          value: 'Set budget',
-          sub: 'Add budget to track daily spending.',
-          tone: '#64748b',
-          background: greenCardBackground,
-          border: greenCardBorder,
-        },
-        canSpendDaily: {
-          value: 'Set budget',
-          sub: 'Add budget first',
-          tone: '#64748b',
-          background: blueCardBackground,
-          border: blueCardBorder,
-        },
-      }
-    }
-
-    const {
-      baseDailyLimit,
-      budgetBalance,
-      hasSavedExtra,
-      revisedDailyLimit,
-      savedExtra,
-      todayAllowedLimit,
-      todayLimitWithExtra,
-      todayRemaining,
-      todaySpent,
-      yesterdaySpent,
-      yesterdayDailyLimit,
-    } = summaryDailyBudgetContext
-    const safeTodayLimitWithExtra = Number(todayLimitWithExtra || todayAllowedLimit || baseDailyLimit || 0)
-    const safeTodayRemaining = safeTodayLimitWithExtra - todaySpent
-    const safeTodayActiveLimit = Number((hasSavedExtra ? safeTodayLimitWithExtra : todayAllowedLimit || baseDailyLimit || 0))
-    const todaySpendable = Math.max(safeTodayActiveLimit - todaySpent, 0)
-    const safeYesterdayDailyLimit = Math.max(Number(yesterdayDailyLimit || baseDailyLimit || 0), 0)
-    const safeYesterdaySpent = Math.max(Number(yesterdaySpent || 0), 0)
-    const yesterdayCrossed = safeYesterdaySpent > safeYesterdayDailyLimit
-    const todayCrossed = hasCrossStepRef.current ? todaySpent > wasDailyLimitRef.current : todaySpent > todayAllowedLimit
-    const crossedWasDailyLimit = hasCrossStepRef.current ? wasDailyLimitRef.current : todayAllowedLimit
-    const crossedNowDailyLimit = hasCrossStepRef.current ? nowDailyLimitRef.current : revisedDailyLimit
-    const revisionStartTodaySpent = hasCrossStepRef.current ? Number(lastCrossedSpendRef.current || 0) : 0
-    const postRevisionSpent = Math.max(todaySpent - revisionStartTodaySpent, 0)
-    const revisedTodayRemaining = crossedNowDailyLimit - postRevisionSpent
-
-    if (budgetBalance <= 0) {
-      return {
-        todayStatus: {
-          value: `${fmt(0)} left`,
-          sub: 'Budget exhausted',
-          tone: '#dc2626',
-          background: 'linear-gradient(135deg, rgba(255,245,245,0.95), rgba(254,202,202,0.78), rgba(255,245,245,0.60))',
-          border: '1px solid rgba(239,68,68,0.30)',
-        },
-        canSpendDaily: {
-          value: `${fmt(0)}/day`,
-          sub: 'No budget left',
-          tone: '#dc2626',
-          background: 'linear-gradient(135deg, rgba(255,245,245,0.95), rgba(254,202,202,0.78), rgba(255,245,245,0.60))',
-          border: '1px solid rgba(239,68,68,0.30)',
-        },
-      }
-    }
-
-    if (todayCrossed) {
-      return {
-        todayStatus: {
-          value:
-            revisedTodayRemaining >= 0
-              ? `${fmt(Math.max(revisedTodayRemaining, 0))} left`
-              : `${fmt(Math.abs(revisedTodayRemaining))} over`,
-          sub: revisedTodayRemaining >= 0 ? 'Spendable' : 'No spend left',
-          footer: 'Revised',
-          divider: true,
-          footerDivider: true,
-          tone: revisedTodayRemaining >= 0 ? '#16a34a' : '#dc2626',
-          background: 'linear-gradient(135deg, rgba(255,245,245,0.95), rgba(254,202,202,0.78), rgba(255,245,245,0.60))',
-          border: '1px solid rgba(239,68,68,0.30)',
-        },
-        canSpendDaily: {
-          rows: [
-            { label: 'Was', value: `${fmt(Math.max(crossedWasDailyLimit, 0))}/day` },
-            { label: 'Now', value: `${fmt(Math.max(crossedNowDailyLimit, 0))}/day` },
-          ],
-          sub: 'Revised for remaining days',
-          tone: '#d97706',
-          wrapSub: true,
-          background: 'linear-gradient(135deg, rgba(255,251,235,0.95), rgba(253,230,138,0.72), rgba(255,251,235,0.60))',
-          border: '1px solid rgba(245,158,11,0.30)',
-        },
-      }
-    }
-
-    if (hasSavedExtra && todaySpent === 0) {
-      return {
-        todayStatus: {
-          value: `${fmt(savedExtra)} extra`,
-          sub: 'Saved yesterday',
-          tone: '#16a34a',
-          background: greenCardBackground,
-          border: greenCardBorder,
-        },
-        canSpendDaily: {
-          rows: [
-            { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
-            { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
-          ],
-          sub: 'Current daily limit',
-          tone: '#0f766e',
-          background: blueCardBackground,
-          border: blueCardBorder,
-        },
-      }
-    }
-
-    if (yesterdayCrossed && todaySpent === 0) {
-      return {
-        todayStatus: {
-          value: 'Overused',
-          sub: 'Yesterday crossed',
-          tone: '#d97706',
-          background: 'linear-gradient(135deg, rgba(255,251,235,0.95), rgba(253,230,138,0.72), rgba(255,251,235,0.60))',
-          border: '1px solid rgba(245,158,11,0.30)',
-        },
-        canSpendDaily: {
-          rows: [
-            { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
-            { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
-          ],
-          sub: 'Current daily limit',
-          tone: '#0f766e',
-          background: blueCardBackground,
-          border: blueCardBorder,
-        },
-      }
-    }
-
-    if (!todaySpent) {
-      return {
-        todayStatus: {
-          value: 'Ready today',
-          sub: 'Start within limit',
-          tone: '#16a34a',
-          background: greenCardBackground,
-          border: greenCardBorder,
-        },
-        canSpendDaily: {
-          rows: [
-            { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
-            { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
-          ],
-          sub: 'Current daily limit',
-          tone: '#0f766e',
-          background: blueCardBackground,
-          border: blueCardBorder,
-        },
-      }
-    }
-
-    if (hasSavedExtra && todaySpent > 0) {
-      return {
-        todayStatus: {
-          value: fmt(Math.max(safeTodayRemaining, 0)),
-          sub: 'Spendable',
-          divider: true,
-          tone: '#16a34a',
-          background: greenCardBackground,
-          border: greenCardBorder,
-        },
-        canSpendDaily: {
-          rows: [
-            { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
-            { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
-          ],
-          sub: 'Current daily limit',
-          tone: '#0f766e',
-          background: blueCardBackground,
-          border: blueCardBorder,
-        },
-      }
-    }
-
-    return {
-      todayStatus: {
-        value: fmt(Math.max(todaySpendable, 0)),
-        sub: 'Spendable',
-        divider: true,
-        tone: '#16a34a',
-        background: greenCardBackground,
-        border: greenCardBorder,
-      },
-      canSpendDaily: {
-        rows: [
-          { label: 'Yesterday', value: fmt(safeYesterdayDailyLimit) },
-          { label: 'Today', value: fmt(Math.max(safeTodayActiveLimit, 0)) },
-        ],
-        sub: 'Current daily limit',
-        tone: '#0f766e',
-        background: blueCardBackground,
-        border: blueCardBorder,
-      },
-    }
-  }, [crossStepVersion, safeSpend.hasBudget, summaryDailyBudgetContext])
-  const todayYesterdayMetric = useMemo(() => {
-    const todaySpent = Number(monthStats.todaySpent || 0)
-    const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
-
-    if (yesterdaySpent > 0) {
-      const percentChange = ((todaySpent - yesterdaySpent) / yesterdaySpent) * 100
-      const roundedChange = Math.round(Math.abs(percentChange))
-      if (todaySpent > yesterdaySpent) {
-        return {
-          value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
-          chip: `▲ ${roundedChange}%`,
-          chipBg: '#fee2e2',
-          chipColor: '#dc2626',
-          chipBorder: '#fca5a5',
-        }
-      }
-      if (todaySpent < yesterdaySpent) {
-        return {
-          value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
-          chip: `▼ ${roundedChange}%`,
-          chipBg: '#dcfce7',
-          chipColor: '#16a34a',
-          chipBorder: '#86efac',
-        }
-      }
-      return {
-        value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
-        chip: 'Same',
-        chipBg: '#e2e8f0',
-        chipColor: '#64748b',
-        chipBorder: '#cbd5e1',
-      }
-    }
-
-    if (todaySpent > 0) {
-      return {
-        value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
-        chip: 'New',
-        chipBg: '#fef3c7',
-        chipColor: '#d97706',
-        chipBorder: '#fcd34d',
-      }
-    }
-
-    return {
-      value: `${fmt(todaySpent)} / ${fmt(yesterdaySpent)}`,
-      chip: 'No spend',
-      chipBg: '#e2e8f0',
-      chipColor: '#64748b',
-      chipBorder: '#cbd5e1',
-    }
-  }, [monthStats.todaySpent, monthStats.yesterdaySpent])
-  const todayVsYesterdayDisplay = useMemo(() => {
-    const todaySpent = Number(monthStats.todaySpent || 0)
-    const yesterdaySpent = Number(monthStats.yesterdaySpent || 0)
-    const diff = todaySpent - yesterdaySpent
-    const pct =
-      yesterdaySpent > 0
-        ? Math.round((Math.abs(diff) / yesterdaySpent) * 100)
-        : todaySpent > 0
-          ? 100
-          : 0
-
-    return {
-      arrow: diff > 0 ? '↑' : diff < 0 ? '↓' : '→',
-      label: diff > 0 ? `${pct}% More` : diff < 0 ? `${pct}% Less` : 'Same',
-      tone: diff > 0 ? '#dc2626' : diff < 0 ? '#16a34a' : '#64748b',
-    }
-  }, [monthStats.todaySpent, monthStats.yesterdaySpent])
+  useEffect(() => {
+    lastTodaySpentRef.current = Number(monthStats.todaySpent || 0)
+  }, [monthStats.todaySpent])
 
   const todayLogs = useMemo(
     () => monthStats.currentMonthLogs.filter((log) => isSameDay(log.date, monthStats.now)),
@@ -2933,162 +2877,165 @@ export default function Expense(props) {
                   <p className="syne" style={{ margin: '3px 0 0', fontSize: 23, lineHeight: 1, fontWeight: 800, color: '#f8fbff', textShadow: '0 0 6px rgba(255,255,255,0.4), 0 4px 18px rgba(59,130,246,0.18), 0 3px 12px rgba(15,23,42,0.3)' }}>
                     <CountUp value={monthStats.totalSpent} />
                   </p>
-
-                  {/* top row micro cards: Today / Top / Entries */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 5, marginTop: 11 }}>
-                    {[
-                      { label: 'Today', value: fmt(monthStats.todaySpent), tone: '#b45309' },
-                      { label: 'Top', value: shortCategory(monthStats.topCategoryRow?.name || '--'), tone: monthStats.topCategoryRow?.color || '#2563eb' },
-                      { label: 'Entries', value: String(monthStats.totalEntries), tone: '#334155' },
-                    ].map((item) => (
-                      <div key={item.label} style={{ ...summaryTopMetalCardStyle, padding: '8px 10px', borderRadius: 17 }}>
-                        <p style={{ ...heroMicroLabelStyle, fontSize: 8.8 }}>{item.label}</p>
-                        <p style={{ ...heroMicroValueStyle, fontSize: 14, color: item.label === 'Today' ? '#ea580c' : item.label === 'Top' ? '#0f172a' : '#334155' }}>{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,auto)',
+                      alignItems: 'stretch',
+                      minWidth: 0,
+                      borderRadius: 16,
+                      border: '1px solid rgba(255,255,255,0.20)',
+                      background: 'linear-gradient(145deg, rgba(255,255,255,0.14), rgba(148,163,184,0.08))',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 10px 22px rgba(2,8,23,0.18)',
+                      backdropFilter: 'blur(10px)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div style={{ minWidth: 0, padding: '7px 9px 7px 10px' }}>
+                      <p style={{ margin: 0, fontSize: 8, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(226,232,240,0.76)' }}>Top Category</p>
+                      <p style={{ margin: '3px 0 0', fontSize: 11.5, fontWeight: 800, color: '#f8fbff', lineHeight: 1.12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span>{CAT_ICONS[monthStats.topCategoryRow?.name] || '💸'}</span>
+                        <span>{shortCategory(monthStats.topCategoryRow?.name || '--')}</span>
+                      </p>
+                    </div>
+                    <div style={{ width: 1, background: 'rgba(255,255,255,0.12)' }} />
+                    <div style={{ padding: '7px 10px 7px 9px', textAlign: 'right' }}>
+                      <p style={{ margin: 0, fontSize: 8, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(226,232,240,0.76)' }}>Entries</p>
+                      <p style={{ margin: '3px 0 0', fontSize: 12.5, fontWeight: 900, color: '#f8fbff', lineHeight: 1.05 }}>{monthStats.totalEntries}</p>
+                    </div>
+                  </div>
                   <div style={{ padding: 5, borderRadius: 999, background: 'linear-gradient(145deg, rgba(255,255,255,0.1), rgba(148,163,184,0.08))', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(2,8,23,0.2)', backdropFilter: 'blur(10px)', animation: 'expRingAura 3.2s ease-in-out infinite' }}>
                     <HealthRing score={health.score} onClick={() => setShowHealthSheet(true)} />
                   </div>
-                  <span style={{ padding: '3px 7px', borderRadius: 999, background: health.score >= 70 ? '#dcfce7' : health.score >= 40 ? '#ffedd5' : '#fee2e2', color: health.score >= 70 ? '#166534' : health.score >= 40 ? '#c2410c' : '#b91c1c', fontSize: 9.5, fontWeight: 800 }}>
-                    {health.status}
-                  </span>
-                  <span style={{ padding: '3px 7px', borderRadius: 999, border: '1px solid rgba(191,219,254,0.24)', background: 'linear-gradient(145deg, rgba(255,255,255,0.14), rgba(96,165,250,0.10))', color: 'rgba(226,232,240,0.86)', fontSize: 8.5, fontWeight: 800, letterSpacing: '0.03em', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)' }}>Tap for tips</span>
                 </div>
               </div>
 
-              {/* bottom row micro cards: Today Status / Can Spend Daily / Today vs Yesterday */}
-              <div style={{ display: 'grid', gridTemplateColumns: '0.92fr 1.18fr 0.9fr', gap: 5, marginTop: 5 }}>
-                {/* Today Status — green tint */}
+              <div
+                style={{
+                  ...heroMicroCardBaseStyle,
+                  display: 'grid',
+                  gap: 8,
+                  padding: '10px 11px',
+                  borderRadius: 18,
+                  marginTop: 6,
+                }}
+              >
                 <div
                   style={{
-                    ...heroMicroCardBaseStyle,
-                    padding: '8px 10px',
-                    borderRadius: 17,
+                    display: 'grid',
+                    gridTemplateColumns: 'auto auto auto auto auto',
+                    alignItems: 'center',
+                    gap: 0,
                     minWidth: 0,
+                    position: 'relative',
+                    zIndex: 1,
+                    borderRadius: 12,
+                    background: 'rgba(248,250,252,0.72)',
+                    border: '1px solid rgba(226,232,240,0.84)',
+                    overflow: 'hidden',
                   }}
                 >
-                  <p style={heroMicroLabelStyle}>Today Status</p>
-                  {summaryDailyBudgetCards.todayStatus.rows ? (
-                    <div style={{ marginTop: 4, display: 'grid', gap: 0, position: 'relative', zIndex: 1 }}>
-                      {summaryDailyBudgetCards.todayStatus.rows.map((row, index) => (
-                        <div
-                          key={`${row.label}-${index}`}
-                          style={{
-                            ...summarySplitRowStyle,
-                            borderTop: index === 0 ? 'none' : '1px solid rgba(71,85,105,0.12)',
-                          }}
-                        >
-                          <span style={{ fontSize: 8, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{row.label}</span>
-                          <span style={{ fontSize: 10.5, fontWeight: 900, color: summaryDailyBudgetCards.todayStatus.tone, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{row.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <p style={{ ...heroMicroValueStyle, color: summaryDailyBudgetCards.todayStatus.tone, fontSize: 13.5 }}>
-                        {summaryDailyBudgetCards.todayStatus.value}
-                      </p>
-                      {summaryDailyBudgetCards.todayStatus.divider ? (
-                        <div style={{ width: 24, height: 1, borderRadius: 999, background: 'rgba(71,85,105,0.20)', margin: '4px 0 3px' }} />
-                      ) : null}
-                    </div>
-                  )}
-                  <p style={{ margin: '2px 0 0', fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: 'relative', zIndex: 1, fontWeight: 700 }}>
-                    {summaryDailyBudgetCards.todayStatus.sub}
-                  </p>
-                  {summaryDailyBudgetCards.todayStatus.footer ? (
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      {summaryDailyBudgetCards.todayStatus.footerDivider ? (
-                        <div style={{ width: 24, height: 1, borderRadius: 999, background: 'rgba(71,85,105,0.20)', margin: '4px 0 3px' }} />
-                      ) : null}
-                      <p style={{ margin: 0, fontSize: 8, color: '#475569', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700 }}>
-                        {summaryDailyBudgetCards.todayStatus.footer}
-                      </p>
-                    </div>
-                  ) : null}
+                  <div style={{ minWidth: 0, padding: '8px 8px 7px' }}>
+                    <p style={{ margin: 0, fontSize: 8, color: '#64748b', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Today</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 12.5, color: '#0f172a', fontWeight: 900, lineHeight: 1.05, whiteSpace: 'nowrap' }}>
+                      {todayComparisonCard.todayValue}
+                    </p>
+                  </div>
+                  <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(226,232,240,0.9)' }} />
+                  <div style={{ minWidth: 0, padding: '8px 8px 7px' }}>
+                    <p style={{ margin: 0, fontSize: 8, color: '#64748b', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Yesterday</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 12, color: '#334155', fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>
+                      {todayComparisonCard.yesterdayValue}
+                    </p>
+                  </div>
+                  <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(226,232,240,0.9)' }} />
+                  <div style={{ minWidth: 0, padding: '8px 8px 7px' }}>
+                    <p style={{ margin: 0, fontSize: 8, color: '#64748b', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Change</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 11.25, color: todayComparisonCard.tone, fontWeight: 900, lineHeight: 1.05, whiteSpace: 'nowrap' }}>
+                      {todayComparisonCard.changeLabel}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Can Spend Daily — cyan/blue tint */}
-                <div
-                  style={{
-                    ...heroMicroCardBaseStyle,
-                    padding: '8px 10px',
-                    borderRadius: 17,
-                    minWidth: 0,
-                  }}
-                >
-                  <p style={heroMicroLabelStyle}>Can Spend Daily</p>
-                  {summaryDailyBudgetCards.canSpendDaily.rows ? (
-                    <div style={{ marginTop: 4, display: 'grid', gap: 0, position: 'relative', zIndex: 1 }}>
-                      {summaryDailyBudgetCards.canSpendDaily.rows.map((row, index) => (
-                        <div
-                          key={`${row.label}-${index}`}
-                          style={{
-                            ...summarySplitRowStyle,
-                            borderTop: index === 0 ? 'none' : '1px solid rgba(71,85,105,0.12)',
-                          }}
-                        >
-                          <span style={{ fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>{row.label}</span>
-                          <span style={{ fontSize: 11.8, fontWeight: 900, color: '#ea580c', lineHeight: 1.1, whiteSpace: 'nowrap' }}>{row.value}</span>
-                        </div>
-                      ))}
+                <div style={{ width: '100%', height: 1, borderRadius: 999, background: 'rgba(226,232,240,0.95)' }} />
+
+                <div style={{ minWidth: 0, flex: 1, display: 'grid', gap: 8, position: 'relative', zIndex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 8.5, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Spending Control</p>
                     </div>
-                  ) : (
-                    <p style={{ ...heroMicroValueStyle, color: summaryDailyBudgetCards.canSpendDaily.tone }}>
-                      {summaryDailyBudgetCards.canSpendDaily.value}
-                    </p>
-                  )}
-                  <p
+                    <span
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background: `${spendingControlState.tone}12`,
+                        border: `1px solid ${spendingControlState.tone}24`,
+                        color: spendingControlState.tone,
+                        fontSize: 8.75,
+                        fontWeight: 900,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {spendingControlState.badge}
+                    </span>
+                  </div>
+
+                  <div
                     style={{
-                      margin: '3px 0 0',
-                      fontSize: summaryDailyBudgetCards.canSpendDaily.wrapSub ? 9.5 : 8,
-                      color: '#64748b',
-                      lineHeight: 1.15,
-                      position: 'relative',
-                      zIndex: 1,
-                      fontWeight: 700,
-                      ...(summaryDailyBudgetCards.canSpendDaily.wrapSub
-                        ? { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }
-                        : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }),
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${spendingControlState.rows.length}, minmax(0, 1fr))`,
+                      gap: 0,
+                      borderRadius: 12,
+                      background: 'rgba(248,250,252,0.86)',
+                      border: '1px solid rgba(226,232,240,0.88)',
+                      overflow: 'hidden',
                     }}
                   >
-                    {summaryDailyBudgetCards.canSpendDaily.sub}
-                  </p>
-                </div>
+                    {spendingControlState.rows.map((row, index) => (
+                      <div
+                        key={row.label}
+                        style={{
+                          display: 'grid',
+                          gap: 4,
+                          padding: '8px 8px 7px',
+                          borderLeft: index === 0 ? 'none' : '1px solid rgba(226,232,240,0.9)',
+                        }}
+                      >
+                        <span style={{ fontSize: 8.2, color: '#64748b', fontWeight: 800, lineHeight: 1.15, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{row.label}</span>
+                        <span style={{ fontSize: row.label === 'Today Limit' || row.label === 'Limit Spent' ? 11.2 : 9.8, color: row.label === 'Limit Spent' ? '#0f172a' : row.label === 'Today Limit' ? spendingControlState.tone : '#475569', fontWeight: 900, lineHeight: 1.28, whiteSpace: 'pre-line' }}>{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
 
-                {/* Today / Yesterday */}
-                <div
-                  style={{
-                    ...heroMicroCardBaseStyle,
-                    padding: '8px 10px',
-                    borderRadius: 17,
-                    minWidth: 0,
-                  }}
-                >
-                  <p style={heroMicroLabelStyle}>Today / Yestd</p>
-                  <div style={{ display: 'grid', gap: 4, marginTop: 6, position: 'relative', zIndex: 1 }}>
-                    <div style={comparisonRowStyle}>
-                      <span style={comparisonKeyStyle}>Y</span>
-                      <strong style={comparisonMoneyStyle}>{fmt(monthStats.yesterdaySpent)}</strong>
-                    </div>
-                    <div style={comparisonDividerStyle} />
-                    <div style={comparisonRowStyle}>
-                      <span style={comparisonKeyStyle}>T</span>
-                      <strong style={comparisonMoneyStyle}>{fmt(monthStats.todaySpent)}</strong>
-                    </div>
-                    <div style={comparisonDividerStyle} />
-                    <div style={comparisonRowStyle}>
-                      <span style={{ ...comparisonKeyStyle, color: todayVsYesterdayDisplay.tone }}>
-                        {todayVsYesterdayDisplay.arrow}
-                      </span>
-                      <strong style={{ ...comparisonMoneyStyle, color: todayVsYesterdayDisplay.tone }}>
-                        {todayVsYesterdayDisplay.label}
-                      </strong>
-                    </div>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <ProgressLine pct={spendingControlState.progressPct} tone={spendingControlState.progressTone} height={8} />
+                    <p style={{ margin: 0, fontSize: 9, color: spendingControlState.tone, fontWeight: 800, textAlign: 'right' }}>
+                      {Math.round(spendingControlState.progressPct)}% used
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 2 }}>
+                    <p style={{ margin: 0, fontSize: 10, color: spendingControlState.tone, fontWeight: 800, lineHeight: 1.3 }}>
+                      {spendingControlState.message}
+                    </p>
+                    {spendingControlState.footers.map((line, index) => (
+                      <p
+                        key={`${spendingControlState.key}-${index}`}
+                        style={{
+                          margin: 0,
+                          fontSize: 9.3,
+                          color: spendingControlState.tone,
+                          fontWeight: 800,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {line}
+                      </p>
+                    ))}
                   </div>
                 </div>
               </div>
